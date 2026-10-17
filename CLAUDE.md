@@ -45,7 +45,7 @@ Not verified:
 - **Never run against a real MX instance.** Live field names in `live.rs` came from documentation and the old dashboard's code. Check them against real `currentdata` output first, and add the real responses as test fixtures.
 - The `/api/graphdata/*.json` backfill format is assumed to be `{ "series": [[ms, value], ...] }`. Unconfirmed; failures are silent by design.
 - Whether the owner's MX interface needs a login. Basic auth is supported but untested.
-- Not yet run on real Windows (only Wine), and the GitHub Actions workflow hasn't run yet.
+- Not yet run on real Windows (only Wine). The GitHub Actions workflow builds it on Windows and runs green (first run 2026-10-17).
 
 ## Suggested order of work
 
