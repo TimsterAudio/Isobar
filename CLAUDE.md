@@ -36,20 +36,18 @@ GitHub Actions (`.github/workflows/build.yml`) runs the checks, builds both prog
 ## State
 
 Verified in a Linux cloud session (2026-10-17):
-- `cargo test --workspace`: 37 tests pass (dayfile parsing, live mapping, URL normalisation, store, analytics, demo, settings, alerts, chart ticks, formatting).
+- `cargo test --workspace`: 38 tests pass (dayfile parsing, live mapping, URL normalisation, store, analytics, demo, settings, alerts, chart ticks, formatting).
 - Every screen rendered with the demo station in light and dark (screenshots in `docs/`).
 - End to end against a fake MX server: 2,665 days synced in three pages, live reading mapped, graph-data backfill filled the thermograph, and an unreachable station shows a clear message.
 - The Windows `.exe` cross-compiles (12 MB, only system DLLs) and runs under Wine.
 
+Verified by the owner on their station (2026-10-18, Cumulus MX 5.1.5 build 5012): runs on Linux and Windows, connects quickly, and the full history loads almost instantly. Every live field Isobar reads maps correctly from their `currentdata`, which is kept as the fixture `crates/isobar-core/tests/fixtures/currentdata-mx-5.1.5.json`. That response also carries fields Isobar doesn't use yet (sunrise and sunset, dew point and wind chill extremes, cloud base, sunshine hours, rain this week and last 24 hours, indoor readings, Beaufort, `DataStopped`), handy when adding data points. MX 5 reports times as 12-hour text ("4:52 AM") and sends no compass point (`BearingCP`), so Isobar works that out from the bearing.
+
 Not verified:
-- **Never run against a real MX instance.** Live field names in `live.rs` came from documentation and the old dashboard's code. Check them against real `currentdata` output first, and add the real responses as test fixtures.
 - The `/api/graphdata/*.json` backfill format is assumed to be `{ "series": [[ms, value], ...] }`. Unconfirmed; failures are silent by design.
 - Whether the owner's MX interface needs a login. Basic auth is supported but untested.
-- Not yet run on real Windows (only Wine). The GitHub Actions workflow builds it on Windows and runs green (first run 2026-10-17).
 
 ## Suggested order of work
 
-1. Point it at the real station. Fix field mapping and add fixtures.
-2. Confirm history sync works on the full dayfile, and check how long it takes.
-3. Review each screen with real data and fix anything that looks wrong.
-4. Ideas the owner may want (ask first): a system-tray readout, a degree-days view, sunshine and ET, CSV export, storing the MX password in the OS keychain instead of `settings.json`.
+1. The owner's list of extra data points and view tweaks (coming).
+2. Ideas the owner may want (ask first): a system-tray readout, a degree-days view, sunshine and ET, CSV export, storing the MX password in the OS keychain instead of `settings.json`.

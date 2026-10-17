@@ -93,7 +93,7 @@ assets/               Barlow fonts (built into the program) and icons
 
 ## Known gaps and next steps
 
-- **Live field names:** these were mapped from MX documentation and an earlier dashboard. If a reading shows "–" on Now, compare the station's `/api/data/currentdata` output with the key lists in `crates/isobar-core/src/live.rs`.
+- **Live field names:** checked against Cumulus MX 5.1.5. If a reading shows "–" on Now with another version, compare the station's `/api/data/currentdata` output with the key lists in `crates/isobar-core/src/live.rs`.
 - **Graph-data endpoints:** these vary between MX versions, so they're treated as optional.
 - **Units:** taken from the station's live data (`TempUnit` and so on). Charts assume history uses the same units.
 - **Ideas:** a system tray readout, a degree-days view, a sunshine/ET panel, CSV export, and secure password storage in the OS keychain.

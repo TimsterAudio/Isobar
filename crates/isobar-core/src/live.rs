@@ -160,7 +160,16 @@ impl LiveReading {
 
         LiveReading {
             fetched_at,
-            station_time: text(v, &["LastDataReadT", "Date", "timehhmmss", "date"]),
+            station_time: text(
+                v,
+                &[
+                    "LastDataRead",
+                    "LastDataReadT",
+                    "Date",
+                    "timehhmmss",
+                    "date",
+                ],
+            ),
 
             temp: num(v, &["OutdoorTemp", "temp"]),
             temp_high: num(v, &["HighTempToday", "tempTH", "tempH"]),
@@ -278,6 +287,61 @@ mod tests {
         assert_eq!(r.press_trend, None);
         assert_eq!(r.press_trend_text.as_deref(), Some("Falling slowly"));
         assert_eq!(r.units, Units::default());
+    }
+
+    /// A real `currentdata` response from Cumulus MX 5.1.5 (build 5012), on
+    /// the owner's station on 18 October 2026: a calm, cool morning.
+    #[test]
+    fn maps_real_mx_5_response() {
+        let v: Value =
+            serde_json::from_str(include_str!("../tests/fixtures/currentdata-mx-5.1.5.json"))
+                .unwrap();
+        let r = LiveReading::from_json(&v, 1);
+        assert!(r.looks_valid());
+        assert_eq!(r.station_time.as_deref(), Some("7:35:32 AM"));
+        assert_eq!(r.temp, Some(9.9));
+        assert_eq!(r.temp_high, Some(10.1));
+        assert_eq!(r.temp_high_time.as_deref(), Some("12:00 AM"));
+        assert_eq!(r.temp_low, Some(6.7));
+        assert_eq!(r.temp_low_time.as_deref(), Some("4:52 AM"));
+        assert_eq!(r.temp_trend, Some(0.8));
+        assert_eq!(r.feels_like, Some(9.9));
+        assert_eq!(r.apparent, Some(9.2));
+        assert_eq!(r.wind_chill, Some(9.9));
+        assert_eq!(r.dew_point, Some(7.0));
+        assert_eq!(r.humidity, Some(82.0));
+        assert_eq!((r.hum_low, r.hum_high), (Some(82.0), Some(97.0)));
+        assert_eq!(r.pressure, Some(1033.8));
+        assert_eq!((r.press_low, r.press_high), (Some(1032.7), Some(1034.1)));
+        assert_eq!(r.press_trend, Some(0.3));
+        assert_eq!(r.wind_avg, Some(0.0));
+        assert_eq!(r.wind_latest, Some(0.0));
+        assert_eq!(r.gust_recent, Some(2.0));
+        assert_eq!(r.gust_high, Some(4.0));
+        assert_eq!(r.gust_high_time.as_deref(), Some("5:42 AM"));
+        assert_eq!(r.bearing, Some(89.0));
+        assert_eq!(r.bearing_avg, Some(221.0));
+        // MX 5 sends no compass point; the Now screen works it out from the bearing.
+        assert_eq!(r.bearing_compass, None);
+        assert_eq!(r.rain_today, Some(0.0));
+        assert_eq!(r.rain_rate, Some(0.0));
+        assert_eq!(r.rain_rate_high, Some(0.0));
+        assert_eq!(r.rain_last_hour, Some(0.0));
+        assert_eq!(r.rain_month, Some(43.6));
+        assert_eq!(r.rain_year, Some(613.9));
+        assert_eq!(r.solar, Some(30.0));
+        assert_eq!(r.solar_high, Some(30.0));
+        assert_eq!((r.uv, r.uv_high), (Some(0.0), Some(0.0)));
+        assert_eq!(r.forecast.as_deref(), Some("Settled fine"));
+        assert_eq!(
+            r.units,
+            Units {
+                temp: "°C".into(),
+                wind: "km/h".into(),
+                press: "hPa".into(),
+                rain: "mm".into()
+            }
+        );
     }
 
     #[test]
