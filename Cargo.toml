@@ -1,0 +1,31 @@
+[workspace]
+members = ["crates/isobar-core"]
+
+[package]
+name = "isobar"
+version = "0.2.0"
+description = "A desktop companion for Cumulus MX weather stations"
+edition = "2021"
+default-run = "isobar"
+
+
+[dependencies]
+isobar-core = { path = "crates/isobar-core" }
+eframe = { version = "0.36", default-features = false, features = ["glow", "default_fonts", "wayland", "x11"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+dirs = "6"
+rfd = "0.15"
+notify-rust = "4"
+egui_extras = { version = "0.36", default-features = false, features = ["datepicker"] }
+jiff = "0.2"
+
+[build-dependencies]
+winresource = "0.1"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+strip = true

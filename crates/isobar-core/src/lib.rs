@@ -4,8 +4,12 @@
 //! * [`live`] maps the MX `currentdata` JSON onto a typed reading.
 //! * [`mx`] is the HTTP client for a Cumulus MX instance.
 //! * [`store`] is the local SQLite cache of daily records and live samples.
+//! * [`analytics`] turns the daily history into normals, anomalies and records.
+//! * [`demo`] is a synthetic station for trying Isobar without one.
 
+pub mod analytics;
 pub mod dayfile;
+pub mod demo;
 pub mod error;
 pub mod live;
 pub mod mx;

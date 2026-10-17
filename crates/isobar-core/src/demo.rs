@@ -1,0 +1,223 @@
+//! A synthetic station for trying Isobar without Cumulus MX (`isobar --demo`).
+//! Southern-hemisphere temperate climate: seasonal temperatures, bursty rain
+//! and fronts, from March 2018 to yesterday.
+
+use std::collections::BTreeMap;
+use std::f64::consts::{PI, TAU};
+
+use chrono::{Datelike, Duration, Local, NaiveDate, TimeZone, Timelike};
+
+use crate::dayfile::DayRecord;
+use crate::live::{LiveReading, Units};
+
+/// A small deterministic generator, so the demo looks the same every run.
+struct Rng(u32);
+
+impl Rng {
+    fn next(&mut self) -> f64 {
+        self.0 = self.0.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+        self.0 as f64 / 4_294_967_296.0
+    }
+
+    fn gauss(&mut self) -> f64 {
+        let u = self.next().max(1e-9);
+        (-2.0 * u.ln()).sqrt() * (TAU * self.next()).cos()
+    }
+}
+
+fn round1(x: f64) -> f64 {
+    (x * 10.0).round() / 10.0
+}
+
+pub fn days() -> Vec<DayRecord> {
+    let mut r = Rng(42);
+    let mut out = Vec::new();
+    let end = Local::now().date_naive() - Duration::days(1);
+    let mut d = NaiveDate::from_ymd_opt(2018, 3, 1).unwrap();
+    let (mut anomaly, mut wetness) = (0.0f64, 0.0f64);
+    while d <= end {
+        // +1 in mid-January, -1 in mid-July.
+        let season = (TAU * (d.ordinal() as f64 - 20.0) / 365.25).cos();
+        anomaly = anomaly * 0.7 + r.gauss() * 2.2;
+        let hot = if r.next() < 0.04 * season.max(0.0) {
+            9.0 + r.next() * 8.0
+        } else {
+            0.0
+        };
+        let tmax = 20.0 + 6.5 * season + anomaly + hot;
+        let tmin = tmax - (8.0 + 2.0 * season + r.gauss() * 1.5) - hot * 0.5;
+        wetness = wetness * 0.55
+            + if r.next() < 0.3 + 0.12 * -season {
+                r.next()
+            } else {
+                0.0
+            };
+        let rain = if wetness > 0.35 {
+            round1(-(r.next().max(1e-6)).ln() * 4.0 * wetness)
+        } else {
+            0.0
+        };
+        let gust =
+            round1(28.0 + 12.0 * wetness + r.gauss() * 8.0 + if hot > 0.0 { 15.0 } else { 0.0 });
+        let dirs: &[f64] = if hot > 0.0 {
+            &[0.0, 22.5, 337.5]
+        } else if wetness > 0.3 {
+            &[202.5, 225.0, 247.5, 270.0]
+        } else {
+            &[0.0, 180.0, 202.5, 225.0, 337.5, 157.5]
+        };
+        let dir = (dirs[(r.next() * dirs.len() as f64) as usize] + (r.gauss() * 8.0).round())
+            .rem_euclid(360.0);
+        let p_base = 1016.0 - 10.0 * wetness + r.gauss() * 4.0;
+        let dew_max = (tmax - 1.0).min(tmin + 4.0 + r.gauss() * 2.0);
+        let minute = |r: &mut Rng| format!("{:02}", (r.next() * 60.0) as u32);
+        out.push(DayRecord {
+            date: d,
+            temp_max: Some(round1(tmax.max(tmin + 2.0))),
+            temp_max_time: Some(format!("14:{}", minute(&mut r))),
+            temp_min: Some(round1(tmin)),
+            temp_min_time: Some(format!("06:{}", minute(&mut r))),
+            temp_avg: Some(round1((tmax + tmin) / 2.0)),
+            rain: Some(rain.max(0.0)),
+            rain_rate_max: Some(if rain > 0.0 {
+                round1(rain * (0.8 + r.next() * 3.0))
+            } else {
+                0.0
+            }),
+            gust_max: Some(gust.max(5.0)),
+            gust_bearing: Some(dir),
+            gust_time: Some(format!("13:{}", minute(&mut r))),
+            wind_avg_max: Some(round1(gust * 0.45)),
+            wind_run: Some(round1(gust * 6.0 + r.next() * 60.0)),
+            wind_dir_dominant: Some(dir.round()),
+            press_min: Some(round1(p_base - 2.0 - r.next() * 5.0)),
+            press_max: Some(round1(p_base + 2.0 + r.next() * 4.0)),
+            hum_min: Some((35.0 + 20.0 * -season + wetness * 30.0 + r.gauss() * 6.0).round()),
+            hum_max: Some((85.0 + wetness * 12.0 + r.gauss() * 3.0).min(99.0).round()),
+            dew_max: Some(round1(dew_max)),
+            dew_min: Some(round1(dew_max - 4.0 - r.next() * 3.0)),
+            solar_max: Some(
+                (650.0 + 350.0 * season - wetness * 400.0 + r.gauss() * 60.0)
+                    .max(80.0)
+                    .round(),
+            ),
+            uv_max: Some(round1((6.0 + 5.0 * season - wetness * 4.0).max(0.5))),
+            sunshine: Some(round1((7.0 + 3.0 * season - wetness * 8.0).max(0.0))),
+            ..Default::default()
+        });
+        d += Duration::days(1);
+    }
+    out
+}
+
+/// A smooth last 24 hours of samples, every five minutes, ending at `now_ms`.
+pub fn samples(now_ms: i64) -> BTreeMap<String, Vec<(i64, f64)>> {
+    let mut r = Rng(7);
+    let mut out: BTreeMap<String, Vec<(i64, f64)>> = BTreeMap::new();
+    let mut push = |k: &str, t: i64, v: f64| out.entry(k.to_string()).or_default().push((t, v));
+    let mut rain_acc = 0.0;
+    let start = now_ms - 24 * 3_600_000;
+    let mut t = start;
+    while t <= now_ms {
+        let local = Local.timestamp_millis_opt(t).unwrap();
+        let h = local.hour() as f64 + local.minute() as f64 / 60.0;
+        // Coolest about 3am, warmest about 3pm.
+        let diurnal = -(((h - 3.0) / 24.0) * TAU).cos();
+        let tf = t as f64;
+        push(
+            "temp",
+            t,
+            round1(15.0 + 5.0 * diurnal + (tf / 3.1e6).sin() * 0.6),
+        );
+        push("dew", t, round1(8.0 + (tf / 9e6).sin() * 1.5));
+        push(
+            "press",
+            t,
+            round1(1018.0 - (t - start) as f64 / 3.6e6 * 0.25 + (tf / 5e6).sin() * 0.4),
+        );
+        let wind = (10.0 + 6.0 * diurnal.max(0.0) + (r.next() - 0.5) * 6.0).max(0.0);
+        push("wind", t, round1(wind));
+        push("gust", t, round1(wind * (1.5 + r.next() * 0.6)));
+        push(
+            "hum",
+            t,
+            (65.0 - 20.0 * diurnal + (r.next() - 0.5) * 4.0).round(),
+        );
+        if h > 4.0 && h < 6.0 {
+            rain_acc += 0.2;
+        }
+        if local.hour() == 0 && local.minute() < 5 {
+            rain_acc = 0.0;
+        }
+        push("rain_today", t, round1(rain_acc));
+        let sun = (((h - 6.0) / 13.0) * PI).sin().max(0.0);
+        push("solar", t, (sun * 780.0 * (0.8 + r.next() * 0.2)).round());
+        push("bearing", t, (200.0 + (tf / 4e6).sin() * 25.0).round());
+        t += 5 * 60_000;
+    }
+    out
+}
+
+/// A live reading consistent with the latest samples. `jitter` in -1..1
+/// moves the temperature a little so the display visibly updates.
+pub fn live(samples: &BTreeMap<String, Vec<(i64, f64)>>, now_ms: i64, jitter: f64) -> LiveReading {
+    let last = |k: &str| samples.get(k).and_then(|v| v.last()).map(|p| p.1);
+    LiveReading {
+        fetched_at: now_ms,
+        station_time: None,
+        temp: last("temp").map(|t| round1(t + jitter * 0.1)),
+        temp_high: Some(19.8),
+        temp_high_time: Some("14:52".into()),
+        temp_low: Some(9.6),
+        temp_low_time: Some("05:41".into()),
+        temp_trend: Some(0.4),
+        feels_like: last("temp").map(|t| round1(t - 1.4)),
+        apparent: None,
+        wind_chill: None,
+        dew_point: last("dew"),
+        humidity: last("hum"),
+        hum_high: Some(88.0),
+        hum_low: Some(44.0),
+        pressure: last("press"),
+        press_high: Some(1018.4),
+        press_low: Some(1011.9),
+        press_trend: Some(-0.6),
+        press_trend_text: None,
+        wind_avg: last("wind"),
+        wind_latest: last("wind"),
+        gust_recent: last("gust"),
+        gust_high: Some(47.2),
+        gust_high_time: Some("13:18".into()),
+        bearing: last("bearing"),
+        bearing_avg: Some(205.0),
+        bearing_compass: Some("SSW".into()),
+        rain_today: last("rain_today"),
+        rain_rate: Some(0.0),
+        rain_rate_high: Some(3.6),
+        rain_last_hour: Some(0.0),
+        rain_month: Some(41.8),
+        rain_year: Some(512.4),
+        solar: last("solar"),
+        solar_high: Some(812.0),
+        uv: Some(3.2),
+        uv_high: Some(6.1),
+        forecast: Some("Fine, becoming less settled".into()),
+        units: Units::default(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn demo_history_is_plausible() {
+        let d = days();
+        assert!(d.len() > 3000);
+        assert!(d.windows(2).all(|w| w[0].date < w[1].date));
+        assert!(d.iter().all(|r| r.temp_max >= r.temp_min));
+        let s = samples(1_700_000_000_000);
+        assert_eq!(s["temp"].len(), 24 * 12 + 1);
+        assert!(live(&s, 1_700_000_000_000, 0.0).looks_valid());
+    }
+}

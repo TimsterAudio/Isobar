@@ -57,8 +57,7 @@ impl Store {
             let mut stmt =
                 tx.prepare("INSERT OR REPLACE INTO days (date, json) VALUES (?1, ?2)")?;
             for d in days {
-                let json = serde_json::to_string(d)
-                    .map_err(|e| CoreError::Parse(e.to_string()))?;
+                let json = serde_json::to_string(d).map_err(|e| CoreError::Parse(e.to_string()))?;
                 stmt.execute(params![d.date.to_string(), json])?;
             }
         }
@@ -83,7 +82,8 @@ impl Store {
     pub fn day_count(&self) -> Result<usize> {
         Ok(self
             .conn
-            .query_row("SELECT COUNT(*) FROM days", [], |r| r.get::<_, i64>(0))? as usize)
+            .query_row("SELECT COUNT(*) FROM days", [], |r| r.get::<_, i64>(0))?
+            as usize)
     }
 
     pub fn clear_days(&mut self) -> Result<()> {
@@ -111,9 +111,8 @@ impl Store {
     pub fn insert_series(&mut self, metric: &str, points: &[(i64, f64)]) -> Result<()> {
         let tx = self.conn.transaction()?;
         {
-            let mut stmt = tx.prepare(
-                "INSERT OR IGNORE INTO samples (metric, ts, value) VALUES (?1, ?2, ?3)",
-            )?;
+            let mut stmt = tx
+                .prepare("INSERT OR IGNORE INTO samples (metric, ts, value) VALUES (?1, ?2, ?3)")?;
             for (ts, v) in points {
                 if v.is_finite() {
                     stmt.execute(params![metric, ts, v])?;
@@ -126,11 +125,15 @@ impl Store {
 
     /// Samples newer than `since_ms`, grouped by metric and sorted by time.
     pub fn samples_since(&self, since_ms: i64) -> Result<BTreeMap<String, Vec<(i64, f64)>>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT metric, ts, value FROM samples WHERE ts >= ?1 ORDER BY metric, ts",
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT metric, ts, value FROM samples WHERE ts >= ?1 ORDER BY metric, ts")?;
         let rows = stmt.query_map(params![since_ms], |r| {
-            Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?, r.get::<_, f64>(2)?))
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, i64>(1)?,
+                r.get::<_, f64>(2)?,
+            ))
         })?;
         let mut out: BTreeMap<String, Vec<(i64, f64)>> = BTreeMap::new();
         for row in rows {
@@ -149,7 +152,9 @@ impl Store {
     pub fn meta_get(&self, key: &str) -> Result<Option<String>> {
         Ok(self
             .conn
-            .query_row("SELECT value FROM meta WHERE key = ?1", params![key], |r| r.get(0))
+            .query_row("SELECT value FROM meta WHERE key = ?1", params![key], |r| {
+                r.get(0)
+            })
             .optional()?)
     }
 
@@ -178,7 +183,8 @@ mod tests {
     #[test]
     fn days_roundtrip_and_replace() {
         let mut s = Store::open_in_memory().unwrap();
-        s.upsert_days(&[day(2024, 1, 2, 30.0), day(2024, 1, 1, 25.0)]).unwrap();
+        s.upsert_days(&[day(2024, 1, 2, 30.0), day(2024, 1, 1, 25.0)])
+            .unwrap();
         s.upsert_days(&[day(2024, 1, 2, 31.5)]).unwrap();
         let all = s.days().unwrap();
         assert_eq!(all.len(), 2);
@@ -190,9 +196,11 @@ mod tests {
     #[test]
     fn samples_group_and_prune() {
         let mut s = Store::open_in_memory().unwrap();
-        s.insert_samples(1000, &[("temp", 10.0), ("hum", 50.0)]).unwrap();
+        s.insert_samples(1000, &[("temp", 10.0), ("hum", 50.0)])
+            .unwrap();
         s.insert_samples(2000, &[("temp", 11.0)]).unwrap();
-        s.insert_series("temp", &[(1000, 99.0), (3000, 12.0)]).unwrap();
+        s.insert_series("temp", &[(1000, 99.0), (3000, 12.0)])
+            .unwrap();
         let got = s.samples_since(0).unwrap();
         assert_eq!(got["temp"], vec![(1000, 10.0), (2000, 11.0), (3000, 12.0)]);
         assert_eq!(s.prune_samples(2500).unwrap(), 3);

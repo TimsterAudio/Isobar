@@ -263,7 +263,10 @@ mod tests {
         assert_eq!(r.bearing_compass.as_deref(), Some("SSW"));
         assert_eq!(r.units.temp, "°C");
         assert!(r.looks_valid());
-        assert!(r.sample_metrics().iter().any(|(k, v)| *k == "solar" && *v == 512.0));
+        assert!(r
+            .sample_metrics()
+            .iter()
+            .any(|(k, v)| *k == "solar" && *v == 512.0));
     }
 
     #[test]

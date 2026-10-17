@@ -1,5 +1,5 @@
 //! HTTP client for a Cumulus MX instance (the admin interface port, 8998 by
-//! default).
+//! default). Calls block, so run them off the UI thread.
 //!
 //! Endpoints used:
 //! * `/api/data/currentdata` for live conditions.
@@ -19,7 +19,7 @@ const PAGE: usize = 1000;
 
 #[derive(Clone)]
 pub struct MxClient {
-    http: reqwest::Client,
+    http: reqwest::blocking::Client,
     base: String,
     auth: Option<(String, String)>,
 }
@@ -42,7 +42,7 @@ pub fn normalise_base(input: &str) -> String {
 
 impl MxClient {
     pub fn new(base: &str, username: Option<String>, password: Option<String>) -> Result<Self> {
-        let http = reqwest::Client::builder()
+        let http = reqwest::blocking::Client::builder()
             .timeout(Duration::from_secs(10))
             .connect_timeout(Duration::from_secs(5))
             .user_agent(concat!("Isobar/", env!("CARGO_PKG_VERSION")))
@@ -62,25 +62,25 @@ impl MxClient {
         &self.base
     }
 
-    async fn get_json(&self, path: &str) -> Result<Value> {
+    fn get_json(&self, path: &str) -> Result<Value> {
         let url = format!("{}{}", self.base, path);
         let mut req = self.http.get(&url);
         if let Some((u, p)) = &self.auth {
             req = req.basic_auth(u, Some(p));
         }
-        let resp = req.send().await?;
+        let resp = req.send()?;
         let status = resp.status();
         if !status.is_success() {
             return Err(CoreError::Status(status.as_u16(), path.to_string()));
         }
-        let body = resp.text().await?;
+        let body = resp.text()?;
         serde_json::from_str(&body)
             .map_err(|e| CoreError::Parse(format!("{path} did not return JSON ({e})")))
     }
 
     /// Current conditions.
-    pub async fn current(&self) -> Result<LiveReading> {
-        let v = self.get_json("/api/data/currentdata").await?;
+    pub fn current(&self) -> Result<LiveReading> {
+        let v = self.get_json("/api/data/currentdata")?;
         let now = chrono::Utc::now().timestamp_millis();
         let r = LiveReading::from_json(&v, now);
         if r.looks_valid() {
@@ -92,12 +92,10 @@ impl MxClient {
         }
     }
 
-    async fn dayfile_page(&self, start: usize, length: usize) -> Result<(usize, Vec<Value>)> {
-        let v = self
-            .get_json(&format!(
-                "/api/data/dayfile?draw=1&start={start}&length={length}"
-            ))
-            .await?;
+    fn dayfile_page(&self, start: usize, length: usize) -> Result<(usize, Vec<Value>)> {
+        let v = self.get_json(&format!(
+            "/api/data/dayfile?draw=1&start={start}&length={length}"
+        ))?;
         let total = v
             .get("recordsTotal")
             .and_then(Value::as_u64)
@@ -112,16 +110,16 @@ impl MxClient {
     }
 
     /// Number of lines in the station's dayfile.
-    pub async fn dayfile_total(&self) -> Result<usize> {
-        Ok(self.dayfile_page(0, 1).await?.0)
+    pub fn dayfile_total(&self) -> Result<usize> {
+        Ok(self.dayfile_page(0, 1)?.0)
     }
 
     /// Every daily record. `progress(done, total)` is called after each page.
-    pub async fn dayfile_all<F: FnMut(usize, usize)>(&self, mut progress: F) -> Result<Vec<DayRecord>> {
+    pub fn dayfile_all<F: FnMut(usize, usize)>(&self, mut progress: F) -> Result<Vec<DayRecord>> {
         let mut out = Vec::new();
         let mut start = 0;
         loop {
-            let (total, rows) = self.dayfile_page(start, PAGE).await?;
+            let (total, rows) = self.dayfile_page(start, PAGE)?;
             if rows.is_empty() {
                 break;
             }
@@ -138,18 +136,26 @@ impl MxClient {
     /// Best-effort backfill of recent detailed readings from the graph data
     /// endpoints. Returns `(metric, points)` pairs with Unix-ms timestamps.
     /// Endpoints that are missing or disabled are skipped silently.
-    pub async fn recent_series(&self) -> Vec<(String, Vec<(i64, f64)>)> {
+    pub fn recent_series(&self) -> Vec<(String, Vec<(i64, f64)>)> {
         const FILES: [&str; 7] = [
-            "tempdata", "pressdata", "winddata", "wdirdata", "raindata", "humdata", "solardata",
+            "tempdata",
+            "pressdata",
+            "winddata",
+            "wdirdata",
+            "raindata",
+            "humdata",
+            "solardata",
         ];
         let mut out = Vec::new();
         for file in FILES {
-            let Ok(v) = self.get_json(&format!("/api/graphdata/{file}.json")).await else {
+            let Ok(v) = self.get_json(&format!("/api/graphdata/{file}.json")) else {
                 continue;
             };
             let Some(obj) = v.as_object() else { continue };
             for (key, series) in obj {
-                let Some(metric) = metric_for_graph_key(key) else { continue };
+                let Some(metric) = metric_for_graph_key(key) else {
+                    continue;
+                };
                 let pts: Vec<(i64, f64)> = series
                     .as_array()
                     .map(|a| {
@@ -195,10 +201,22 @@ mod tests {
 
     #[test]
     fn normalises_urls() {
-        assert_eq!(normalise_base("192.168.1.20:8998"), "http://192.168.1.20:8998");
-        assert_eq!(normalise_base("http://pi.local:8998/"), "http://pi.local:8998");
-        assert_eq!(normalise_base(" http://pi:8998/now.html "), "http://pi:8998");
-        assert_eq!(normalise_base("https://wx.example.com"), "https://wx.example.com");
+        assert_eq!(
+            normalise_base("192.168.1.20:8998"),
+            "http://192.168.1.20:8998"
+        );
+        assert_eq!(
+            normalise_base("http://pi.local:8998/"),
+            "http://pi.local:8998"
+        );
+        assert_eq!(
+            normalise_base(" http://pi:8998/now.html "),
+            "http://pi:8998"
+        );
+        assert_eq!(
+            normalise_base("https://wx.example.com"),
+            "https://wx.example.com"
+        );
     }
 
     #[test]
@@ -207,10 +225,10 @@ mod tests {
         assert_eq!(metric_for_graph_key("intemp"), None);
     }
 
-    #[tokio::test]
-    async fn unreachable_station_is_a_clean_error() {
+    #[test]
+    fn unreachable_station_is_a_clean_error() {
         let c = MxClient::new("http://127.0.0.1:9", None, None).unwrap();
-        let err = c.current().await.unwrap_err();
+        let err = c.current().unwrap_err();
         assert!(matches!(err, CoreError::Http(_)), "{err:?}");
     }
 }

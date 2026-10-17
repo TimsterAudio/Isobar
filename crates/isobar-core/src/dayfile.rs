@@ -116,7 +116,10 @@ fn num(fields: &[String], i: usize) -> Option<f64> {
         return None;
     }
     // Locales that use ';' as the list separator write decimal commas.
-    t.replace(',', ".").parse::<f64>().ok().filter(|v| v.is_finite())
+    t.replace(',', ".")
+        .parse::<f64>()
+        .ok()
+        .filter(|v| v.is_finite())
 }
 
 fn time(fields: &[String], i: usize) -> Option<String> {
@@ -259,8 +262,14 @@ mod tests {
 
     #[test]
     fn date_variants() {
-        assert_eq!(parse_date("2024-02-29"), NaiveDate::from_ymd_opt(2024, 2, 29));
-        assert_eq!(parse_date("29-02-2024"), NaiveDate::from_ymd_opt(2024, 2, 29));
+        assert_eq!(
+            parse_date("2024-02-29"),
+            NaiveDate::from_ymd_opt(2024, 2, 29)
+        );
+        assert_eq!(
+            parse_date("29-02-2024"),
+            NaiveDate::from_ymd_opt(2024, 2, 29)
+        );
         assert_eq!(parse_date("01/01/99"), NaiveDate::from_ymd_opt(1999, 1, 1));
         assert_eq!(parse_date("31/02/24"), None);
         assert_eq!(parse_date("garbage"), None);
