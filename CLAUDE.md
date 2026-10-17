@@ -49,5 +49,4 @@ Not verified:
 
 ## Suggested order of work
 
-1. The owner's list of extra data points and view tweaks (coming).
-2. Ideas the owner may want (ask first): a system-tray readout, a degree-days view, sunshine and ET, CSV export, storing the MX password in the OS keychain instead of `settings.json`.
+Everything possible is listed in `docs/ROADMAP.md` with IDs (A1, D1, …), added in full on 2026-10-18 for the owner to trim. Work only on items the owner has said yes to, and tick them off there. The owner's own view tweaks go under Z.
