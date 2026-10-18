@@ -444,7 +444,13 @@ impl eframe::App for IsobarApp {
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
                         let avail = ui.available_width();
-                        let width = (avail - 64.0).clamp(300.0, 1320.0);
+                        // Now spreads wider so its cards fit one row on a 1080p screen.
+                        let max = if self.route == Route::Now {
+                            1640.0
+                        } else {
+                            1320.0
+                        };
+                        let width = (avail - 64.0).clamp(300.0, max);
                         let side = ((avail - width) / 2.0).max(0.0);
                         ui.add_space(24.0);
                         ui.horizontal_top(|ui| {

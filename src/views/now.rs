@@ -19,6 +19,11 @@ use crate::ui;
 /// offline) shows as a break in the 24-hour charts, not a straight line.
 const GAP_SECS: f64 = 20.0 * 60.0;
 
+/// The instrument cards: reading size, detail text size and sparkline height.
+const READING: f32 = 34.0;
+const DETAIL: f32 = 13.0;
+const SPARK_H: f32 = 32.0;
+
 #[derive(Default)]
 pub struct Now;
 
@@ -141,22 +146,21 @@ impl Now {
         if r.indoor_temp.is_some() {
             instruments.push(Self::indoor);
         }
-        // Five fit in a row on a wide window; six read better as two rows of three.
-        let cols = if instruments.len() <= 5 && ui.available_width() >= 1180.0 {
-            5
-        } else {
-            3
-        };
+        // All in one row unless the window is narrow (text wraps in narrow
+        // cards); otherwise rows of three.
+        let n = instruments.len();
+        let one_row = ui.available_width() >= 1100.0;
+        let cols = if one_row { n } else { 3 };
         for (k, row) in instruments.chunks(cols).enumerate() {
             if k > 0 {
                 ui.spacing_mut().item_spacing.y = 0.0;
                 ui::rule(ui, p.faint);
                 ui.spacing_mut().item_spacing.y = 24.0;
             }
-            ui::columns(ui, cols, 32.0, true, |i, ui| {
+            ui::columns(ui, cols, 22.0, true, |i, ui| {
                 if let Some(f) = row.get(i) {
-                    ui.add_space(16.0);
-                    ui.spacing_mut().item_spacing.y = 6.0;
+                    ui.add_space(12.0);
+                    ui.spacing_mut().item_spacing.y = 4.0;
                     f(self, ui, snap, r);
                 }
             });
@@ -335,7 +339,7 @@ impl Now {
                         .get("dew")
                         .map(|d| align(&xs, d))
                         .unwrap_or_default();
-                    Chart::new("thermograph", 262.0, xs, XAxis::Time)
+                    Chart::new("thermograph", 226.0, xs, XAxis::Time)
                         .series(
                             Series::line("Temperature", temp, p.trace)
                                 .width(2.5)
@@ -358,7 +362,7 @@ impl Now {
                         .show(ui);
                 } else {
                     let (rect, _) =
-                        ui.allocate_exact_size(vec2(ui.available_width(), 262.0), Sense::hover());
+                        ui.allocate_exact_size(vec2(ui.available_width(), 226.0), Sense::hover());
                     ui.painter().text(
                         rect.center(),
                         egui::Align2::CENTER_CENTER,
@@ -403,7 +407,7 @@ impl Now {
 
     fn title(ui: &mut Ui, s: &str) {
         let p = Palette::of(ui.ctx());
-        ui::text(ui, s, theme::display_medium(18.0), p.ink2);
+        ui::text(ui, s, theme::display_medium(16.0), p.ink2);
     }
 
     fn spark(ui: &mut Ui, snap: &Snapshot, key: &str, color: egui::Color32, fill: bool) {
@@ -416,11 +420,11 @@ impl Now {
             if fill {
                 s = s.fill(alpha(color, 0.14));
             }
-            Chart::sparkline(("spark", key), 44.0, xs)
+            Chart::sparkline(("spark", key), SPARK_H, xs)
                 .series(s)
                 .show(ui);
         } else {
-            ui.allocate_exact_size(vec2(ui.available_width(), 44.0), Sense::hover());
+            ui.allocate_exact_size(vec2(ui.available_width(), SPARK_H), Sense::hover());
         }
     }
 
@@ -429,7 +433,7 @@ impl Now {
         let u = &r.units;
         Self::title(ui, "Wind");
         let shown = r.shown_bearing();
-        dial::wind_dial(ui, 112.0, shown.map(|s| s.0), r.wind_avg, &u.wind);
+        dial::wind_dial(ui, 84.0, shown.map(|s| s.0), r.wind_avg, &u.wind);
         // MX's compass point belongs to the latest bearing; work one out when
         // the dial shows the average instead.
         let from = match shown {
@@ -450,7 +454,7 @@ impl Now {
             Some((_, true)) => format!("Light, mostly from {from}{deg}"),
             _ => format!("From {from}{deg}"),
         };
-        let resp = ui::text(ui, line, theme::body(14.0), p.ink);
+        let resp = ui::text(ui, line, theme::body(DETAIL), p.ink);
         if shown.is_some_and(|s| s.1) {
             resp.on_hover_text("In light air the dial shows the 10-minute average direction, which reads truer than the latest.");
         }
@@ -464,7 +468,7 @@ impl Now {
             ),
             0.0,
             TextFormat {
-                font_id: theme::body(14.0),
+                font_id: theme::body(DETAIL),
                 color: p.ink,
                 ..Default::default()
             },
@@ -487,17 +491,17 @@ impl Now {
     fn pressure(&self, ui: &mut Ui, snap: &Snapshot, r: &LiveReading) {
         let p = Palette::of(ui.ctx());
         Self::title(ui, "Pressure");
-        ui::reading(ui, &num(r.pressure, 1), &r.units.press, 44.0, p.ink);
+        ui::reading(ui, &num(r.pressure, 1), &r.units.press, READING, p.ink);
         let trend = match (r.press_trend, &r.press_trend_text) {
             (Some(t), _) => format!("{}, {} per hour", trend_word(t, 0.1), signed(Some(t), 1)),
             (None, Some(text)) => text.clone(),
             _ => String::new(),
         };
-        ui::text(ui, trend, theme::body(14.0), p.ink);
+        ui::text(ui, trend, theme::body(DETAIL), p.ink);
         ui::text(
             ui,
             format!("Today {} to {}", num(r.press_low, 1), num(r.press_high, 1)),
-            theme::body(14.0),
+            theme::body(DETAIL),
             p.ink2,
         );
         bottom(ui, |ui| Self::spark(ui, snap, "press", p.trace, false));
@@ -507,20 +511,20 @@ impl Now {
         let p = Palette::of(ui.ctx());
         let u = &r.units;
         Self::title(ui, "Rain");
-        ui::reading(ui, &num(r.rain_today, 1), &u.rain, 44.0, p.ink);
+        ui::reading(ui, &num(r.rain_today, 1), &u.rain, READING, p.ink);
         let rate = r.rain_rate.unwrap_or(0.0);
         if rate > 0.0 {
             ui::text(
                 ui,
                 format!("Raining, {} {}/h", num(Some(rate), 1), u.rain),
-                theme::semi(14.0),
+                theme::semi(DETAIL),
                 p.rain,
             );
         } else {
             ui::text(
                 ui,
                 format!("Not raining, rate {} {}/h", num(r.rain_rate, 1), u.rain),
-                theme::body(14.0),
+                theme::body(DETAIL),
                 p.ink,
             );
         }
@@ -533,18 +537,18 @@ impl Now {
             ui::text(
                 ui,
                 format!("Storm {} {}{since}", num(r.storm_rain, 1), u.rain),
-                theme::body(14.0),
+                theme::body(DETAIL),
                 p.rain,
             );
         }
         ui::text(
             ui,
             format!(
-                "Yesterday {} · last 24 h {}",
+                "Yesterday {} · 24 h {}",
                 num(r.rain_yesterday, 1),
                 num(r.rain_24h, 1)
             ),
-            theme::body(14.0),
+            theme::body(DETAIL),
             p.ink2,
         );
         ui::text(
@@ -555,7 +559,7 @@ impl Now {
                 num(r.rain_month, 1),
                 num(r.rain_year, 1)
             ),
-            theme::body(14.0),
+            theme::body(DETAIL),
             p.ink2,
         );
         if rate <= 0.0 {
@@ -578,17 +582,17 @@ impl Now {
     fn humidity(&self, ui: &mut Ui, snap: &Snapshot, r: &LiveReading) {
         let p = Palette::of(ui.ctx());
         Self::title(ui, "Humidity");
-        ui::reading(ui, &num(r.humidity, 0), "%", 44.0, p.ink);
+        ui::reading(ui, &num(r.humidity, 0), "%", READING, p.ink);
         ui::text(
             ui,
             format!("Dew point {}{}", num(r.dew_point, 1), r.units.temp),
-            theme::body(14.0),
+            theme::body(DETAIL),
             p.ink,
         );
         ui::text(
             ui,
             format!("Today {}% to {}%", num(r.hum_low, 0), num(r.hum_high, 0)),
-            theme::body(14.0),
+            theme::body(DETAIL),
             p.ink2,
         );
         bottom(ui, |ui| Self::spark(ui, snap, "hum", p.ink2, false));
@@ -597,7 +601,7 @@ impl Now {
     fn sun(&self, ui: &mut Ui, snap: &Snapshot, r: &LiveReading) {
         let p = Palette::of(ui.ctx());
         Self::title(ui, "Sun");
-        ui::reading(ui, &num(r.solar, 0), "W/m²", 44.0, p.ink)
+        ui::reading(ui, &num(r.solar, 0), "W/m²", READING, p.ink)
             .on_hover_text(format!("Peak today {} W/m²", num(r.solar_high, 0)));
         // How much of the clear-sky sunshine is getting through.
         match (r.solar, r.solar_max_now) {
@@ -612,11 +616,11 @@ impl Now {
                 let resp = ui
                     .horizontal(|ui| {
                         ui.spacing_mut().item_spacing.x = 8.0;
-                        ui::meter(ui, 80.0, frac as f32, p.warn);
+                        ui::meter(ui, 48.0, frac as f32, p.warn);
                         ui::text(
                             ui,
                             format!("{sky}, {:.0}% of clear sky", frac * 100.0),
-                            theme::body(14.0),
+                            theme::body(DETAIL),
                             p.ink,
                         );
                     })
@@ -627,7 +631,7 @@ impl Now {
                 ));
             }
             (_, Some(_)) => {
-                ui::text(ui, "Sun down", theme::body(14.0), p.ink);
+                ui::text(ui, "Sun down", theme::body(DETAIL), p.ink);
             }
             _ => {}
         }
@@ -641,12 +645,12 @@ impl Now {
             }
             None => "No UV sensor".into(),
         };
-        ui::text(ui, uv, theme::body(14.0), p.ink);
+        ui::text(ui, uv, theme::body(DETAIL), p.ink);
         if let Some(h) = r.sunshine_hours {
             ui::text(
                 ui,
                 format!("Sunshine {} h today", num(Some(h), 1)),
-                theme::body(14.0),
+                theme::body(DETAIL),
                 p.ink,
             );
         }
@@ -658,7 +662,7 @@ impl Now {
                     format::clock(rise),
                     format::clock(set)
                 ),
-                theme::body(14.0),
+                theme::body(DETAIL),
                 p.ink2,
             );
             if let Some(len) = format::span_between(rise, set) {
@@ -670,7 +674,7 @@ impl Now {
                     ),
                     _ => String::new(),
                 };
-                let resp = ui::text(ui, format!("Day length {len}"), theme::body(14.0), p.ink2);
+                let resp = ui::text(ui, format!("Day length {len}"), theme::body(DETAIL), p.ink2);
                 if !moon.is_empty() {
                     resp.on_hover_text(moon);
                 }
@@ -683,11 +687,11 @@ impl Now {
         let p = Palette::of(ui.ctx());
         let u = &r.units;
         Self::title(ui, "Indoor");
-        ui::reading(ui, &num(r.indoor_temp, 1), &u.temp, 44.0, p.ink);
+        ui::reading(ui, &num(r.indoor_temp, 1), &u.temp, READING, p.ink);
         ui::text(
             ui,
             format!("Humidity {}%", num(r.indoor_hum, 0)),
-            theme::body(14.0),
+            theme::body(DETAIL),
             p.ink,
         );
         if let (Some(i), Some(o)) = (r.indoor_temp, r.temp) {
@@ -702,7 +706,7 @@ impl Now {
             ui::text(
                 ui,
                 format!("Outside {}{}, {rel}", num(Some(o), 1), u.temp),
-                theme::body(14.0),
+                theme::body(DETAIL),
                 p.ink2,
             );
         }
@@ -715,7 +719,7 @@ impl Now {
                     .get("temp")
                     .map(|d| align(&xs, d))
                     .unwrap_or_default();
-                Chart::sparkline("spark-indoor", 44.0, xs)
+                Chart::sparkline("spark-indoor", SPARK_H, xs)
                     .series(
                         Series::line("Outside", outside, alpha(p.trace, 0.45))
                             .width(1.25)
@@ -731,7 +735,7 @@ impl Now {
                     )
                     .show(ui);
             } else {
-                ui.allocate_exact_size(vec2(ui.available_width(), 44.0), Sense::hover());
+                ui.allocate_exact_size(vec2(ui.available_width(), SPARK_H), Sense::hover());
             }
         });
         if snap.samples.get("intemp").is_some_and(|v| v.len() > 1) {
@@ -758,10 +762,20 @@ fn storm_since(start: &str) -> String {
 
 /// Put `add` at the bottom of an instrument column, so the sparklines line up.
 fn bottom(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
-    let top = ui.min_rect().top();
-    let target = top + 236.0;
-    let gap = (target - ui.cursor().top()).max(6.0);
-    ui.add_space(gap);
+    // Every card's sparkline sits just below the tallest card's text. The
+    // tallest is only known once all are drawn, so use last frame's.
+    let id = egui::Id::new("now-card-text-height");
+    let pass = ui.ctx().cumulative_pass_nr();
+    let (seen, prev, this): (u64, f32, f32) =
+        ui.data(|d| d.get_temp(id)).unwrap_or((pass, 0.0, 0.0));
+    let (prev, this) = if seen == pass {
+        (prev, this)
+    } else {
+        (this, 0.0)
+    };
+    let used = ui.cursor().top() - ui.min_rect().top();
+    ui.data_mut(|d| d.insert_temp(id, (pass, prev, this.max(used))));
+    ui.add_space((prev.max(used) - used).max(0.0) + 6.0);
     add(ui);
 }
 
