@@ -6,7 +6,7 @@ Everything that could be added, from the data the owner's Cumulus MX 5.1.5 stati
 
 - **Yes:** A1, A2, B1, B2, B4, B6, C1, Z1, Z2
 - **Later:** A3, B5, B7, B8, D1, D2, D3
-- **Undecided:** B3, E1, E2, E3, F1, F2, G1, G2, H1, H2, H3, I1, I2, J1, J2, J3, K1, K2, K3
+- **Undecided:** Z3, Z4, B3, E1, E2, E3, F1, F2, G1, G2, H1, H2, H3, I1, I2, J1, J2, J3, K1, K2, K3
 
 Tags: **Stored** is already in the local history (no new downloading), **Live** is sent by MX in `currentdata` but not read yet (add it to `LiveReading` in `crates/isobar-core/src/live.rs` and check it against the fixture), **Build** is worked out by Isobar. ★ marks a suggested starting point.
 
