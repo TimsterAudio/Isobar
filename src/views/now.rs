@@ -252,7 +252,7 @@ impl Now {
                     );
                     if let Some(t) = time {
                         job.append(
-                            t,
+                            &format::clock(t),
                             5.0,
                             TextFormat {
                                 font_id: theme::body(13.0),
@@ -405,21 +405,32 @@ impl Now {
         let p = Palette::of(ui.ctx());
         let u = &r.units;
         Self::title(ui, "Wind");
-        dial::wind_dial(ui, 112.0, r.bearing, r.wind_avg, &u.wind);
-        let from = r
-            .bearing_compass
-            .clone()
-            .or_else(|| r.bearing.map(|b| compass(b).to_string()));
-        let deg = r
-            .bearing
-            .map(|b| format!(" ({:.0}°)", b))
+        let shown = r.shown_bearing();
+        dial::wind_dial(ui, 112.0, shown.map(|s| s.0), r.wind_avg, &u.wind);
+        // MX's compass point belongs to the latest bearing; work one out when
+        // the dial shows the average instead.
+        let from = match shown {
+            Some((b, false)) => r
+                .bearing_compass
+                .clone()
+                .unwrap_or_else(|| compass(b).to_string()),
+            Some((b, true)) => compass(b).to_string(),
+            None => "–".into(),
+        };
+        let deg = shown
+            .map(|(b, _)| format!(" ({b:.0}°)"))
             .unwrap_or_default();
-        ui::text(
-            ui,
-            format!("From {}{deg}", from.as_deref().unwrap_or("–")),
-            theme::body(14.0),
-            p.ink,
-        );
+        let line = match shown {
+            Some((_, true)) if r.wind_avg.unwrap_or(0.0) <= 0.0 => {
+                format!("Calm, mostly from {from}{deg}")
+            }
+            Some((_, true)) => format!("Light, mostly from {from}{deg}"),
+            _ => format!("From {from}{deg}"),
+        };
+        let resp = ui::text(ui, line, theme::body(14.0), p.ink);
+        if shown.is_some_and(|s| s.1) {
+            resp.on_hover_text("In light air the dial shows the 10-minute average direction, which reads truer than the latest.");
+        }
         let mut job = LayoutJob::default();
         job.append(
             &format!(
@@ -437,7 +448,7 @@ impl Now {
         );
         if let Some(t) = &r.gust_high_time {
             job.append(
-                &format!("at {t}"),
+                &format!("at {}", format::clock(t)),
                 4.0,
                 TextFormat {
                     font_id: theme::body(12.0),

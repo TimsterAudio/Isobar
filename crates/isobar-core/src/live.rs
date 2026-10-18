@@ -244,6 +244,27 @@ impl LiveReading {
         .collect()
     }
 
+    /// The bearing to show, and whether the wind is light. In light air the
+    /// latest bearing swings about (or sits wherever the vane stopped), so
+    /// the 10-minute average reads truer. "Light" is below about 3 km/h, in
+    /// the station's own wind units.
+    pub fn shown_bearing(&self) -> Option<(f64, bool)> {
+        let light_below = match self.units.wind.trim().to_ascii_lowercase().as_str() {
+            "m/s" => 1.0,
+            "mph" | "kts" | "kt" | "knots" => 2.0,
+            _ => 3.0,
+        };
+        let light = self
+            .wind_avg
+            .or(self.wind_latest)
+            .is_some_and(|s| s < light_below);
+        match (light, self.bearing_avg, self.bearing) {
+            (true, Some(avg), _) => Some((avg, true)),
+            (_, _, Some(b)) => Some((b, light)),
+            (_, avg, None) => avg.map(|a| (a, light)),
+        }
+    }
+
     /// True if the reading carries at least a temperature or a pressure.
     pub fn looks_valid(&self) -> bool {
         self.temp.is_some() || self.pressure.is_some()
@@ -342,6 +363,23 @@ mod tests {
                 rain: "mm".into()
             }
         );
+    }
+
+    #[test]
+    fn light_air_uses_the_average_bearing() {
+        let v: Value =
+            serde_json::from_str(include_str!("../tests/fixtures/currentdata-mx-5.1.5.json"))
+                .unwrap();
+        // Calm on the owner's station: latest bearing 89°, average 221°.
+        let mut r = LiveReading::from_json(&v, 1);
+        assert_eq!(r.shown_bearing(), Some((221.0, true)));
+        r.wind_avg = Some(15.0);
+        assert_eq!(r.shown_bearing(), Some((89.0, false)));
+        r.units.wind = "m/s".into();
+        r.wind_avg = Some(2.0);
+        assert_eq!(r.shown_bearing(), Some((89.0, false)));
+        r.bearing = None;
+        assert_eq!(r.shown_bearing(), Some((221.0, false)));
     }
 
     #[test]

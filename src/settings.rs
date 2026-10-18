@@ -61,6 +61,10 @@ pub struct Settings {
     pub dayfile_path: Option<String>,
     pub poll_seconds: u64,
     pub theme: ThemeChoice,
+    /// 24-hour times ("16:52") rather than 12-hour ("4:52 PM").
+    pub clock_24h: bool,
+    /// The side rail stays open; otherwise it slides out from the left edge.
+    pub rail_pinned: bool,
     pub alerts: Alerts,
 }
 
@@ -74,6 +78,8 @@ impl Default for Settings {
             dayfile_path: None,
             poll_seconds: 10,
             theme: ThemeChoice::System,
+            clock_24h: true,
+            rail_pinned: true,
             alerts: Alerts::default(),
         }
     }
@@ -150,6 +156,8 @@ mod tests {
     fn missing_fields_take_defaults() {
         let s: Settings = serde_json::from_str(r#"{"stationUrl":"x"}"#).unwrap();
         assert_eq!(s.poll_seconds, 10);
+        assert!(s.clock_24h);
+        assert!(s.rail_pinned);
         assert_eq!(s.theme, ThemeChoice::System);
     }
 }

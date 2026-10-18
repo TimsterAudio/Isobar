@@ -1,5 +1,7 @@
 //! Text for numbers, dates and times. Dates are day first ("14 Oct 2026").
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use chrono::{Datelike, Local, NaiveDate, TimeZone, Timelike};
 
 pub const MONTHS: [&str; 12] = [
@@ -69,22 +71,81 @@ pub fn month_year(d: NaiveDate) -> String {
     format!("{} {}", MONTHS_LONG[d.month0() as usize], d.year())
 }
 
-/// "3pm", "12am".
-pub fn hour12(h: u32) -> String {
-    format!(
-        "{}{}",
-        if h.is_multiple_of(12) { 12 } else { h % 12 },
-        if h < 12 { "am" } else { "pm" }
-    )
+static CLOCK_24H: AtomicBool = AtomicBool::new(true);
+
+/// Choose 24-hour ("16:52") or 12-hour ("4:52 PM") times everywhere.
+pub fn set_24h(on: bool) {
+    CLOCK_24H.store(on, Ordering::Relaxed);
+}
+
+fn is_24h() -> bool {
+    CLOCK_24H.load(Ordering::Relaxed)
+}
+
+fn hm(h: u32, m: u32) -> String {
+    if is_24h() {
+        format!("{h:02}:{m:02}")
+    } else {
+        let h12 = if h.is_multiple_of(12) { 12 } else { h % 12 };
+        format!("{h12}:{m:02} {}", if h < 12 { "AM" } else { "PM" })
+    }
+}
+
+/// An hour on a chart axis: "15:00", or "3pm".
+pub fn axis_hour(h: u32) -> String {
+    if is_24h() {
+        format!("{h:02}:00")
+    } else {
+        format!(
+            "{}{}",
+            if h.is_multiple_of(12) { 12 } else { h % 12 },
+            if h < 12 { "am" } else { "pm" }
+        )
+    }
+}
+
+/// A station's time of day ("4:52 AM", "16:52" or "16:52:07") in the chosen
+/// clock. Text that isn't a time comes back as it was.
+pub fn clock(s: &str) -> String {
+    let t = s.trim();
+    let lower = t.to_ascii_lowercase();
+    let (body, pm) = if let Some(b) = lower
+        .strip_suffix("pm")
+        .or_else(|| lower.strip_suffix("p.m."))
+    {
+        (b.trim().to_string(), Some(true))
+    } else if let Some(b) = lower
+        .strip_suffix("am")
+        .or_else(|| lower.strip_suffix("a.m."))
+    {
+        (b.trim().to_string(), Some(false))
+    } else {
+        (lower.clone(), None)
+    };
+    let mut parts = body.split(':');
+    let (Some(h), Some(m)) = (
+        parts.next().and_then(|h| h.trim().parse::<u32>().ok()),
+        parts.next().and_then(|m| m.trim().parse::<u32>().ok()),
+    ) else {
+        return t.to_string();
+    };
+    let h = match pm {
+        Some(true) if h < 12 => h + 12,
+        Some(false) if h == 12 => 0,
+        _ => h,
+    };
+    if h > 23 || m > 59 {
+        return t.to_string();
+    }
+    hm(h, m)
 }
 
 /// "14:05 · 16 Oct" for a Unix-ms timestamp, in local time.
 pub fn time_and_date(ms: i64) -> String {
     match Local.timestamp_millis_opt(ms).single() {
         Some(t) => format!(
-            "{:02}:{:02} · {}",
-            t.hour(),
-            t.minute(),
+            "{} · {}",
+            hm(t.hour(), t.minute()),
             short_date(t.date_naive())
         ),
         None => "–".into(),
@@ -157,6 +218,25 @@ mod tests {
     }
 
     #[test]
+    fn clocks() {
+        // Both settings in one test, since the choice is global.
+        set_24h(true);
+        assert_eq!(clock("4:52 AM"), "04:52");
+        assert_eq!(clock("12:00 AM"), "00:00");
+        assert_eq!(clock("12:30 pm"), "12:30");
+        assert_eq!(clock("7:45 PM"), "19:45");
+        assert_eq!(clock("16:52:07"), "16:52");
+        assert_eq!(clock("-----"), "-----");
+        assert_eq!(axis_hour(15), "15:00");
+        set_24h(false);
+        assert_eq!(clock("16:52"), "4:52 PM");
+        assert_eq!(clock("00:10"), "12:10 AM");
+        assert_eq!(axis_hour(0), "12am");
+        assert_eq!(axis_hour(15), "3pm");
+        set_24h(true);
+    }
+
+    #[test]
     fn dates() {
         let d = NaiveDate::from_ymd_opt(2024, 2, 29).unwrap();
         assert_eq!(nice_date(d), "29 Feb 2024");
@@ -164,8 +244,6 @@ mod tests {
             add_years(d, -1),
             NaiveDate::from_ymd_opt(2023, 2, 28).unwrap()
         );
-        assert_eq!(hour12(0), "12am");
-        assert_eq!(hour12(15), "3pm");
         assert_eq!(ago(Some(1000), 4000), "just now");
         assert_eq!(ago(Some(1000), 1000 + 3 * 3_600_000), "3 h ago");
         assert_eq!(ago(None, 0), "never");

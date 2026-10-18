@@ -253,7 +253,9 @@ impl Insights {
                     ui::text(ui, value, theme::display(25.0), color);
                     let when = match &r.when {
                         RecordWhen::None => String::new(),
-                        RecordWhen::Day(d, Some(t)) => format!("{} at {t}", nice_date(*d)),
+                        RecordWhen::Day(d, Some(t)) => {
+                            format!("{} at {}", nice_date(*d), format::clock(t))
+                        }
                         RecordWhen::Day(d, None) => nice_date(*d),
                         RecordWhen::Month(d) => format::month_year(*d),
                         RecordWhen::Span(a, b) => format!("{} to {}", nice_date(*a), nice_date(*b)),

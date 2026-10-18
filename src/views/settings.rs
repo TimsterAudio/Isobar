@@ -34,6 +34,7 @@ struct Draft {
     heat: String,
     rain_start: bool,
     theme: ThemeChoice,
+    clock_24h: bool,
 }
 
 fn opt_num(v: Option<f64>) -> String {
@@ -55,11 +56,13 @@ impl Draft {
             heat: opt_num(s.alerts.heat_above),
             rain_start: s.alerts.rain_start,
             theme: s.theme,
+            clock_24h: s.clock_24h,
         }
     }
 
-    /// The settings this draft describes, or what's wrong with it.
-    fn to_settings(&self) -> Result<Settings, String> {
+    /// The settings this draft describes, on top of `base` for anything the
+    /// form doesn't show, or what's wrong with it.
+    fn to_settings(&self, base: &Settings) -> Result<Settings, String> {
         let alert = |label: &str, s: &str| -> Result<Option<f64>, String> {
             let t = s.trim().replace(',', ".");
             if t.is_empty() {
@@ -87,6 +90,8 @@ impl Draft {
             dayfile_path: opt(&self.dayfile),
             poll_seconds: poll.clamp(3, 600),
             theme: self.theme,
+            clock_24h: self.clock_24h,
+            rail_pinned: base.rail_pinned,
             alerts: Alerts {
                 enabled: self.alerts_on,
                 gust_above: alert("Gust at or above", &self.gust)?,
@@ -132,7 +137,7 @@ impl SettingsView {
 
     /// The bar along the bottom with the save button. Returns settings to
     /// store when it's pressed.
-    pub fn save_bar(&mut self, ui: &mut Ui, _snap: &Snapshot) -> Option<Settings> {
+    pub fn save_bar(&mut self, ui: &mut Ui, current: &Settings) -> Option<Settings> {
         let p = Palette::of(ui.ctx());
         let mut out = None;
         egui::Panel::bottom("save-bar")
@@ -148,7 +153,7 @@ impl SettingsView {
                     ui.spacing_mut().item_spacing.x = 16.0;
                     let dirty = self.draft != self.saved;
                     if ui::button(ui, "Save settings", Kind::Primary).clicked() {
-                        match self.draft.to_settings() {
+                        match self.draft.to_settings(current) {
                             Ok(s) => out = Some(s),
                             Err(e) => self.message = Some((false, e, Instant::now())),
                         }
@@ -199,6 +204,12 @@ impl SettingsView {
                     let opts: Vec<(ThemeChoice, String)> = ThemeChoice::ALL.iter().map(|t| (*t, t.label().to_string())).collect();
                     if ui::select(ui, "theme", &mut self.draft.theme, &opts, 180.0) {
                         crate::app::apply_theme(ui.ctx(), self.draft.theme);
+                    }
+                });
+                ui::field(ui, "Times", None, |ui| {
+                    let opts = [(true, "24-hour (16:52)".to_string()), (false, "12-hour (4:52 PM)".to_string())];
+                    if ui::select(ui, "clock", &mut self.draft.clock_24h, &opts, 180.0) {
+                        crate::format::set_24h(self.draft.clock_24h);
                     }
                 });
             });

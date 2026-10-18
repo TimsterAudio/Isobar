@@ -13,8 +13,8 @@ Tags: **Stored** is already in the local history (no new downloading), **Live** 
 Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 
 ## A. Quick fixes
-- [ ] **A1** Wind dial uses the 10-minute average bearing when it's calm. *Live* — **Yes**
-- [ ] **A2** 24-hour times, or a setting for it (MX 5 sends "4:52 AM"). *Build* — **Yes**
+- [x] **A1** Wind dial uses the 10-minute average bearing when it's calm. *Live* — **Yes**, done 2026-10-18
+- [x] **A2** 24-hour times, or a setting for it (MX 5 sends "4:52 AM"). *Build* — **Yes**, done 2026-10-18
 - [~] **A3** Warn when MX's `DataStopped` flag is set, even while MX still answers. *Live* — *Later*
 
 ## B. More on Now
@@ -70,7 +70,7 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 ## Z. The owner's own tweaks
 Changes to the views and anything not listed, added as the owner sends them.
 
-- [ ] **Z1** The side rail slides out of the way, or can be pinned open. — **Yes**
+- [x] **Z1** The side rail slides out of the way, or can be pinned open. — **Yes**, done 2026-10-18
 
 ## Notes for building
 - Most of D–J use dayfile fields already parsed into `DayRecord` but unused: `et`, `sunshine`, `hdd`, `cdd`, `wind_run`, `rain_hour_max`, `dew_*`, `hum_*`, `feels_*`, `apparent_*`. Check each against the station's real dayfile before relying on it; older lines leave the later fields empty.

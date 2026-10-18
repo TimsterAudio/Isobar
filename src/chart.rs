@@ -749,7 +749,7 @@ pub fn time_ticks(a: f64, b: f64, width: f32) -> Vec<(f64, String)> {
                     let label = if h == 0 {
                         format::short_date(d)
                     } else {
-                        format::hour12(h)
+                        format::axis_hour(h)
                     };
                     out.push((t, label));
                 }
@@ -847,7 +847,8 @@ mod tests {
     fn ticks_suit_the_span() {
         let a = day_ts(NaiveDate::from_ymd_opt(2026, 10, 15).unwrap());
         let day = time_ticks(a, a + 86400.0, 800.0);
-        assert!(day.iter().any(|t| t.1 == "3pm"));
+        // The clock setting is global, so either form may be in force.
+        assert!(day.iter().any(|t| t.1 == "15:00" || t.1 == "3pm"));
         assert!(day.len() >= 6 && day.len() <= 12, "{day:?}");
         let month = time_ticks(a, a + 30.0 * 86400.0, 800.0);
         assert!(
