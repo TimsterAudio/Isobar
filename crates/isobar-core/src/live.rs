@@ -105,7 +105,72 @@ pub struct LiveReading {
     pub indoor_temp: Option<f64>,
     pub indoor_hum: Option<f64>,
 
+    /// MX has stopped getting data from the station, though it still answers.
+    pub data_stopped: Option<bool>,
+    /// MX's alarms and whether each is set off.
+    pub alarms: Vec<Alarm>,
+    /// MX's version ("5.1.5") and build ("5012").
+    pub mx_version: Option<String>,
+    pub mx_build: Option<String>,
+    /// The station's date of the last reading, as sent ("18/10/2026").
+    pub station_date: Option<String>,
+
     pub units: Units,
+}
+
+/// One of MX's alarms, as `currentdata` lists them.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Alarm {
+    /// MX's name for it ("AlarmSensor").
+    pub id: String,
+    pub triggered: bool,
+}
+
+impl Alarm {
+    /// The alarm in plain words.
+    pub fn label(&self) -> String {
+        let known = match self.id.as_str() {
+            "AlarmRecord" | "AlarmNewRecord" => "New record set",
+            "AlarmDataStopped" => "Data stopped",
+            "AlarmSensor" => "Sensor contact lost",
+            "AlarmSpike" => "Spike removed from the data",
+            "AlarmUpgrade" => "Cumulus MX update available",
+            "AlarmFirmware" => "Station firmware update available",
+            "AlarmBattery" => "Station battery low",
+            "AlarmLowTemp" => "Low temperature",
+            "AlarmHighTemp" => "High temperature",
+            "AlarmTempUp" => "Temperature rising fast",
+            "AlarmTempDn" => "Temperature falling fast",
+            "AlarmLowPress" => "Low pressure",
+            "AlarmHighPress" => "High pressure",
+            "AlarmPressUp" => "Pressure rising fast",
+            "AlarmPressDn" => "Pressure falling fast",
+            "AlarmHighRainToday" => "High rain today",
+            "AlarmHighRainRate" => "High rain rate",
+            "AlarmHighGust" => "High gust",
+            "AlarmHighWind" => "High wind",
+            "AlarmHttp" => "Web upload failing",
+            "AlarmMySql" => "Database upload failing",
+            "AlarmFtp" => "File upload failing",
+            _ => "",
+        };
+        if !known.is_empty() {
+            return known.into();
+        }
+        // "AlarmSomethingNew" becomes "Something new".
+        let name = self.id.strip_prefix("Alarm").unwrap_or(&self.id);
+        let mut out = String::new();
+        for (i, c) in name.chars().enumerate() {
+            if c.is_uppercase() && i > 0 {
+                out.push(' ');
+                out.extend(c.to_lowercase());
+            } else {
+                out.push(c);
+            }
+        }
+        out
+    }
 }
 
 fn find<'a>(v: &'a Value, keys: &[&str]) -> Option<&'a Value> {
@@ -159,6 +224,33 @@ fn text(v: &Value, keys: &[&str]) -> Option<String> {
         _ => return None,
     };
     (!s.is_empty() && !s.chars().all(|c| c == '-')).then_some(s)
+}
+
+fn flag(v: &Value, keys: &[&str]) -> Option<bool> {
+    match find(v, keys)? {
+        Value::Bool(b) => Some(*b),
+        Value::Number(n) => n.as_f64().map(|x| x != 0.0),
+        Value::String(s) => match s.trim().to_ascii_lowercase().as_str() {
+            "true" | "1" | "yes" => Some(true),
+            "false" | "0" | "no" => Some(false),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+fn alarms(v: &Value) -> Vec<Alarm> {
+    let Some(list) = find(v, &["Alarms", "alarms"]).and_then(Value::as_array) else {
+        return Vec::new();
+    };
+    list.iter()
+        .filter_map(|a| {
+            Some(Alarm {
+                id: text(a, &["id", "Id"])?,
+                triggered: flag(a, &["triggered", "Triggered"]).unwrap_or(false),
+            })
+        })
+        .collect()
 }
 
 fn temp_unit(raw: Option<String>) -> String {
@@ -255,6 +347,12 @@ impl LiveReading {
 
             indoor_temp: num(v, &["IndoorTemp", "intemp"]),
             indoor_hum: num(v, &["IndoorHum", "inhum"]),
+
+            data_stopped: flag(v, &["DataStopped", "DataStoppedAlarm"]),
+            alarms: alarms(v),
+            mx_version: text(v, &["Version", "version"]),
+            mx_build: text(v, &["Build", "build"]),
+            station_date: text(v, &["LastDataReadDate"]),
             units: Units {
                 temp: temp_unit(text(v, &["TempUnit", "tempunit"])),
                 wind: text(v, &["WindUnit", "windunit"]).unwrap_or(defaults.wind),
@@ -411,6 +509,32 @@ mod tests {
         assert_eq!(r.solar_max_now, Some(83.0));
         assert_eq!(r.indoor_temp, Some(17.9));
         assert_eq!(r.indoor_hum, Some(51.0));
+        assert_eq!(r.data_stopped, Some(false));
+        assert_eq!(r.mx_version.as_deref(), Some("5.1.5"));
+        assert_eq!(r.mx_build.as_deref(), Some("5012"));
+        assert_eq!(r.station_date.as_deref(), Some("18/10/2026"));
+        assert_eq!(r.alarms.len(), 6);
+        let set: Vec<String> = r
+            .alarms
+            .iter()
+            .filter(|a| a.triggered)
+            .map(Alarm::label)
+            .collect();
+        assert_eq!(
+            set,
+            [
+                "Cumulus MX update available",
+                "Station firmware update available"
+            ]
+        );
+        assert_eq!(
+            Alarm {
+                id: "AlarmIsNew".into(),
+                triggered: true
+            }
+            .label(),
+            "Is new"
+        );
         assert_eq!(
             r.units,
             Units {

@@ -1,5 +1,7 @@
 pub mod compare;
+pub mod health;
 pub mod history;
 pub mod insights;
 pub mod now;
+pub mod seasons;
 pub mod settings;

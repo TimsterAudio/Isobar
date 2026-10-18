@@ -706,3 +706,58 @@ pub fn arrow(ui: &mut Ui, dir: i8, color: Color32) {
     p.line_segment([a, tip], stroke);
     p.line_segment([b, tip], stroke);
 }
+
+/// One figure in a [`stats`] row.
+pub struct Stat {
+    pub label: String,
+    pub value: String,
+    pub color: Color32,
+    pub detail: String,
+    pub detail_color: Color32,
+}
+
+impl Stat {
+    pub fn new(label: impl Into<String>, value: impl Into<String>, color: Color32) -> Stat {
+        Stat {
+            label: label.into(),
+            value: value.into(),
+            color,
+            detail: String::new(),
+            detail_color: Color32::PLACEHOLDER,
+        }
+    }
+
+    pub fn detail(mut self, d: impl Into<String>, color: Color32) -> Stat {
+        self.detail = d.into();
+        self.detail_color = color;
+        self
+    }
+}
+
+/// Figures in ruled rows, a label over each large value and a line under it.
+/// Four to a row on a wide screen, two on a narrow one.
+pub fn stats(ui: &mut Ui, stats: &[Stat]) {
+    let p = pal(ui);
+    let cols = if ui.available_width() >= 760.0 { 4 } else { 2 };
+    ui.vertical(|ui| {
+        ui.spacing_mut().item_spacing.y = 0.0;
+        rule(ui, p.grid);
+        for row in stats.chunks(cols) {
+            columns(ui, cols, 32.0, true, |i, ui| {
+                let Some(s) = row.get(i) else { return };
+                ui.spacing_mut().item_spacing.y = 2.0;
+                ui.add_space(10.0);
+                small(ui, s.label.as_str(), p.ink2);
+                text(ui, s.value.as_str(), theme::display(27.0), s.color);
+                let dc = if s.detail_color == Color32::PLACEHOLDER {
+                    p.ink2
+                } else {
+                    s.detail_color
+                };
+                small(ui, s.detail.as_str(), dc);
+                ui.add_space(10.0);
+            });
+            rule(ui, p.grid);
+        }
+    });
+}

@@ -27,6 +27,7 @@ struct Draft {
     username: String,
     password: String,
     poll: String,
+    latitude: String,
     dayfile: String,
     alerts_on: bool,
     gust: String,
@@ -49,6 +50,7 @@ impl Draft {
             username: s.username.clone().unwrap_or_default(),
             password: s.password.clone().unwrap_or_default(),
             poll: s.poll_seconds.to_string(),
+            latitude: opt_num(s.latitude),
             dayfile: s.dayfile_path.clone().unwrap_or_default(),
             alerts_on: s.alerts.enabled,
             gust: opt_num(s.alerts.gust_above),
@@ -78,6 +80,7 @@ impl Draft {
             .parse()
             .map_err(|_| "Check every needs a whole number of seconds.".to_string())?;
         let opt = |s: &str| (!s.trim().is_empty()).then(|| s.trim().to_string());
+        let latitude = parse_latitude(&self.latitude)?;
         Ok(Settings {
             station_name: if self.name.trim().is_empty() {
                 "My station".into()
@@ -92,6 +95,7 @@ impl Draft {
             theme: self.theme,
             clock_24h: self.clock_24h,
             rail_pinned: base.rail_pinned,
+            latitude,
             alerts: Alerts {
                 enabled: self.alerts_on,
                 gust_above: alert("Gust at or above", &self.gust)?,
@@ -100,6 +104,25 @@ impl Draft {
                 rain_start: self.rain_start,
             },
         })
+    }
+}
+
+/// "-33.9", "33.9 S" or "33.9°S"; empty is none.
+fn parse_latitude(s: &str) -> Result<Option<f64>, String> {
+    let t = s.trim().replace(',', ".").replace('°', "");
+    if t.is_empty() {
+        return Ok(None);
+    }
+    let (num, sign) = match t.chars().last().map(|c| c.to_ascii_uppercase()) {
+        Some('S') => (&t[..t.len() - 1], -1.0),
+        Some('N') => (&t[..t.len() - 1], 1.0),
+        _ => (t.as_str(), 1.0),
+    };
+    match num.trim().parse::<f64>() {
+        Ok(v) if (-90.0..=90.0).contains(&v) => Ok(Some(v * sign)),
+        _ => Err(
+            "Latitude needs a number of degrees from -90 to 90, such as -33.9 or 33.9 S.".into(),
+        ),
     }
 }
 
@@ -257,9 +280,19 @@ impl SettingsView {
             });
             ui.add_space(-6.0);
             ui::para(ui, "Only needed if you've secured the MX interface. Stored unencrypted in Isobar's settings file.", theme::body(13.0), p.ink2, 560.0);
-            ui::field(ui, "Check every (seconds)", None, |ui| {
-                ui::text_input(ui, &mut self.draft.poll, "10", 120.0)
+            ui::columns(ui, 2, 16.0, false, |i, ui| {
+                if i == 0 {
+                    ui::field(ui, "Check every (seconds)", None, |ui| {
+                        ui::text_input(ui, &mut self.draft.poll, "10", 120.0)
+                    });
+                } else {
+                    ui::field(ui, "Latitude", None, |ui| {
+                        ui::text_input(ui, &mut self.draft.latitude, "Worked out", 120.0)
+                    });
+                }
             });
+            ui.add_space(-6.0);
+            ui::para(ui, "Latitude is in degrees, south negative: -33.9 or 33.9 S for Sydney. Seasons uses it for day length, and to estimate evaporation if the station doesn't record it. Leave it empty and Isobar works it out from the day's sunrise and sunset.", theme::body(13.0), p.ink2, 560.0);
 
             ui.horizontal(|ui| {
                 let running = matches!(*self.test.lock().unwrap(), Some(Test::Running));
@@ -470,4 +503,19 @@ fn pick_dayfile() -> Option<std::path::PathBuf> {
         .add_filter("Cumulus dayfile", &["txt", "csv"])
         .add_filter("All files", &["*"])
         .pick_file()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_latitude;
+
+    #[test]
+    fn reads_latitudes() {
+        assert_eq!(parse_latitude(""), Ok(None));
+        assert_eq!(parse_latitude("-33.9"), Ok(Some(-33.9)));
+        assert_eq!(parse_latitude("33,9 S"), Ok(Some(-33.9)));
+        assert_eq!(parse_latitude("51.5°N"), Ok(Some(51.5)));
+        assert!(parse_latitude("123").is_err());
+        assert!(parse_latitude("north").is_err());
+    }
 }

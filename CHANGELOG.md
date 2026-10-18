@@ -12,6 +12,15 @@
 - **Gaps in the 24-hour charts:** a stretch of more than 20 minutes with no readings (Isobar closed, or the station offline) now shows as a break, not a straight line across it.
 - **Filling gaps from MX:** Isobar fetches MX's recent detail (up to three days, a reading a minute) when it starts and again after any gap of more than 15 minutes, such as the computer sleeping or the station being unreachable, so the 24-hour charts fill in. Settings → History shows how many readings the last fill brought, or why MX didn't send them.
 - **Dashed lines** (the dew point on the thermograph) stay even with a reading a minute; before, they broke up into dots.
+- **Seasons page (D1, D2, D3, F1, F2):** a new page for the year's rhythm.
+  - *Water balance:* rain less evaporation as a running total for this month, season or year, against the normal and the range of other years. It uses the station's own evapotranspiration, or estimates it from each day's temperatures when the station doesn't record it.
+  - *Frost:* the average first and last frost, frost nights a year and this year so far, with a calendar of every frost night on record. Choose 0° or 2° (nights that frost the grass).
+  - *Growing degree days:* this growing year's running total against every other year, with base 10° or 5°.
+  - *Sunshine:* hours each month against normal, the sunniest and dullest months, and a table by calendar month.
+  - *Day length:* through the year at the station's latitude, with the average sunshine against it.
+  - Seasons follow the station's hemisphere.
+- **Latitude (Settings → Station):** used for day length and the evaporation estimate. Leave it empty and Isobar works it out from the day's sunrise and sunset.
+- **Health page (C1):** whether it's the station or the weather. It shows the link to MX, MX's own "data stopped" flag, its alarms, its version, when the rain gauge last tipped, missing and incomplete days in the history, and gaps in the last 24 hours of readings. A dot beside Health in the rail means something needs a look. Update notices from MX don't count.
 - **Side rail (Z1):** the « button beside the name hides the rail to a narrow strip; point at the strip to slide the rail out over the screen, and use the pin to keep it open. Isobar remembers the choice.
 
 ## 0.2.0 – 2026-10-17

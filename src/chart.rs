@@ -44,6 +44,8 @@ pub struct Series {
     pub points: bool,
     /// Shown in the hover read-out.
     pub in_readout: bool,
+    /// Drawn at all; an undrawn series can still be the edge of a band.
+    pub drawn: bool,
     pub digits: usize,
     pub unit: String,
 }
@@ -61,6 +63,7 @@ impl Series {
             max_gap: None,
             points: true,
             in_readout: true,
+            drawn: true,
             digits: 1,
             unit: String::new(),
         }
@@ -118,6 +121,14 @@ impl Series {
         self
     }
 
+    /// Not drawn and not in the read-out: only the edge of a band.
+    pub fn edge(label: impl Into<String>, ys: Vec<Option<f64>>) -> Series {
+        let mut s = Series::line(label, ys, Color32::TRANSPARENT);
+        s.drawn = false;
+        s.in_readout = false;
+        s
+    }
+
     pub fn unit(mut self, unit: impl Into<String>, digits: usize) -> Self {
         self.unit = unit.into();
         self.digits = digits;
@@ -142,6 +153,7 @@ pub struct Chart {
     x_axis: XAxis,
     series: Vec<Series>,
     bands: Vec<(usize, usize, Color32)>,
+    markers: Vec<(f64, String)>,
     axes: bool,
     zoom: bool,
     hover: bool,
@@ -178,6 +190,7 @@ impl Chart {
             x_axis,
             series: Vec::new(),
             bands: Vec::new(),
+            markers: Vec::new(),
             axes: true,
             zoom: false,
             hover: true,
@@ -209,6 +222,12 @@ impl Chart {
     /// Shade between series `a` and `b`.
     pub fn band(mut self, a: usize, b: usize, c: Color32) -> Self {
         self.bands.push((a, b, c));
+        self
+    }
+
+    /// A labelled upright line at `x`, such as today.
+    pub fn marker(mut self, x: f64, label: impl Into<String>) -> Self {
+        self.markers.push((x, label.into()));
         self
     }
 
@@ -442,9 +461,30 @@ impl Chart {
             clip.add(Shape::mesh(mesh));
         }
 
+        // ----- markers
+        for (x, label) in &self.markers {
+            if *x < xr.0 || *x > xr.1 {
+                continue;
+            }
+            let px = fx(*x).round() + 0.5;
+            clip.extend(dashed(
+                &[pos2(px, plot.top()), pos2(px, plot.bottom())],
+                Stroke::new(1.0, p.ink2),
+                3.0,
+                3.0,
+            ));
+            painter.text(
+                pos2(px + 5.0, plot.top() + 2.0),
+                Align2::LEFT_TOP,
+                label,
+                theme::medium(12.0),
+                p.ink2,
+            );
+        }
+
         // ----- series
         let px_per_point = plot.width() / vis.len().max(1) as f32;
-        for s in &self.series {
+        for s in self.series.iter().filter(|s| s.drawn) {
             match s.style {
                 Style::Bars => {
                     let w = (px_per_point * 0.75).clamp(1.0, 24.0);
@@ -599,7 +639,7 @@ impl Chart {
             Stroke::new(1.0, alpha(p.ink2, 0.5)),
         );
         let mut rows: Vec<(Color32, String, String)> = Vec::new();
-        for s in &self.series {
+        for s in self.series.iter().filter(|s| s.drawn) {
             let Some(v) = s.ys.get(i).copied().flatten() else {
                 continue;
             };

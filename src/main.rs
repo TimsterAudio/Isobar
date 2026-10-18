@@ -27,6 +27,7 @@ fn main() -> eframe::Result {
     let (settings, paths, store) = if demo {
         let s = Settings {
             station_name: "Demo station".into(),
+            latitude: Some(isobar_core::demo::LATITUDE),
             ..Default::default()
         };
         (s, None, None)

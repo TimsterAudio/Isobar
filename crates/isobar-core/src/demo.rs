@@ -8,7 +8,11 @@ use std::f64::consts::{PI, TAU};
 use chrono::{Datelike, Duration, Local, NaiveDate, TimeZone, Timelike};
 
 use crate::dayfile::DayRecord;
-use crate::live::{LiveReading, Units};
+use crate::live::{Alarm, LiveReading, Units};
+use crate::seasons;
+
+/// Where the demo station is, near Sydney.
+pub const LATITUDE: f64 = -33.9;
 
 /// A small deterministic generator, so the demo looks the same every run.
 struct Rng(u32);
@@ -46,6 +50,13 @@ pub fn days() -> Vec<DayRecord> {
         };
         let tmax = 20.0 + 6.5 * season + anomaly + hot;
         let tmin = tmax - (8.0 + 2.0 * season + r.gauss() * 1.5) - hot * 0.5;
+        // Clear, still winter nights get cold enough for frost now and then.
+        let tmin = tmin
+            - if wetness < 0.1 {
+                4.0 * (-season).max(0.0)
+            } else {
+                0.0
+            };
         wetness = wetness * 0.55
             + if r.next() < 0.3 + 0.12 * -season {
                 r.next()
@@ -71,6 +82,14 @@ pub fn days() -> Vec<DayRecord> {
         let p_base = 1016.0 - 10.0 * wetness + r.gauss() * 4.0;
         let dew_max = (tmax - 1.0).min(tmin + 4.0 + r.gauss() * 2.0);
         let minute = |r: &mut Rng| format!("{:02}", (r.next() * 60.0) as u32);
+        let et = seasons::hargreaves(tmax, tmin, LATITUDE, d) * (1.0 - wetness * 0.6).max(0.3);
+        // A few days lost in a power cut, as real stations have.
+        let lost = d >= NaiveDate::from_ymd_opt(2021, 8, 14).unwrap()
+            && d <= NaiveDate::from_ymd_opt(2021, 8, 16).unwrap();
+        if lost {
+            d += Duration::days(1);
+            continue;
+        }
         out.push(DayRecord {
             date: d,
             temp_max: Some(round1(tmax.max(tmin + 2.0))),
@@ -103,6 +122,7 @@ pub fn days() -> Vec<DayRecord> {
             ),
             uv_max: Some(round1((6.0 + 5.0 * season - wetness * 4.0).max(0.5))),
             sunshine: Some(round1((7.0 + 3.0 * season - wetness * 8.0).max(0.0))),
+            et: Some(round1(et)),
             ..Default::default()
         });
         d += Duration::days(1);
@@ -171,6 +191,17 @@ fn local_iso(ms: i64) -> String {
         .unwrap_or_default()
 }
 
+/// Sunrise (`side` -1) or sunset (+1) today at the demo station, as MX
+/// writes them ("6:36 AM"), around a local noon of 12:50.
+fn sun_time(ms: i64, side: f64) -> String {
+    let date = Local.timestamp_millis_opt(ms).unwrap().date_naive();
+    let half = seasons::day_length(LATITUDE, date) / 2.0;
+    let mins = ((12.0 + 50.0 / 60.0 + side * half) * 60.0).round() as u32;
+    let (h, m) = (mins / 60, mins % 60);
+    let h12 = if h % 12 == 0 { 12 } else { h % 12 };
+    format!("{h12}:{m:02} {}", if h < 12 { "AM" } else { "PM" })
+}
+
 /// A rough clear-sky maximum for the time of day, peaking near 950 W/m².
 fn clear_sky(ms: i64) -> f64 {
     let t = Local.timestamp_millis_opt(ms).unwrap();
@@ -228,14 +259,25 @@ pub fn live(samples: &BTreeMap<String, Vec<(i64, f64)>>, now_ms: i64, jitter: f6
         storm_rain: Some(8.0),
         storm_start: Some("16/10/2026 4:10 PM".into()),
         last_rain_tip: Some(local_iso(now_ms - 26 * 3_600_000)),
-        sunrise: Some("6:12 AM".into()),
-        sunset: Some("7:24 PM".into()),
+        sunrise: Some(sun_time(now_ms, -1.0)),
+        sunset: Some(sun_time(now_ms, 1.0)),
         moonrise: Some("11:30 AM".into()),
         moonset: Some("2:08 AM".into()),
         sunshine_hours: Some(5.4),
         solar_max_now: Some(clear_sky(now_ms)),
         indoor_temp: last("intemp"),
         indoor_hum: last("inhum"),
+        data_stopped: Some(false),
+        alarms: ["AlarmSensor", "AlarmSpike", "AlarmUpgrade", "AlarmBattery"]
+            .into_iter()
+            .map(|id| Alarm {
+                id: id.into(),
+                triggered: id == "AlarmSpike",
+            })
+            .collect(),
+        mx_version: Some("5.1.5".into()),
+        mx_build: Some("5012".into()),
+        station_date: None,
         units: Units::default(),
     }
 }

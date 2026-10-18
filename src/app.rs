@@ -26,17 +26,21 @@ pub enum Route {
     History,
     Compare,
     Insights,
+    Seasons,
+    Health,
     Settings,
     /// Not a screen: switch to the demo station.
     Demo,
 }
 
 impl Route {
-    const ALL: [Route; 5] = [
+    const ALL: [Route; 7] = [
         Route::Now,
         Route::History,
         Route::Compare,
         Route::Insights,
+        Route::Seasons,
+        Route::Health,
         Route::Settings,
     ];
 
@@ -46,6 +50,8 @@ impl Route {
             Route::History => "History",
             Route::Compare => "Compare",
             Route::Insights => "Insights",
+            Route::Seasons => "Seasons",
+            Route::Health => "Health",
             Route::Settings => "Settings",
             Route::Demo => "Demo",
         }
@@ -89,6 +95,8 @@ pub struct IsobarApp {
     history: views::history::History,
     compare: views::compare::Compare,
     insights: views::insights::Insights,
+    seasons: views::seasons::Seasons,
+    health: views::health::Health,
     settings_view: views::settings::SettingsView,
 }
 
@@ -123,6 +131,8 @@ impl IsobarApp {
             history: Default::default(),
             compare: Default::default(),
             insights: Default::default(),
+            seasons: Default::default(),
+            health: Default::default(),
         }
     }
 
@@ -208,13 +218,20 @@ impl IsobarApp {
                     p.trace,
                 );
             }
-            ui.painter().text(
+            let label = ui.painter().text(
                 pos2(rect.left() + 14.0, rect.center().y),
                 Align2::LEFT_CENTER,
                 route.label(),
                 theme::medium(15.0),
                 if on || hovered { p.ink } else { p.ink2 },
             );
+            if route == Route::Health && views::health::issues(snap, &self.settings) > 0 {
+                ui.painter().circle_filled(
+                    pos2(label.right() + 8.0, label.center().y),
+                    3.5,
+                    p.warn,
+                );
+            }
             if resp.on_hover_cursor(CursorIcon::PointingHand).clicked() {
                 self.route = route;
                 picked = true;
@@ -463,6 +480,12 @@ impl eframe::App for IsobarApp {
                                     Route::History => self.history.ui(ui, &snap, &mut go),
                                     Route::Compare => self.compare.ui(ui, &snap, &mut go),
                                     Route::Insights => self.insights.ui(ui, &snap, &mut go),
+                                    Route::Seasons => {
+                                        self.seasons.ui(ui, &snap, &self.settings, &mut go)
+                                    }
+                                    Route::Health => {
+                                        self.health.ui(ui, &snap, &self.settings, &self.worker)
+                                    }
                                     Route::Settings => {
                                         if self.settings_view.ui(ui, &snap, &self.worker) {
                                             go = Some(Route::Demo);
@@ -493,6 +516,7 @@ impl IsobarApp {
             theme: self.settings.theme,
             clock_24h: self.settings.clock_24h,
             rail_pinned: self.settings.rail_pinned,
+            latitude: Some(isobar_core::demo::LATITUDE),
             ..Default::default()
         };
         self.worker = crate::worker::spawn(ctx.clone(), settings.clone(), None);
@@ -503,6 +527,8 @@ impl IsobarApp {
         self.history = Default::default();
         self.compare = Default::default();
         self.insights = Default::default();
+        self.seasons = Default::default();
+        self.health = Default::default();
         self.route = Route::Now;
     }
 

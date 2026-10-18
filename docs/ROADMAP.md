@@ -4,9 +4,9 @@ Everything that could be added, from the data the owner's Cumulus MX 5.1.5 stati
 
 ## Decisions so far (2026-10-18)
 
-- **Yes:** A1, A2, B1, B2, B4, B6, C1, Z1, Z2
-- **Later:** A3, B5, B7, B8, D1, D2, D3
-- **Undecided:** Z3, Z4, B3, E1, E2, E3, F1, F2, G1, G2, H1, H2, H3, I1, I2, J1, J2, J3, K1, K2, K3
+- **Yes:** A1, A2, B1, B2, B4, B6, C1, D1, D2, D3, D4, F1, F2, Z1, Z2 (D1 to F2 moved up from Later and undecided on 2026-10-18)
+- **Later:** A3, B5, B7, B8
+- **Undecided:** Z3, Z4, B3, E1, E2, E3, G1, G2, H1, H2, H3, I1, I2, J1, J2, J3, K1, K2, K3
 
 Tags: **Stored** is already in the local history (no new downloading), **Live** is sent by MX in `currentdata` but not read yet (add it to `LiveReading` in `crates/isobar-core/src/live.rs` and check it against the fixture), **Build** is worked out by Isobar. ★ marks a suggested starting point.
 
@@ -28,12 +28,13 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 - [~] **B8** Heat index, humidex and apparent temperature, with today's extremes. *Live* — *Later*
 
 ## C. Station health
-- [ ] **C1** ★ Data health panel: dayfile gaps, `DataStopped`, triggered MX alarms, last bucket tip, MX version. *Build* — **Yes**
+- [x] **C1** ★ Data health panel: dayfile gaps, `DataStopped`, triggered MX alarms, last bucket tip, MX version. *Build* — **Yes**, done 2026-10-18 as the Health page (also gaps in the last 24 hours of readings and the gap-filling status)
 
 ## D. Garden and growing
-- [~] **D1** ★ Water balance: rain minus evapotranspiration, running total for the month or season, against normal. *Stored* — *Later* Owner's note: the household runs on water tanks. Show rain as a volume (litres or gallons) caught by the roof, with a tank capacity and level estimate and daily usage. The owner keeps tank history in a spreadsheet that can seed this; ask for it and for roof area and tank sizes when this starts.
-- [~] **D2** Frost calendar: average first and last frost, frost nights a year, this year against them. *Stored* — *Later*
-- [~] **D3** Growing degree days: season running total against other years. *Build* — *Later*
+- [x] **D1** ★ Water balance: rain minus evapotranspiration, running total for the month or season, against normal. *Stored* — **Yes**, done 2026-10-18 on the Seasons page. Uses the station's ET, or a Hargreaves estimate from the temperatures and the latitude when the station doesn't record it.
+- [x] **D2** Frost calendar: average first and last frost, frost nights a year, this year against them. *Stored* — **Yes**, done 2026-10-18
+- [x] **D3** Growing degree days: season running total against other years. *Build* — **Yes**, done 2026-10-18
+- [ ] **D4** Water tanks (the owner's note on D1): the household runs on tanks. Rain as a volume caught by the roof (litres or gallons), with tank capacity, a level estimate and daily usage. *Build* — **Yes**, waiting on the owner's tank spreadsheet (to seed it), roof area and tank sizes.
 
 ## E. Energy and comfort
 - [ ] **E1** ★ Heating and cooling degree days by month and season, against normal and last year. *Stored*
@@ -41,8 +42,8 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 - [ ] **E3** Indoor against outdoor: how the house holds its heat. *Live*
 
 ## F. Sun
-- [ ] **F1** ★ Sunshine hours per month against normal, sunniest and dullest months on record. *Stored*
-- [ ] **F2** Day length through the year. *Build*
+- [x] **F1** ★ Sunshine hours per month against normal, sunniest and dullest months on record. *Stored* — **Yes**, done 2026-10-18
+- [x] **F2** Day length through the year. *Build* — **Yes**, done 2026-10-18, with average sunshine against it
 
 ## G. Rain
 - [ ] **G1** Rain intensity: share of rain in heavy bursts against drizzle; wettest hour on record. *Stored*

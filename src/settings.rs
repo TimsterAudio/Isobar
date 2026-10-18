@@ -65,6 +65,9 @@ pub struct Settings {
     pub clock_24h: bool,
     /// The side rail stays open; otherwise it slides out from the left edge.
     pub rail_pinned: bool,
+    /// The station's latitude in degrees, south negative. Without it, Isobar
+    /// works it out from the day's sunrise and sunset.
+    pub latitude: Option<f64>,
     pub alerts: Alerts,
 }
 
@@ -80,6 +83,7 @@ impl Default for Settings {
             theme: ThemeChoice::System,
             clock_24h: true,
             rail_pinned: true,
+            latitude: None,
             alerts: Alerts::default(),
         }
     }

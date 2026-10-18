@@ -33,11 +33,15 @@ No MX on the network? Point **Dayfile on this computer** at a `dayfile.txt` inst
 - **History**: range presets or any date range, a summary compared with your station's own normals ("rain 94% of normal"), temperature, rain, wind and pressure charts, and a year heatmap of each day against normal. Hover a chart to read its values; drag across one to zoom in, and double-click to zoom out. Ranges longer than about 200 days switch to weekly values, and longer than three years to monthly values.
 - **Compare**: one month (or the whole year) overlaid for every year on record with a ranking table, or two date ranges side by side with wind roses.
 - **Insights**: unusual days measured against the seasonal normal for that date, a records board, a monthly climate table and prevailing-wind roses.
-- **Settings**: station address, optional login, a dayfile for offline use, alerts and theme.
+- **Seasons**: the water balance (rain less evaporation) for the month, season or year against normal, a frost calendar, growing degree days, sunshine against normal and day length through the year.
+- **Health**: whether it's the station or the weather: the link to MX, its "data stopped" flag and alarms, when the rain gauge last tipped, and gaps in the history and in recent readings.
+- **Settings**: station address, optional login, latitude, a dayfile for offline use, alerts and theme.
 
 Desktop notifications cover strong gusts, frost, heat, and rain starting after three dry hours. You set the limits in Settings.
 
 ![History](docs/history.png)
+
+![Seasons](docs/seasons.png)
 
 ## How it talks to Cumulus MX
 
@@ -80,13 +84,15 @@ src/                  the app (egui)
   worker.rs             background thread: polling, samples, alerts, history sync
   chart.rs, dial.rs     charts, the wind dial and wind roses, drawn on chart paper
   theme.rs              colours, fonts and egui styling
-  views/                Now, History, Compare, Insights, Settings
+  views/                Now, History, Compare, Insights, Seasons, Health, Settings
 crates/isobar-core/   everything that doesn't need a window (unit tested)
   dayfile.rs            dayfile parser
   live.rs               live JSON mapping
   mx.rs                 MX client
   store.rs              SQLite store
   analytics.rs          normals, anomalies, records, aggregation, cross-year series
+  seasons.rs            water balance, frost, growing degree days, sunshine, sun geometry
+  health.rs             missing days and gaps in readings
   demo.rs               the demo station
 assets/               Barlow fonts (built into the program) and icons
 ```
