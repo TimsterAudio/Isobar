@@ -717,6 +717,36 @@ pub fn monthly_climate(days: &[DayRecord]) -> Vec<MonthClimate> {
         .collect()
 }
 
+// ---------------------------------------------------------------- rain today
+
+/// Rain since midnight from a series of the station's "rain today" readings
+/// `(time, total)`. The station's own total may reset at another hour (9am
+/// is common in Australia), so this adds up each rise and starts again when
+/// `day_of` says the day has changed. A drop in the station's total is its
+/// reset: the new total is all fresh rain.
+pub fn rain_since_midnight<D: PartialEq>(
+    pts: &[(i64, f64)],
+    day_of: impl Fn(i64) -> D,
+) -> Vec<(i64, f64)> {
+    let mut out = Vec::with_capacity(pts.len());
+    let mut prev: Option<f64> = None;
+    let mut day: Option<D> = None;
+    let mut acc = 0.0;
+    for &(t, v) in pts {
+        let d = day_of(t);
+        if day.as_ref() != Some(&d) {
+            acc = 0.0;
+            day = Some(d);
+        }
+        if let Some(p) = prev {
+            acc += if v >= p { v - p } else { v };
+        }
+        prev = Some(v);
+        out.push((t, (acc * 10.0).round() / 10.0));
+    }
+    out
+}
+
 // ---------------------------------------------------------------- wind
 
 pub const COMPASS16: [&str; 16] = [
@@ -931,6 +961,22 @@ mod tests {
         assert_eq!(c[5].years, 4);
         assert_eq!(c[5].mean_rain, Some(30.0));
         assert_eq!(c[0].years, 5);
+    }
+
+    #[test]
+    fn rain_since_midnight_resets_at_midnight_not_the_stations_9am() {
+        // Hours since an arbitrary midnight; a "day" is 24 of them.
+        let h = |x: i64| x * 3_600_000;
+        let pts = [
+            (h(20), 1.0), // evening: station total 1.0 since 9am
+            (h(22), 3.0), // +2.0
+            (h(25), 4.0), // past midnight: +1.0, counted in the new day
+            (h(32), 5.0), // +1.0 before the station's 9am reset
+            (h(34), 0.4), // after the 9am reset: 0.4 fresh
+        ];
+        let got = rain_since_midnight(&pts, |t| t / h(24));
+        let vals: Vec<f64> = got.iter().map(|p| p.1).collect();
+        assert_eq!(vals, vec![0.0, 2.0, 1.0, 2.0, 2.4]);
     }
 
     #[test]

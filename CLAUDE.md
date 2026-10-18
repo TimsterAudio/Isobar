@@ -36,7 +36,7 @@ GitHub Actions (`.github/workflows/build.yml`) runs the checks, builds both prog
 ## State
 
 Verified in a Linux cloud session (2026-10-17):
-- `cargo test --workspace`: 42 tests pass (dayfile parsing, live mapping, URL normalisation, store, analytics, demo, settings, alerts, chart ticks, formatting).
+- `cargo test --workspace`: 43 tests pass (dayfile parsing, live mapping, URL normalisation, store, analytics, demo, settings, alerts, chart ticks, formatting).
 - Every screen rendered with the demo station in light and dark (screenshots in `docs/`).
 - End to end against a fake MX server: 2,665 days synced in three pages, live reading mapped, graph-data backfill filled the thermograph, and an unreachable station shows a clear message.
 - The Windows `.exe` cross-compiles (12 MB, only system DLLs) and runs under Wine.
@@ -48,4 +48,4 @@ Not verified:
 
 ## Suggested order of work
 
-Everything possible is listed in `docs/ROADMAP.md` with IDs (A1, D1, …), added in full on 2026-10-18 for the owner to trim. Work only on items the owner has said yes to, and tick them off there. The owner's own view tweaks go under Z.
+Everything possible is listed in `docs/ROADMAP.md` with IDs (A1, D1, …), added in full on 2026-10-18 for the owner to trim. Work only on items the owner has said yes to, and tick them off there. The owner's own view tweaks go under Z. The owner also reviews a printable checklist page (a claude.ai artifact, "Isobar roadmap review") with the same IDs and a Done mark per item; update it when items are added or finished.

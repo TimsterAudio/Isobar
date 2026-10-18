@@ -339,7 +339,26 @@ impl Now {
                         .get("dew")
                         .map(|d| align(&xs, d))
                         .unwrap_or_default();
-                    Chart::new("thermograph", 226.0, xs, XAxis::Time)
+                    // Rain since midnight on its own scale at the right, drawn
+                    // first so the temperature trace sits on top of it.
+                    let rain = rain_today(snap);
+                    let show_rain = rain.iter().any(|p| p.1 > 0.0);
+                    let mut chart = Chart::new("thermograph", 226.0, xs.clone(), XAxis::Time);
+                    if show_rain {
+                        chart = chart
+                            .series(
+                                Series::line("Rain since midnight", align(&xs, &rain), p.rain)
+                                    .width(1.25)
+                                    .fill(alpha(p.rain, 0.12))
+                                    .right()
+                                    .span_gaps()
+                                    .max_gap(GAP_SECS)
+                                    .no_points()
+                                    .unit(format!(" {}", u.rain), 1),
+                            )
+                            .right_from_zero();
+                    }
+                    chart
                         .series(
                             Series::line("Temperature", temp, p.trace)
                                 .width(2.5)
@@ -376,6 +395,14 @@ impl Now {
                     ui.spacing_mut().item_spacing.x = 16.0;
                     ui::key(ui, "Temperature", p.trace, ui::KeyMark::Line);
                     ui::key(ui, "Dew point", p.ink2, ui::KeyMark::Dashed);
+                    if rain_today(snap).iter().any(|p| p.1 > 0.0) {
+                        ui::key(
+                            ui,
+                            &format!("Rain since midnight ({})", u.rain),
+                            p.rain,
+                            ui::KeyMark::Square,
+                        );
+                    }
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         ui::small(ui, "Last 24 hours", p.ink2);
                     });
@@ -777,6 +804,17 @@ fn bottom(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
     ui.data_mut(|d| d.insert_temp(id, (pass, prev, this.max(used))));
     ui.add_space((prev.max(used) - used).max(0.0) + 6.0);
     add(ui);
+}
+
+/// Rain since local midnight, built up from the station's "rain today"
+/// samples so it resets at midnight whatever the station's rain day is.
+fn rain_today(snap: &Snapshot) -> Vec<(i64, f64)> {
+    let pts = snap
+        .samples
+        .get("rain_today")
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    isobar_core::analytics::rain_since_midnight(pts, |t| chart::ts_day(t as f64 / 1000.0))
 }
 
 /// Values of `pts` at the timestamps `xs` (seconds), where they line up

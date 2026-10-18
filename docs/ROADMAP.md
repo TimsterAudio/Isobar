@@ -4,7 +4,7 @@ Everything that could be added, from the data the owner's Cumulus MX 5.1.5 stati
 
 ## Decisions so far (2026-10-18)
 
-- **Yes:** A1, A2, B1, B2, B4, B6, C1, Z1
+- **Yes:** A1, A2, B1, B2, B4, B6, C1, Z1, Z2
 - **Later:** A3, B5, B7, B8, D1, D2, D3
 - **Undecided:** B3, E1, E2, E3, F1, F2, G1, G2, H1, H2, H3, I1, I2, J1, J2, J3, K1, K2, K3
 
@@ -71,6 +71,7 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 Changes to the views and anything not listed, added as the owner sends them.
 
 - [x] **Z1** The side rail slides out of the way, or can be pinned open. — **Yes**, done 2026-10-18
+- [x] **Z2** Rain since midnight on the thermograph: a line with a fill underneath, on its own scale, starting again at midnight (not at the station's rain-day hour). — **Yes**, done 2026-10-18
 
 ## Notes for building
 - Most of D–J use dayfile fields already parsed into `DayRecord` but unused: `et`, `sunshine`, `hdd`, `cdd`, `wind_run`, `rain_hour_max`, `dew_*`, `hum_*`, `feels_*`, `apparent_*`. Check each against the station's real dayfile before relying on it; older lines leave the later fields empty.
