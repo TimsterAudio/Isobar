@@ -133,10 +133,10 @@ impl MxClient {
         Ok(out)
     }
 
-    /// Best-effort backfill of recent detailed readings from the graph data
-    /// endpoints. Returns `(metric, points)` pairs with Unix-ms timestamps.
-    /// Endpoints that are missing or disabled are skipped silently.
-    pub fn recent_series(&self) -> Vec<(String, Vec<(i64, f64)>)> {
+    /// Best-effort backfill of recent detailed readings from the graph-data
+    /// endpoints (MX keeps up to a few days, a reading a minute). Files that
+    /// are missing or disabled are skipped and listed in the report.
+    pub fn recent_series(&self) -> Backfill {
         const FILES: [&str; 7] = [
             "tempdata",
             "pressdata",
@@ -146,34 +146,52 @@ impl MxClient {
             "humdata",
             "solardata",
         ];
-        let mut out = Vec::new();
+        let mut out = Backfill::default();
         for file in FILES {
-            let Ok(v) = self.get_json(&format!("/api/graphdata/{file}.json")) else {
-                continue;
-            };
-            let Some(obj) = v.as_object() else { continue };
-            for (key, series) in obj {
-                let Some(metric) = metric_for_graph_key(key) else {
-                    continue;
-                };
-                let pts: Vec<(i64, f64)> = series
-                    .as_array()
-                    .map(|a| {
-                        a.iter()
-                            .filter_map(|p| {
-                                let p = p.as_array()?;
-                                Some((p.first()?.as_f64()? as i64, p.get(1)?.as_f64()?))
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default();
-                if !pts.is_empty() {
-                    out.push((metric.to_string(), pts));
-                }
+            match self.get_json(&format!("/api/graphdata/{file}.json")) {
+                Ok(v) => out.series.extend(parse_graph_series(&v)),
+                Err(e) => out.failed.push((file.to_string(), e.to_string())),
             }
         }
         out
     }
+}
+
+/// What a graph-data backfill brought back.
+#[derive(Debug, Clone, Default)]
+pub struct Backfill {
+    /// `(metric, points)` with Unix-ms timestamps.
+    pub series: Vec<(String, Vec<(i64, f64)>)>,
+    /// Files that couldn't be read, with the reason.
+    pub failed: Vec<(String, String)>,
+}
+
+impl Backfill {
+    pub fn points(&self) -> usize {
+        self.series.iter().map(|s| s.1.len()).sum()
+    }
+}
+
+/// The series in one graph-data file: `{"temp": [[ms, value], ...], ...}`.
+/// Series Isobar doesn't keep are skipped.
+pub fn parse_graph_series(v: &Value) -> Vec<(String, Vec<(i64, f64)>)> {
+    let Some(obj) = v.as_object() else {
+        return Vec::new();
+    };
+    obj.iter()
+        .filter_map(|(key, series)| {
+            let metric = metric_for_graph_key(key)?;
+            let pts: Vec<(i64, f64)> = series
+                .as_array()?
+                .iter()
+                .filter_map(|p| {
+                    let p = p.as_array()?;
+                    Some((p.first()?.as_f64()? as i64, p.get(1)?.as_f64()?))
+                })
+                .collect();
+            (!pts.is_empty()).then(|| (metric.to_string(), pts))
+        })
+        .collect()
 }
 
 /// Map MX graph-data series names onto Isobar's sample metric names.
@@ -219,6 +237,23 @@ mod tests {
             normalise_base("https://wx.example.com"),
             "https://wx.example.com"
         );
+    }
+
+    /// The start of a real `tempdata.json` from the owner's MX 5.1.5: one
+    /// reading a minute, Unix-ms timestamps in UTC, 72 hours deep.
+    #[test]
+    fn parses_real_graph_data() {
+        let v: Value = serde_json::from_str(include_str!(
+            "../tests/fixtures/graphdata-tempdata-mx-5.1.5.json"
+        ))
+        .unwrap();
+        let s = parse_graph_series(&v);
+        let (metric, pts) = s.iter().find(|s| s.0 == "intemp").unwrap();
+        assert_eq!(metric, "intemp");
+        assert_eq!(pts.len(), 8);
+        assert_eq!(pts[0], (1_792_047_420_000, 21.2));
+        assert_eq!(pts[1].0 - pts[0].0, 60_000);
+        assert_eq!(pts[7], (1_792_047_840_000, 21.2));
     }
 
     #[test]

@@ -18,6 +18,7 @@ const SAMPLE_EVERY_MS: i64 = 60_000;
 const HISTORY_CHECK: Duration = Duration::from_secs(30 * 60);
 const KEEP_SAMPLES_MS: i64 = 21 * 24 * 60 * 60_000;
 const DAY_MS: i64 = 24 * 3_600_000;
+const BACKFILL_AFTER_GAP_MS: i64 = 15 * 60_000;
 
 pub type Samples = BTreeMap<String, Vec<(i64, f64)>>;
 
@@ -30,6 +31,18 @@ pub struct Status {
     pub sync_progress: Option<(usize, usize)>,
     pub day_count: usize,
     pub last_sync: Option<i64>,
+    /// The last fill of recent detail from MX's graph data.
+    pub backfill: Option<BackfillStatus>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct BackfillStatus {
+    /// When it ran (Unix ms).
+    pub at: i64,
+    /// Readings received across all series.
+    pub points: usize,
+    /// Graph-data files MX didn't serve, with the reason.
+    pub failed: Vec<(String, String)>,
 }
 
 /// The outcome of something the person asked for in Settings.
@@ -282,15 +295,25 @@ impl Worker {
             }
         };
 
-        if self.backfilled_for.as_deref() != Some(client.base()) {
+        // Fill recent detail from MX's graph data on first connect, and again
+        // after any gap (the computer slept, or the station was unreachable),
+        // so the 24-hour charts have no holes MX could have filled.
+        let gap = self.last_sample > 0 && now_ms() - self.last_sample > BACKFILL_AFTER_GAP_MS;
+        if gap || self.backfilled_for.as_deref() != Some(client.base()) {
             self.backfilled_for = Some(client.base().to_string());
-            let series = client.recent_series();
-            if !series.is_empty() {
-                for (metric, pts) in &series {
-                    let _ = self.store.insert_series(metric, pts);
-                }
+            let fill = client.recent_series();
+            for (metric, pts) in &fill.series {
+                let _ = self.store.insert_series(metric, pts);
+            }
+            if !fill.series.is_empty() {
                 self.reload_samples();
             }
+            let status = BackfillStatus {
+                at: now_ms(),
+                points: fill.points(),
+                failed: fill.failed,
+            };
+            self.update(|s| s.status.backfill = Some(status));
         }
 
         match client.current() {

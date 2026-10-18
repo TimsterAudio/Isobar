@@ -8,6 +8,8 @@
 - **Rain (B4):** the rain rate always shows, plus yesterday, the last 24 hours, this week, the current storm's total and start, and when it last rained.
 - **Indoor (B6):** a sixth card with indoor temperature and humidity, how it compares with outside, and a 24-hour line of inside against outside. It appears when the station reports indoor readings; with six cards, Now shows them in two rows of three.
 - **Gaps in the 24-hour charts:** a stretch of more than 20 minutes with no readings (Isobar closed, or the station offline) now shows as a break, not a straight line across it.
+- **Filling gaps from MX:** Isobar fetches MX's recent detail (up to three days, a reading a minute) when it starts and again after any gap of more than 15 minutes, such as the computer sleeping or the station being unreachable, so the 24-hour charts fill in. Settings → History shows how many readings the last fill brought, or why MX didn't send them.
+- **Dashed lines** (the dew point on the thermograph) stay even with a reading a minute; before, they broke up into dots.
 - **Side rail (Z1):** the « button beside the name hides the rail to a narrow strip; point at the strip to slide the rail out over the screen, and use the pin to keep it open. Isobar remembers the choice.
 
 ## 0.2.0 – 2026-10-17

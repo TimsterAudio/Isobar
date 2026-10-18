@@ -502,7 +502,7 @@ impl Chart {
                         if run.len() == 1 {
                             clip.circle_filled(run[0], width, s.color);
                         } else if matches!(s.style, Style::Dashed { .. }) {
-                            clip.extend(Shape::dashed_line(&run, stroke, 5.0, 4.0));
+                            clip.extend(dashed(&run, stroke, 5.0, 4.0));
                         } else {
                             clip.add(Shape::line(run, stroke));
                         }
@@ -687,6 +687,74 @@ impl Chart {
                 p.ink,
             );
         }
+    }
+}
+
+/// A dashed polyline whose pattern runs on along the whole line, so it stays
+/// even when the points are closer together than a dash (a reading a minute
+/// across a day). Each dash follows the line's bends.
+fn dashed(points: &[Pos2], stroke: Stroke, dash: f32, gap: f32) -> Vec<Shape> {
+    let period = dash + gap;
+    let mut out = Vec::new();
+    let mut current: Vec<Pos2> = Vec::new();
+    // Distance along the pattern at the start of the current segment.
+    let mut phase = 0.0f32;
+    for w in points.windows(2) {
+        let (a, b) = (w[0], w[1]);
+        let len = a.distance(b);
+        if len <= f32::EPSILON {
+            continue;
+        }
+        let mut t = 0.0f32;
+        while t < len {
+            let in_dash = phase < dash;
+            let left = if in_dash {
+                dash - phase
+            } else {
+                period - phase
+            };
+            let step = left.min(len - t);
+            let p0 = a + (b - a) * (t / len);
+            let p1 = a + (b - a) * ((t + step) / len);
+            if in_dash {
+                if current.is_empty() {
+                    current.push(p0);
+                }
+                current.push(p1);
+            }
+            t += step;
+            phase += step;
+            if phase >= period - f32::EPSILON {
+                phase = 0.0;
+            }
+            if phase >= dash - f32::EPSILON && in_dash && !current.is_empty() {
+                out.push(dash_shape(std::mem::take(&mut current), stroke));
+            }
+        }
+    }
+    if current.len() > 1 {
+        out.push(dash_shape(current, stroke));
+    }
+    out
+}
+
+/// One dash. Points packed closer than a pixel draw unevenly at thin widths,
+/// so a dash keeps only points at least 2 px apart (and its ends).
+fn dash_shape(points: Vec<Pos2>, stroke: Stroke) -> Shape {
+    let last = *points.last().unwrap();
+    let mut kept: Vec<Pos2> = Vec::with_capacity(points.len());
+    for p in points {
+        if kept.last().is_none_or(|k: &Pos2| k.distance(p) >= 2.0) {
+            kept.push(p);
+        }
+    }
+    if kept.last() != Some(&last) {
+        kept.push(last);
+    }
+    if kept.len() == 2 {
+        Shape::line_segment([kept[0], kept[1]], stroke)
+    } else {
+        Shape::line(kept, stroke)
     }
 }
 
@@ -880,6 +948,14 @@ mod tests {
             "{years:?}"
         );
         assert!(years.len() <= 12);
+    }
+
+    #[test]
+    fn dashes_run_on_across_short_segments() {
+        // 100 points 1 px apart: 99 px of line, so 11 dashes of 5 px.
+        let pts: Vec<Pos2> = (0..100).map(|i| pos2(i as f32, 0.0)).collect();
+        let shapes = dashed(&pts, Stroke::new(1.0, Color32::BLACK), 5.0, 4.0);
+        assert_eq!(shapes.len(), 11);
     }
 
     #[test]

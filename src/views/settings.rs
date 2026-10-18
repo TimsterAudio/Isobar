@@ -347,6 +347,24 @@ impl SettingsView {
                 ),
             };
             ui::muted(ui, line);
+            if let Some(b) = &s.backfill {
+                let when = format::ago(Some(b.at), snap.now_ms);
+                let text = match (b.points, b.failed.is_empty()) {
+                    (0, false) => format!(
+                        "MX didn't send its recent detail ({when}), so the 24-hour charts only show what Isobar recorded itself."
+                    ),
+                    (n, _) => format!("Recent detail: {n} readings from MX's graph data, {when}."),
+                };
+                let resp = ui::muted(ui, text);
+                if !b.failed.is_empty() {
+                    let why: Vec<String> = b
+                        .failed
+                        .iter()
+                        .map(|(f, e)| format!("{f}.json: {e}"))
+                        .collect();
+                    resp.on_hover_text(why.join("\n"));
+                }
+            }
             ui::field(
                 ui,
                 "Dayfile on this computer",
