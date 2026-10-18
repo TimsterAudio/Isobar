@@ -37,6 +37,9 @@ pub struct Series {
     pub fill: Option<Color32>,
     /// Join across missing values instead of breaking the line.
     pub span_gaps: bool,
+    /// Break the line where neighbouring values are further apart than this
+    /// (in x units), so a stretch with no data shows as a gap.
+    pub max_gap: Option<f64>,
     /// Draw markers on each value when there's room.
     pub points: bool,
     /// Shown in the hover read-out.
@@ -55,6 +58,7 @@ impl Series {
             right: false,
             fill: None,
             span_gaps: false,
+            max_gap: None,
             points: true,
             in_readout: true,
             digits: 1,
@@ -91,6 +95,11 @@ impl Series {
 
     pub fn fill(mut self, c: Color32) -> Self {
         self.fill = Some(c);
+        self
+    }
+
+    pub fn max_gap(mut self, gap: f64) -> Self {
+        self.max_gap = Some(gap);
         self
     }
 
@@ -457,9 +466,17 @@ impl Chart {
                 }
                 Style::Line { width } | Style::Dashed { width } => {
                     let mut runs: Vec<Vec<Pos2>> = vec![Vec::new()];
+                    let mut last_x: Option<f64> = None;
                     for &i in &vis {
                         match s.ys.get(i).copied().flatten() {
-                            Some(v) => runs.last_mut().unwrap().push(pt(i, v, s.right)),
+                            Some(v) => {
+                                let x = self.xs[i];
+                                if s.max_gap.zip(last_x).is_some_and(|(g, l)| x - l > g) {
+                                    runs.push(Vec::new());
+                                }
+                                last_x = Some(x);
+                                runs.last_mut().unwrap().push(pt(i, v, s.right));
+                            }
                             None if !s.span_gaps => runs.push(Vec::new()),
                             None => {}
                         }

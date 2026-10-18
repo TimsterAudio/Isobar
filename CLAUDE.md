@@ -36,15 +36,15 @@ GitHub Actions (`.github/workflows/build.yml`) runs the checks, builds both prog
 ## State
 
 Verified in a Linux cloud session (2026-10-17):
-- `cargo test --workspace`: 40 tests pass (dayfile parsing, live mapping, URL normalisation, store, analytics, demo, settings, alerts, chart ticks, formatting).
+- `cargo test --workspace`: 41 tests pass (dayfile parsing, live mapping, URL normalisation, store, analytics, demo, settings, alerts, chart ticks, formatting).
 - Every screen rendered with the demo station in light and dark (screenshots in `docs/`).
 - End to end against a fake MX server: 2,665 days synced in three pages, live reading mapped, graph-data backfill filled the thermograph, and an unreachable station shows a clear message.
 - The Windows `.exe` cross-compiles (12 MB, only system DLLs) and runs under Wine.
 
-Verified by the owner on their station (2026-10-18, Cumulus MX 5.1.5 build 5012): runs on Linux and Windows, connects quickly, and the full history loads almost instantly. Every live field Isobar reads maps correctly from their `currentdata`, which is kept as the fixture `crates/isobar-core/tests/fixtures/currentdata-mx-5.1.5.json`. That response also carries fields Isobar doesn't use yet (sunrise and sunset, dew point and wind chill extremes, cloud base, sunshine hours, rain this week and last 24 hours, indoor readings, Beaufort, `DataStopped`), handy when adding data points. MX 5 reports times as 12-hour text ("4:52 AM") and sends no compass point (`BearingCP`), so Isobar works that out from the bearing.
+Verified by the owner on their station (2026-10-18, Cumulus MX 5.1.5 build 5012): runs on Linux and Windows, connects quickly, and the full history loads almost instantly. Every live field Isobar reads maps correctly from their `currentdata`, which is kept as the fixture `crates/isobar-core/tests/fixtures/currentdata-mx-5.1.5.json`. Isobar now also reads its sunrise and sunset, sunshine hours, clear-sky solar maximum, extra rain figures and indoor readings; fields still unused include dew point and wind chill extremes, cloud base, Beaufort and `DataStopped`. MX 5 reports times as 12-hour text ("4:52 AM") and sends no compass point (`BearingCP`), so Isobar works that out from the bearing.
 
 Not verified:
-- The `/api/graphdata/*.json` backfill format is assumed to be `{ "series": [[ms, value], ...] }`. Unconfirmed; failures are silent by design.
+- The `/api/graphdata/*.json` backfill format is assumed to be `{ "series": [[ms, value], ...] }`. Unconfirmed; failures are silent by design. After the 2026-10-18 update the owner saw a straight line across the 24-hour charts where Isobar had been closed, which suggests the backfill isn't filling gaps on their MX. Ask for a sample of `/api/graphdata/tempdata.json`.
 - Whether the owner's MX interface needs a login. Basic auth is supported but untested.
 
 ## Suggested order of work

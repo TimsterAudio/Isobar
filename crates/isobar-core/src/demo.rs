@@ -153,9 +153,29 @@ pub fn samples(now_ms: i64) -> BTreeMap<String, Vec<(i64, f64)>> {
         let sun = (((h - 6.0) / 13.0) * PI).sin().max(0.0);
         push("solar", t, (sun * 780.0 * (0.8 + r.next() * 0.2)).round());
         push("bearing", t, (200.0 + (tf / 4e6).sin() * 25.0).round());
+        // Indoors lags the outside and swings less.
+        let lag = -(((h - 6.0) / 24.0) * TAU).cos();
+        push("intemp", t, round1(19.5 + 1.6 * lag));
+        push("inhum", t, (54.0 + 4.0 * lag).round());
         t += 5 * 60_000;
     }
     out
+}
+
+/// "2026-10-12 02:02" in local time, as MX writes its last rain tip.
+fn local_iso(ms: i64) -> String {
+    Local
+        .timestamp_millis_opt(ms)
+        .single()
+        .map(|t| t.format("%Y-%m-%d %H:%M").to_string())
+        .unwrap_or_default()
+}
+
+/// A rough clear-sky maximum for the time of day, peaking near 950 W/m².
+fn clear_sky(ms: i64) -> f64 {
+    let t = Local.timestamp_millis_opt(ms).unwrap();
+    let h = t.hour() as f64 + t.minute() as f64 / 60.0;
+    ((((h - 6.0) / 13.0) * PI).sin().max(0.0) * 950.0).round()
 }
 
 /// A live reading consistent with the latest samples. `jitter` in -1..1
@@ -202,6 +222,20 @@ pub fn live(samples: &BTreeMap<String, Vec<(i64, f64)>>, now_ms: i64, jitter: f6
         uv: Some(3.2),
         uv_high: Some(6.1),
         forecast: Some("Fine, becoming less settled".into()),
+        rain_yesterday: Some(3.2),
+        rain_week: Some(9.6),
+        rain_24h: Some(4.8),
+        storm_rain: Some(8.0),
+        storm_start: Some("16/10/2026 4:10 PM".into()),
+        last_rain_tip: Some(local_iso(now_ms - 26 * 3_600_000)),
+        sunrise: Some("6:12 AM".into()),
+        sunset: Some("7:24 PM".into()),
+        moonrise: Some("11:30 AM".into()),
+        moonset: Some("2:08 AM".into()),
+        sunshine_hours: Some(5.4),
+        solar_max_now: Some(clear_sky(now_ms)),
+        indoor_temp: last("intemp"),
+        indoor_hum: last("inhum"),
         units: Units::default(),
     }
 }

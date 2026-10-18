@@ -4,6 +4,10 @@
 
 - **Wind in light air (A1):** when the average wind is below about 3 km/h (or the same in the station's units), the dial and its text use MX's 10-minute average bearing, which reads truer than the latest. The text says "Calm" or "Light" when it does.
 - **24-hour times (A2):** times show as 16:52 by default, including chart axes and the station's own times, which MX 5 sends as "4:52 PM". Settings → Appearance → Times switches to 12-hour.
+- **Sun (B1, B2):** sunrise, sunset and day length (moonrise and moonset on hover), sunshine hours today, and a cloudiness gauge: the sunshine now against what a clear sky would give at this time of day, read as clear, hazy, cloudy or overcast.
+- **Rain (B4):** the rain rate always shows, plus yesterday, the last 24 hours, this week, the current storm's total and start, and when it last rained.
+- **Indoor (B6):** a sixth card with indoor temperature and humidity, how it compares with outside, and a 24-hour line of inside against outside. It appears when the station reports indoor readings; with six cards, Now shows them in two rows of three.
+- **Gaps in the 24-hour charts:** a stretch of more than 20 minutes with no readings (Isobar closed, or the station offline) now shows as a break, not a straight line across it.
 - **Side rail (Z1):** the « button beside the name hides the rail to a narrow strip; point at the strip to slide the rail out over the screen, and use the pin to keep it open. Isobar remembers the choice.
 
 ## 0.2.0 – 2026-10-17

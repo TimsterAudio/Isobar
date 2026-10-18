@@ -15,6 +15,10 @@ use crate::settings::Settings;
 use crate::theme::{self, alpha, Palette};
 use crate::ui;
 
+/// A stretch longer than this with no readings (Isobar closed, station
+/// offline) shows as a break in the 24-hour charts, not a straight line.
+const GAP_SECS: f64 = 20.0 * 60.0;
+
 #[derive(Default)]
 pub struct Now;
 
@@ -126,15 +130,29 @@ impl Now {
         ui.spacing_mut().item_spacing.y = 0.0;
         ui::rule(ui, p.grid);
         ui.spacing_mut().item_spacing.y = 24.0;
-        let cols = if ui.available_width() >= 1180.0 { 5 } else { 3 };
-        let instruments: [fn(&Self, &mut Ui, &Snapshot, &LiveReading); 5] = [
+        type Instrument = fn(&Now, &mut Ui, &Snapshot, &LiveReading);
+        let mut instruments: Vec<Instrument> = vec![
             Self::wind,
             Self::pressure,
             Self::rain,
             Self::humidity,
             Self::sun,
         ];
-        for row in instruments.chunks(cols) {
+        if r.indoor_temp.is_some() {
+            instruments.push(Self::indoor);
+        }
+        // Five fit in a row on a wide window; six read better as two rows of three.
+        let cols = if instruments.len() <= 5 && ui.available_width() >= 1180.0 {
+            5
+        } else {
+            3
+        };
+        for (k, row) in instruments.chunks(cols).enumerate() {
+            if k > 0 {
+                ui.spacing_mut().item_spacing.y = 0.0;
+                ui::rule(ui, p.faint);
+                ui.spacing_mut().item_spacing.y = 24.0;
+            }
             ui::columns(ui, cols, 32.0, true, |i, ui| {
                 if let Some(f) = row.get(i) {
                     ui.add_space(16.0);
@@ -322,6 +340,7 @@ impl Now {
                             Series::line("Temperature", temp, p.trace)
                                 .width(2.5)
                                 .span_gaps()
+                                .max_gap(GAP_SECS)
                                 .no_points()
                                 .unit(&u.temp, 1),
                         )
@@ -330,6 +349,7 @@ impl Now {
                                 .width(1.25)
                                 .dashed()
                                 .span_gaps()
+                                .max_gap(GAP_SECS)
                                 .no_points()
                                 .unit(&u.temp, 1),
                         )
@@ -389,7 +409,10 @@ impl Now {
     fn spark(ui: &mut Ui, snap: &Snapshot, key: &str, color: egui::Color32, fill: bool) {
         let (xs, ys) = series(snap, key);
         if xs.len() > 1 {
-            let mut s = Series::line(key, ys, color).span_gaps().no_points();
+            let mut s = Series::line(key, ys, color)
+                .span_gaps()
+                .max_gap(GAP_SECS)
+                .no_points();
             if fill {
                 s = s.fill(alpha(color, 0.14));
             }
@@ -489,24 +512,66 @@ impl Now {
         if rate > 0.0 {
             ui::text(
                 ui,
-                format!("Raining {} {}/h", num(Some(rate), 1), u.rain),
+                format!("Raining, {} {}/h", num(Some(rate), 1), u.rain),
                 theme::semi(14.0),
                 p.rain,
             );
         } else {
-            ui::text(ui, "Not raining", theme::body(14.0), p.ink);
+            ui::text(
+                ui,
+                format!("Not raining, rate {} {}/h", num(r.rain_rate, 1), u.rain),
+                theme::body(14.0),
+                p.ink,
+            );
+        }
+        if r.storm_rain.is_some_and(|s| s > 0.0) {
+            let since = r
+                .storm_start
+                .as_deref()
+                .map(storm_since)
+                .unwrap_or_default();
+            ui::text(
+                ui,
+                format!("Storm {} {}{since}", num(r.storm_rain, 1), u.rain),
+                theme::body(14.0),
+                p.rain,
+            );
         }
         ui::text(
             ui,
             format!(
-                "Month {} · year {} {}",
-                num(r.rain_month, 1),
-                num(r.rain_year, 1),
-                u.rain
+                "Yesterday {} · last 24 h {}",
+                num(r.rain_yesterday, 1),
+                num(r.rain_24h, 1)
             ),
             theme::body(14.0),
             p.ink2,
         );
+        ui::text(
+            ui,
+            format!(
+                "Week {} · month {} · year {}",
+                num(r.rain_week, 1),
+                num(r.rain_month, 1),
+                num(r.rain_year, 1)
+            ),
+            theme::body(14.0),
+            p.ink2,
+        );
+        if rate <= 0.0 {
+            if let Some((when, ago)) = r
+                .last_rain_tip
+                .as_deref()
+                .and_then(|t| format::station_moment(t, snap.now_ms))
+            {
+                ui::text(
+                    ui,
+                    format!("Last rain {when} ({ago})"),
+                    theme::body(13.0),
+                    p.ink2,
+                );
+            }
+        }
         bottom(ui, |ui| Self::spark(ui, snap, "rain_today", p.rain, true));
     }
 
@@ -532,30 +597,169 @@ impl Now {
     fn sun(&self, ui: &mut Ui, snap: &Snapshot, r: &LiveReading) {
         let p = Palette::of(ui.ctx());
         Self::title(ui, "Sun");
-        ui::reading(ui, &num(r.solar, 0), "W/m²", 44.0, p.ink);
+        ui::reading(ui, &num(r.solar, 0), "W/m²", 44.0, p.ink)
+            .on_hover_text(format!("Peak today {} W/m²", num(r.solar_high, 0)));
+        // How much of the clear-sky sunshine is getting through.
+        match (r.solar, r.solar_max_now) {
+            (Some(now), Some(max)) if max >= 20.0 => {
+                let frac = (now / max).clamp(0.0, 1.0);
+                let sky = match frac {
+                    f if f >= 0.85 => "Clear",
+                    f if f >= 0.6 => "Hazy",
+                    f if f >= 0.3 => "Cloudy",
+                    _ => "Overcast",
+                };
+                let resp = ui
+                    .horizontal(|ui| {
+                        ui.spacing_mut().item_spacing.x = 8.0;
+                        ui::meter(ui, 80.0, frac as f32, p.warn);
+                        ui::text(
+                            ui,
+                            format!("{sky}, {:.0}% of clear sky", frac * 100.0),
+                            theme::body(14.0),
+                            p.ink,
+                        );
+                    })
+                    .response;
+                resp.on_hover_text(format!(
+                    "Sunshine now against the {} W/m² a clear sky would give at this time of day.",
+                    num(Some(max), 0)
+                ));
+            }
+            (_, Some(_)) => {
+                ui::text(ui, "Sun down", theme::body(14.0), p.ink);
+            }
+            _ => {}
+        }
         let uv = match r.uv {
-            Some(uv) => format!("UV {}, {}", num(Some(uv), 1), uv_band(uv)),
+            Some(uv) => {
+                let peak = r
+                    .uv_high
+                    .map(|v| format!(" (peak {})", num(Some(v), 1)))
+                    .unwrap_or_default();
+                format!("UV {}, {}{peak}", num(Some(uv), 1), uv_band(uv))
+            }
             None => "No UV sensor".into(),
         };
         ui::text(ui, uv, theme::body(14.0), p.ink);
-        let peak_uv = r
-            .uv_high
-            .map(|v| format!(", UV {}", num(Some(v), 1)))
-            .unwrap_or_default();
+        if let Some(h) = r.sunshine_hours {
+            ui::text(
+                ui,
+                format!("Sunshine {} h today", num(Some(h), 1)),
+                theme::body(14.0),
+                p.ink,
+            );
+        }
+        if let (Some(rise), Some(set)) = (&r.sunrise, &r.sunset) {
+            ui::text(
+                ui,
+                format!(
+                    "Sunrise {} · sunset {}",
+                    format::clock(rise),
+                    format::clock(set)
+                ),
+                theme::body(14.0),
+                p.ink2,
+            );
+            if let Some(len) = format::span_between(rise, set) {
+                let moon = match (&r.moonrise, &r.moonset) {
+                    (Some(mr), Some(ms)) => format!(
+                        "Moonrise {} · moonset {}",
+                        format::clock(mr),
+                        format::clock(ms)
+                    ),
+                    _ => String::new(),
+                };
+                let resp = ui::text(ui, format!("Day length {len}"), theme::body(14.0), p.ink2);
+                if !moon.is_empty() {
+                    resp.on_hover_text(moon);
+                }
+            }
+        }
+        bottom(ui, |ui| Self::spark(ui, snap, "solar", p.warn, true));
+    }
+
+    fn indoor(&self, ui: &mut Ui, snap: &Snapshot, r: &LiveReading) {
+        let p = Palette::of(ui.ctx());
+        let u = &r.units;
+        Self::title(ui, "Indoor");
+        ui::reading(ui, &num(r.indoor_temp, 1), &u.temp, 44.0, p.ink);
         ui::text(
             ui,
-            format!("Peak {} W/m²{peak_uv}", num(r.solar_high, 0)),
+            format!("Humidity {}%", num(r.indoor_hum, 0)),
             theme::body(14.0),
-            p.ink2,
+            p.ink,
         );
-        bottom(ui, |ui| Self::spark(ui, snap, "solar", p.warn, true));
+        if let (Some(i), Some(o)) = (r.indoor_temp, r.temp) {
+            let d = i - o;
+            let rel = if d.abs() < 0.5 {
+                "about the same inside".to_string()
+            } else if d > 0.0 {
+                format!("{}{} warmer inside", num(Some(d), 1), u.temp)
+            } else {
+                format!("{}{} cooler inside", num(Some(-d), 1), u.temp)
+            };
+            ui::text(
+                ui,
+                format!("Outside {}{}, {rel}", num(Some(o), 1), u.temp),
+                theme::body(14.0),
+                p.ink2,
+            );
+        }
+        bottom(ui, |ui| {
+            // Inside against outside over the last 24 hours, on one scale.
+            let (xs, inside) = series(snap, "intemp");
+            if xs.len() > 1 {
+                let outside = snap
+                    .samples
+                    .get("temp")
+                    .map(|d| align(&xs, d))
+                    .unwrap_or_default();
+                Chart::sparkline("spark-indoor", 44.0, xs)
+                    .series(
+                        Series::line("Outside", outside, alpha(p.trace, 0.45))
+                            .width(1.25)
+                            .span_gaps()
+                            .max_gap(GAP_SECS)
+                            .no_points(),
+                    )
+                    .series(
+                        Series::line("Inside", inside, p.ink2)
+                            .span_gaps()
+                            .max_gap(GAP_SECS)
+                            .no_points(),
+                    )
+                    .show(ui);
+            } else {
+                ui.allocate_exact_size(vec2(ui.available_width(), 44.0), Sense::hover());
+            }
+        });
+        if snap.samples.get("intemp").is_some_and(|v| v.len() > 1) {
+            ui::small(ui, "Inside, against outside (violet)", p.ink2);
+        }
     }
 }
 
-/// Put `add` at the bottom of a 196 px instrument column.
+/// " since 16 Oct, 16:10" from MX's storm start, which is the station's own
+/// date and time text ("16/10/2026 4:10 PM"); the time part follows the
+/// chosen clock.
+fn storm_since(start: &str) -> String {
+    let mut parts = start.trim().splitn(2, ' ');
+    let date = parts.next().unwrap_or_default();
+    let time = parts.next().map(format::clock);
+    let date = isobar_core::dayfile::parse_date(date)
+        .map(format::short_date)
+        .unwrap_or_else(|| date.to_string());
+    match time {
+        Some(t) => format!(" since {date}, {t}"),
+        None => format!(" since {date}"),
+    }
+}
+
+/// Put `add` at the bottom of an instrument column, so the sparklines line up.
 fn bottom(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
     let top = ui.min_rect().top();
-    let target = top + 196.0 + 10.0;
+    let target = top + 236.0;
     let gap = (target - ui.cursor().top()).max(6.0);
     ui.add_space(gap);
     add(ui);

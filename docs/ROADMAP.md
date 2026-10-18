@@ -18,12 +18,12 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 - [~] **A3** Warn when MX's `DataStopped` flag is set, even while MX still answers. *Live* — *Later*
 
 ## B. More on Now
-- [ ] **B1** Sunrise, sunset and day length; moonrise and moonset. *Live* — **Yes**
-- [ ] **B2** Sunshine hours today, and a cloudiness gauge from `SolarRad` against `CurrentSolarMax`. *Live* — **Yes**
+- [x] **B1** Sunrise, sunset and day length; moonrise and moonset. *Live* — **Yes**, done 2026-10-18
+- [x] **B2** Sunshine hours today, and a cloudiness gauge from `SolarRad` against `CurrentSolarMax`. *Live* — **Yes**, done 2026-10-18
 - [ ] **B3** Today's dew point and wind chill highs and lows with times. *Live*
-- [ ] **B4** Rain yesterday, this week, last 24 hours, storm total and start, last bucket tip. *Live* — **Yes** Owner's note: also the live rain rate, in mm/h or a unit chosen in Settings.
+- [x] **B4** Rain yesterday, this week, last 24 hours, storm total and start, last bucket tip. *Live* — **Yes**, done 2026-10-18. Owner's note: also the live rain rate, in mm/h or a unit chosen in Settings. The rate now always shows, in the station's unit per hour; which unit choices the owner wants is still to ask.
 - [~] **B5** Wind run today and Beaufort force with description. *Live* — *Later*
-- [ ] **B6** Indoor temperature and humidity, with a 24-hour line against outside. *Live* — **Yes**
+- [x] **B6** Indoor temperature and humidity, with a 24-hour line against outside. *Live* — **Yes**, done 2026-10-18
 - [~] **B7** Cloud base. *Live* — *Later*
 - [~] **B8** Heat index, humidex and apparent temperature, with today's extremes. *Live* — *Later*
 

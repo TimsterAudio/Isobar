@@ -81,6 +81,30 @@ pub struct LiveReading {
     pub uv_high: Option<f64>,
 
     pub forecast: Option<String>,
+
+    /// Rain yesterday, in the last 7 days and in the last 24 hours.
+    pub rain_yesterday: Option<f64>,
+    pub rain_week: Option<f64>,
+    pub rain_24h: Option<f64>,
+    /// Rain in the current storm, and when it started (station text).
+    pub storm_rain: Option<f64>,
+    pub storm_start: Option<String>,
+    /// When the rain gauge last tipped, "2026-10-12 02:02".
+    pub last_rain_tip: Option<String>,
+
+    /// Station times of day, as sent ("6:36 AM").
+    pub sunrise: Option<String>,
+    pub sunset: Option<String>,
+    pub moonrise: Option<String>,
+    pub moonset: Option<String>,
+    /// Hours of sunshine so far today.
+    pub sunshine_hours: Option<f64>,
+    /// The clear-sky solar radiation expected right now.
+    pub solar_max_now: Option<f64>,
+
+    pub indoor_temp: Option<f64>,
+    pub indoor_hum: Option<f64>,
+
     pub units: Units,
 }
 
@@ -134,7 +158,7 @@ fn text(v: &Value, keys: &[&str]) -> Option<String> {
         Value::Number(n) => n.to_string(),
         _ => return None,
     };
-    (!s.is_empty() && s != "-").then_some(s)
+    (!s.is_empty() && !s.chars().all(|c| c == '-')).then_some(s)
 }
 
 fn temp_unit(raw: Option<String>) -> String {
@@ -214,6 +238,23 @@ impl LiveReading {
             uv_high: num(v, &["HighUVindexToday", "UVTH"]),
 
             forecast: text(v, &["Forecast", "forecast"]),
+
+            rain_yesterday: num(v, &["RainYesterday", "ryest"]),
+            rain_week: num(v, &["RainWeek", "rweek"]),
+            rain_24h: num(v, &["RainLast24Hour", "r24hour"]),
+            storm_rain: num(v, &["StormRain", "stormrain"]),
+            storm_start: text(v, &["StormRainStart", "stormrainstart"]),
+            last_rain_tip: text(v, &["LastRainTipISO", "LastRainTip"]),
+
+            sunrise: text(v, &["Sunrise", "sunrise"]),
+            sunset: text(v, &["Sunset", "sunset"]),
+            moonrise: text(v, &["Moonrise", "moonrise"]),
+            moonset: text(v, &["Moonset", "moonset"]),
+            sunshine_hours: num(v, &["SunshineHours", "SunshineHoursToday", "sunshinehours"]),
+            solar_max_now: num(v, &["CurrentSolarMax", "CurrentSolarMaximum"]),
+
+            indoor_temp: num(v, &["IndoorTemp", "intemp"]),
+            indoor_hum: num(v, &["IndoorHum", "inhum"]),
             units: Units {
                 temp: temp_unit(text(v, &["TempUnit", "tempunit"])),
                 wind: text(v, &["WindUnit", "windunit"]).unwrap_or(defaults.wind),
@@ -238,6 +279,8 @@ impl LiveReading {
             ("rain_rate", self.rain_rate),
             ("solar", self.solar),
             ("uv", self.uv),
+            ("intemp", self.indoor_temp),
+            ("inhum", self.indoor_hum),
         ]
         .into_iter()
         .filter_map(|(k, v)| v.map(|x| (k, x)))
@@ -354,6 +397,20 @@ mod tests {
         assert_eq!(r.solar_high, Some(30.0));
         assert_eq!((r.uv, r.uv_high), (Some(0.0), Some(0.0)));
         assert_eq!(r.forecast.as_deref(), Some("Settled fine"));
+        assert_eq!(r.rain_yesterday, Some(0.0));
+        assert_eq!(r.rain_week, Some(0.3));
+        assert_eq!(r.rain_24h, Some(0.0));
+        assert_eq!(r.storm_rain, Some(0.0));
+        assert_eq!(r.storm_start, None, "\"-----\" means no storm");
+        assert_eq!(r.last_rain_tip.as_deref(), Some("2026-10-12 02:02"));
+        assert_eq!(r.sunrise.as_deref(), Some("6:36 AM"));
+        assert_eq!(r.sunset.as_deref(), Some("7:45 PM"));
+        assert_eq!(r.moonrise.as_deref(), Some("11:30 AM"));
+        assert_eq!(r.moonset.as_deref(), Some("2:08 AM"));
+        assert_eq!(r.sunshine_hours, Some(0.0));
+        assert_eq!(r.solar_max_now, Some(83.0));
+        assert_eq!(r.indoor_temp, Some(17.9));
+        assert_eq!(r.indoor_hum, Some(51.0));
         assert_eq!(
             r.units,
             Units {

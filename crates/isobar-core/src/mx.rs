@@ -191,6 +191,8 @@ pub fn metric_for_graph_key(key: &str) -> Option<&'static str> {
         "rrate" => "rain_rate",
         "solarrad" => "solar",
         "uv" => "uv",
+        "intemp" => "intemp",
+        "inhum" => "inhum",
         _ => return None,
     })
 }
@@ -222,7 +224,8 @@ mod tests {
     #[test]
     fn graph_keys() {
         assert_eq!(metric_for_graph_key("SolarRad"), Some("solar"));
-        assert_eq!(metric_for_graph_key("intemp"), None);
+        assert_eq!(metric_for_graph_key("intemp"), Some("intemp"));
+        assert_eq!(metric_for_graph_key("heatindex"), None);
     }
 
     #[test]

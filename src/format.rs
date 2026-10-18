@@ -104,40 +104,59 @@ pub fn axis_hour(h: u32) -> String {
     }
 }
 
-/// A station's time of day ("4:52 AM", "16:52" or "16:52:07") in the chosen
-/// clock. Text that isn't a time comes back as it was.
-pub fn clock(s: &str) -> String {
-    let t = s.trim();
-    let lower = t.to_ascii_lowercase();
+/// Hour and minute from a station's time of day: "4:52 AM", "16:52" or
+/// "16:52:07".
+pub fn parse_hm(s: &str) -> Option<(u32, u32)> {
+    let lower = s.trim().to_ascii_lowercase();
     let (body, pm) = if let Some(b) = lower
         .strip_suffix("pm")
         .or_else(|| lower.strip_suffix("p.m."))
     {
-        (b.trim().to_string(), Some(true))
+        (b.trim(), Some(true))
     } else if let Some(b) = lower
         .strip_suffix("am")
         .or_else(|| lower.strip_suffix("a.m."))
     {
-        (b.trim().to_string(), Some(false))
+        (b.trim(), Some(false))
     } else {
-        (lower.clone(), None)
+        (lower.as_str(), None)
     };
     let mut parts = body.split(':');
-    let (Some(h), Some(m)) = (
-        parts.next().and_then(|h| h.trim().parse::<u32>().ok()),
-        parts.next().and_then(|m| m.trim().parse::<u32>().ok()),
-    ) else {
-        return t.to_string();
-    };
+    let h: u32 = parts.next()?.trim().parse().ok()?;
+    let m: u32 = parts.next()?.trim().parse().ok()?;
     let h = match pm {
         Some(true) if h < 12 => h + 12,
         Some(false) if h == 12 => 0,
         _ => h,
     };
-    if h > 23 || m > 59 {
-        return t.to_string();
+    (h <= 23 && m <= 59).then_some((h, m))
+}
+
+/// A station's time of day ("4:52 AM", "16:52" or "16:52:07") in the chosen
+/// clock. Text that isn't a time comes back as it was.
+pub fn clock(s: &str) -> String {
+    match parse_hm(s) {
+        Some((h, m)) => hm(h, m),
+        None => s.trim().to_string(),
     }
-    hm(h, m)
+}
+
+/// The time between two station times of day: "13 h 09 min".
+pub fn span_between(from: &str, to: &str) -> Option<String> {
+    let (a, b) = (parse_hm(from)?, parse_hm(to)?);
+    let mins = (b.0 * 60 + b.1) as i64 - (a.0 * 60 + a.1) as i64;
+    (mins > 0).then(|| format!("{} h {:02} min", mins / 60, mins % 60))
+}
+
+/// "12 Oct, 02:02" for a station timestamp like "2026-10-12 02:02", with
+/// how long ago it was: "6 days ago".
+pub fn station_moment(iso: &str, now_ms: i64) -> Option<(String, String)> {
+    let t = chrono::NaiveDateTime::parse_from_str(iso.trim(), "%Y-%m-%d %H:%M").ok()?;
+    let ms = Local.from_local_datetime(&t).earliest()?.timestamp_millis();
+    Some((
+        format!("{}, {}", short_date(t.date()), hm(t.hour(), t.minute())),
+        ago(Some(ms), now_ms),
+    ))
 }
 
 /// "14:05 · 16 Oct" for a Unix-ms timestamp, in local time.
@@ -227,6 +246,19 @@ mod tests {
         assert_eq!(clock("7:45 PM"), "19:45");
         assert_eq!(clock("16:52:07"), "16:52");
         assert_eq!(clock("-----"), "-----");
+        assert_eq!(
+            span_between("6:36 AM", "7:45 PM").as_deref(),
+            Some("13 h 09 min")
+        );
+        assert_eq!(span_between("7:45 PM", "6:36 AM"), None);
+        let now = Local
+            .with_ymd_and_hms(2026, 10, 18, 9, 0, 0)
+            .unwrap()
+            .timestamp_millis();
+        assert_eq!(
+            station_moment("2026-10-12 02:02", now),
+            Some(("12 Oct, 02:02".to_string(), "6 days ago".to_string()))
+        );
         assert_eq!(axis_hour(15), "15:00");
         set_24h(false);
         assert_eq!(clock("16:52"), "4:52 PM");
