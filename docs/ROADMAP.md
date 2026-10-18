@@ -1,33 +1,39 @@
 # Isobar roadmap
 
-Everything that could be added, from the data the owner's Cumulus MX 5.1.5 station sends. Added in full on 2026-10-18 so the owner can trim it; nothing here is agreed yet unless it's marked. The owner reviews it on a printable checklist page with the same IDs.
+Everything that could be added, from the data the owner's Cumulus MX 5.1.5 station sends. Added in full on 2026-10-18 so the owner can trim it. The owner reviews it on a printable checklist page with the same IDs, and marks each item **Yes** (build it), *Later* (keep, not now) or no (drop it). Items with no mark are still undecided; don't build them.
+
+## Decisions so far (2026-10-18)
+
+- **Yes:** A1, A2, B1, B2, B4, B6, C1, Z1
+- **Later:** A3, B5, B7, B8, D1, D2, D3
+- **Undecided:** B3, E1, E2, E3, F1, F2, G1, G2, H1, H2, H3, I1, I2, J1, J2, J3, K1, K2, K3
 
 Tags: **Stored** is already in the local history (no new downloading), **Live** is sent by MX in `currentdata` but not read yet (add it to `LiveReading` in `crates/isobar-core/src/live.rs` and check it against the fixture), **Build** is worked out by Isobar. ★ marks a suggested starting point.
 
 Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 
 ## A. Quick fixes
-- [ ] **A1** Wind dial uses the 10-minute average bearing when it's calm. *Live*
-- [ ] **A2** 24-hour times, or a setting for it (MX 5 sends "4:52 AM"). *Build*
-- [ ] **A3** Warn when MX's `DataStopped` flag is set, even while MX still answers. *Live*
+- [ ] **A1** Wind dial uses the 10-minute average bearing when it's calm. *Live* — **Yes**
+- [ ] **A2** 24-hour times, or a setting for it (MX 5 sends "4:52 AM"). *Build* — **Yes**
+- [~] **A3** Warn when MX's `DataStopped` flag is set, even while MX still answers. *Live* — *Later*
 
 ## B. More on Now
-- [ ] **B1** Sunrise, sunset and day length; moonrise and moonset. *Live*
-- [ ] **B2** Sunshine hours today, and a cloudiness gauge from `SolarRad` against `CurrentSolarMax`. *Live*
+- [ ] **B1** Sunrise, sunset and day length; moonrise and moonset. *Live* — **Yes**
+- [ ] **B2** Sunshine hours today, and a cloudiness gauge from `SolarRad` against `CurrentSolarMax`. *Live* — **Yes**
 - [ ] **B3** Today's dew point and wind chill highs and lows with times. *Live*
-- [ ] **B4** Rain yesterday, this week, last 24 hours, storm total and start, last bucket tip. *Live*
-- [ ] **B5** Wind run today and Beaufort force with description. *Live*
-- [ ] **B6** Indoor temperature and humidity, with a 24-hour line against outside. *Live*
-- [ ] **B7** Cloud base. *Live*
-- [ ] **B8** Heat index, humidex and apparent temperature, with today's extremes. *Live*
+- [ ] **B4** Rain yesterday, this week, last 24 hours, storm total and start, last bucket tip. *Live* — **Yes** Owner's note: also the live rain rate, in mm/h or a unit chosen in Settings.
+- [~] **B5** Wind run today and Beaufort force with description. *Live* — *Later*
+- [ ] **B6** Indoor temperature and humidity, with a 24-hour line against outside. *Live* — **Yes**
+- [~] **B7** Cloud base. *Live* — *Later*
+- [~] **B8** Heat index, humidex and apparent temperature, with today's extremes. *Live* — *Later*
 
 ## C. Station health
-- [ ] **C1** ★ Data health panel: dayfile gaps, `DataStopped`, triggered MX alarms, last bucket tip, MX version. *Build*
+- [ ] **C1** ★ Data health panel: dayfile gaps, `DataStopped`, triggered MX alarms, last bucket tip, MX version. *Build* — **Yes**
 
 ## D. Garden and growing
-- [ ] **D1** ★ Water balance: rain minus evapotranspiration, running total for the month or season, against normal. *Stored*
-- [ ] **D2** Frost calendar: average first and last frost, frost nights a year, this year against them. *Stored*
-- [ ] **D3** Growing degree days: season running total against other years. *Build*
+- [~] **D1** ★ Water balance: rain minus evapotranspiration, running total for the month or season, against normal. *Stored* — *Later* Owner's note: the household runs on water tanks. Show rain as a volume (litres or gallons) caught by the roof, with a tank capacity and level estimate and daily usage. The owner keeps tank history in a spreadsheet that can seed this; ask for it and for roof area and tank sizes when this starts.
+- [~] **D2** Frost calendar: average first and last frost, frost nights a year, this year against them. *Stored* — *Later*
+- [~] **D3** Growing degree days: season running total against other years. *Build* — *Later*
 
 ## E. Energy and comfort
 - [ ] **E1** ★ Heating and cooling degree days by month and season, against normal and last year. *Stored*
@@ -63,6 +69,8 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 
 ## Z. The owner's own tweaks
 Changes to the views and anything not listed, added as the owner sends them.
+
+- [ ] **Z1** The side rail slides out of the way, or can be pinned open. — **Yes**
 
 ## Notes for building
 - Most of D–J use dayfile fields already parsed into `DayRecord` but unused: `et`, `sunshine`, `hdd`, `cdd`, `wind_run`, `rain_hour_max`, `dew_*`, `hum_*`, `feels_*`, `apparent_*`. Check each against the station's real dayfile before relying on it; older lines leave the later fields empty.
