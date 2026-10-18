@@ -5,3 +5,4 @@ pub mod insights;
 pub mod now;
 pub mod seasons;
 pub mod settings;
+pub mod tanks;

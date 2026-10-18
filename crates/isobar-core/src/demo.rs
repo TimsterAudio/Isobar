@@ -11,6 +11,19 @@ use crate::dayfile::DayRecord;
 use crate::live::{Alarm, LiveReading, Units};
 use crate::seasons;
 
+/// The demo house's rainwater tanks.
+pub fn tanks() -> crate::tanks::Tanks {
+    crate::tanks::Tanks {
+        roof_area: 400.0,
+        count: 2,
+        each: 22_500.0,
+        diameter_mm: Some(3530.0),
+        use_per_day: 220.0,
+        keep_above: 3000.0,
+        known: None,
+    }
+}
+
 /// Where the demo station is, near Sydney.
 pub const LATITUDE: f64 = -33.9;
 

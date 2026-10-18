@@ -34,8 +34,9 @@ No MX on the network? Point **Dayfile on this computer** at a `dayfile.txt` inst
 - **Compare**: one month (or the whole year) overlaid for every year on record with a ranking table, or two date ranges side by side with wind roses.
 - **Insights**: unusual days measured against the seasonal normal for that date, a records board, a monthly climate table and prevailing-wind roses.
 - **Seasons**: the water balance (rain less evaporation) for the month, season or year against normal, a frost calendar, growing degree days, sunshine against normal and day length through the year.
+- **Tanks**: for houses on rainwater: the tank level worked out from the rain, how long the water lasts with no rain or with the rain of past years, and each year's rain caught, used and overflowed. A spreadsheet you've kept can seed it.
 - **Health**: whether it's the station or the weather: the link to MX, its "data stopped" flag and alarms, when the rain gauge last tipped, and gaps in the history and in recent readings.
-- **Settings**: station address, optional login, latitude, a dayfile for offline use, alerts and theme.
+- **Settings**: station address, optional login, latitude, rainwater tanks, a dayfile for offline use, alerts and theme.
 
 Desktop notifications cover strong gusts, frost, heat, and rain starting after three dry hours. You set the limits in Settings.
 
@@ -84,7 +85,7 @@ src/                  the app (egui)
   worker.rs             background thread: polling, samples, alerts, history sync
   chart.rs, dial.rs     charts, the wind dial and wind roses, drawn on chart paper
   theme.rs              colours, fonts and egui styling
-  views/                Now, History, Compare, Insights, Seasons, Health, Settings
+  views/                Now, History, Compare, Insights, Seasons, Tanks, Health, Settings
 crates/isobar-core/   everything that doesn't need a window (unit tested)
   dayfile.rs            dayfile parser
   live.rs               live JSON mapping
@@ -93,6 +94,7 @@ crates/isobar-core/   everything that doesn't need a window (unit tested)
   analytics.rs          normals, anomalies, records, aggregation, cross-year series
   seasons.rs            water balance, frost, growing degree days, sunshine, sun geometry
   health.rs             missing days and gaps in readings
+  tanks.rs              rainwater tank model and spreadsheet import
   demo.rs               the demo station
 assets/               Barlow fonts (built into the program) and icons
 ```

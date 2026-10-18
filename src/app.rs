@@ -27,6 +27,7 @@ pub enum Route {
     Compare,
     Insights,
     Seasons,
+    Tanks,
     Health,
     Settings,
     /// Not a screen: switch to the demo station.
@@ -34,12 +35,13 @@ pub enum Route {
 }
 
 impl Route {
-    const ALL: [Route; 7] = [
+    const ALL: [Route; 8] = [
         Route::Now,
         Route::History,
         Route::Compare,
         Route::Insights,
         Route::Seasons,
+        Route::Tanks,
         Route::Health,
         Route::Settings,
     ];
@@ -51,6 +53,7 @@ impl Route {
             Route::Compare => "Compare",
             Route::Insights => "Insights",
             Route::Seasons => "Seasons",
+            Route::Tanks => "Tanks",
             Route::Health => "Health",
             Route::Settings => "Settings",
             Route::Demo => "Demo",
@@ -65,6 +68,8 @@ pub struct Snapshot {
     pub days: Arc<Vec<DayRecord>>,
     pub days_version: u64,
     pub samples: Arc<Samples>,
+    pub tank_log: Arc<Vec<isobar_core::tanks::LogDay>>,
+    pub tank_version: u64,
     pub now_ms: i64,
     pub demo: bool,
 }
@@ -96,6 +101,7 @@ pub struct IsobarApp {
     compare: views::compare::Compare,
     insights: views::insights::Insights,
     seasons: views::seasons::Seasons,
+    tanks: views::tanks::TanksView,
     health: views::health::Health,
     settings_view: views::settings::SettingsView,
 }
@@ -132,6 +138,7 @@ impl IsobarApp {
             compare: Default::default(),
             insights: Default::default(),
             seasons: Default::default(),
+            tanks: Default::default(),
             health: Default::default(),
         }
     }
@@ -144,6 +151,8 @@ impl IsobarApp {
             days: s.days.clone(),
             days_version: s.days_version,
             samples: s.samples.clone(),
+            tank_log: s.tank_log.clone(),
+            tank_version: s.tank_version,
             now_ms: chrono::Utc::now().timestamp_millis(),
             demo: self.paths.is_none(),
         }
@@ -483,6 +492,9 @@ impl eframe::App for IsobarApp {
                                     Route::Seasons => {
                                         self.seasons.ui(ui, &snap, &self.settings, &mut go)
                                     }
+                                    Route::Tanks => {
+                                        self.tanks.ui(ui, &snap, &self.settings, &mut go)
+                                    }
                                     Route::Health => {
                                         self.health.ui(ui, &snap, &self.settings, &self.worker)
                                     }
@@ -517,6 +529,7 @@ impl IsobarApp {
             clock_24h: self.settings.clock_24h,
             rail_pinned: self.settings.rail_pinned,
             latitude: Some(isobar_core::demo::LATITUDE),
+            tanks: Some(isobar_core::demo::tanks()),
             ..Default::default()
         };
         self.worker = crate::worker::spawn(ctx.clone(), settings.clone(), None);
@@ -528,6 +541,7 @@ impl IsobarApp {
         self.compare = Default::default();
         self.insights = Default::default();
         self.seasons = Default::default();
+        self.tanks = Default::default();
         self.health = Default::default();
         self.route = Route::Now;
     }
@@ -540,7 +554,8 @@ impl IsobarApp {
         apply_theme(ctx, next.theme);
         format::set_24h(next.clock_24h);
         self.settings = next.clone();
-        self.worker.send(crate::worker::Cmd::Settings(next));
+        self.worker
+            .send(crate::worker::Cmd::Settings(Box::new(next)));
         self.settings_view.saved(result);
     }
 }

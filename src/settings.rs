@@ -68,6 +68,8 @@ pub struct Settings {
     /// The station's latitude in degrees, south negative. Without it, Isobar
     /// works it out from the day's sunrise and sunset.
     pub latitude: Option<f64>,
+    /// Rainwater tanks, once set up.
+    pub tanks: Option<isobar_core::tanks::Tanks>,
     pub alerts: Alerts,
 }
 
@@ -84,6 +86,7 @@ impl Default for Settings {
             clock_24h: true,
             rail_pinned: true,
             latitude: None,
+            tanks: None,
             alerts: Alerts::default(),
         }
     }

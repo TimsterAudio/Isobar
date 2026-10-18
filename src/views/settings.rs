@@ -4,7 +4,9 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use chrono::{Datelike, NaiveDate};
 use eframe::egui::{self, Align, Layout, Margin, Ui};
+use isobar_core::tanks::{KnownLevel, Tanks};
 use isobar_core::{LiveReading, MxClient};
 
 use crate::app::Snapshot;
@@ -36,6 +38,121 @@ struct Draft {
     rain_start: bool,
     theme: ThemeChoice,
     clock_24h: bool,
+    tanks: TankDraft,
+}
+
+/// The rainwater tank fields, as typed.
+#[derive(Clone, PartialEq)]
+struct TankDraft {
+    roof: String,
+    count: String,
+    each: String,
+    diameter: String,
+    use_per_day: String,
+    keep_above: String,
+    /// "full", litres, or a depth such as "1350 mm".
+    known: String,
+    known_date: NaiveDate,
+}
+
+impl TankDraft {
+    fn from(t: Option<&Tanks>) -> TankDraft {
+        let blank = |v: f64| {
+            if v > 0.0 {
+                format!("{v}")
+            } else {
+                String::new()
+            }
+        };
+        let today = chrono::Local::now().date_naive();
+        match t {
+            None => TankDraft {
+                roof: String::new(),
+                count: "1".into(),
+                each: String::new(),
+                diameter: String::new(),
+                use_per_day: String::new(),
+                keep_above: String::new(),
+                known: String::new(),
+                known_date: today,
+            },
+            Some(t) => TankDraft {
+                roof: blank(t.roof_area),
+                count: t.count.to_string(),
+                each: blank(t.each),
+                diameter: opt_num(t.diameter_mm),
+                use_per_day: blank(t.use_per_day),
+                keep_above: blank(t.keep_above),
+                known: t.known.map_or(String::new(), |k| {
+                    if (k.litres - t.capacity()).abs() < 0.5 {
+                        "full".into()
+                    } else {
+                        format!("{}", k.litres.round())
+                    }
+                }),
+                known_date: t.known.map_or(today, |k| k.date),
+            },
+        }
+    }
+
+    /// The tanks this describes, none if it's all empty, or what's wrong.
+    fn to_tanks(&self) -> Result<Option<Tanks>, String> {
+        let num = |label: &str, s: &str| -> Result<Option<f64>, String> {
+            let t = s.trim().replace([',', ' '], "");
+            if t.is_empty() {
+                return Ok(None);
+            }
+            t.parse::<f64>()
+                .ok()
+                .filter(|v| *v >= 0.0)
+                .map(Some)
+                .ok_or_else(|| format!("{label} needs a number."))
+        };
+        let roof = num("Roof area", &self.roof)?;
+        let each = num("Litres each", &self.each)?;
+        if roof.is_none() && each.is_none() {
+            return Ok(None);
+        }
+        let (Some(roof), Some(each)) = (roof.filter(|v| *v > 0.0), each.filter(|v| *v > 0.0))
+        else {
+            return Err("For the tanks, fill in both the roof area and the litres each tank holds, or leave both empty.".into());
+        };
+        let count = self
+            .count
+            .trim()
+            .parse::<u32>()
+            .ok()
+            .filter(|n| *n >= 1)
+            .ok_or("Number of tanks needs a whole number, 1 or more.")?;
+        let mut t = Tanks {
+            roof_area: roof,
+            count,
+            each,
+            diameter_mm: num("Tank diameter", &self.diameter)?.filter(|v| *v > 0.0),
+            use_per_day: num("Use a day", &self.use_per_day)?.unwrap_or(0.0),
+            keep_above: num("Keep above", &self.keep_above)?.unwrap_or(0.0),
+            known: None,
+        };
+        let k = self.known.trim().to_ascii_lowercase();
+        if !k.is_empty() {
+            let litres = if k == "full" {
+                t.capacity()
+            } else if let Some(depth) = k.strip_suffix("mm") {
+                let d = num("Known level", depth)?
+                    .ok_or("Known level needs a depth, such as 1350 mm.")?;
+                t.litres_at_depth(d)
+                    .ok_or("To give the level as a depth, fill in the tank diameter.")?
+            } else {
+                num("Known level", &k)?
+                    .ok_or("Known level needs litres, a depth such as 1350 mm, or \"full\".")?
+            };
+            t.known = Some(KnownLevel {
+                date: self.known_date,
+                litres: litres.min(t.capacity()),
+            });
+        }
+        Ok(Some(t))
+    }
 }
 
 fn opt_num(v: Option<f64>) -> String {
@@ -59,6 +176,7 @@ impl Draft {
             rain_start: s.alerts.rain_start,
             theme: s.theme,
             clock_24h: s.clock_24h,
+            tanks: TankDraft::from(s.tanks.as_ref()),
         }
     }
 
@@ -81,6 +199,7 @@ impl Draft {
             .map_err(|_| "Check every needs a whole number of seconds.".to_string())?;
         let opt = |s: &str| (!s.trim().is_empty()).then(|| s.trim().to_string());
         let latitude = parse_latitude(&self.latitude)?;
+        let tanks = self.tanks.to_tanks()?;
         Ok(Settings {
             station_name: if self.name.trim().is_empty() {
                 "My station".into()
@@ -96,6 +215,7 @@ impl Draft {
             clock_24h: self.clock_24h,
             rail_pinned: base.rail_pinned,
             latitude,
+            tanks,
             alerts: Alerts {
                 enabled: self.alerts_on,
                 gust_above: alert("Gust at or above", &self.gust)?,
@@ -220,6 +340,7 @@ impl SettingsView {
             }
             self.station(ui, &p);
             self.history(ui, snap, worker, &p);
+            self.tanks(ui, snap, worker, &p);
             self.alerts(ui, &p);
             ui::panel(ui, |ui| {
                 ui::h2(ui, "Appearance");
@@ -465,6 +586,97 @@ impl SettingsView {
         });
     }
 
+    fn tanks(&mut self, ui: &mut Ui, snap: &Snapshot, worker: &Handle, p: &Palette) {
+        let outcome = worker.lock().tank_outcome.clone();
+        ui::panel(ui, |ui| {
+            ui::h2(ui, "Rainwater tanks");
+            ui::para(ui, "For the Tanks page: how much the roof catches and how full the tanks are, worked out day by day from the rain and what the house uses. Leave these empty if you don't have tanks.", theme::body(14.0), p.ink2, 600.0);
+            let t = &mut self.draft.tanks;
+            let fields: [[(&str, &mut String, &str); 3]; 2] = [
+                [
+                    ("Roof area (m²)", &mut t.roof, "385"),
+                    ("Number of tanks", &mut t.count, "1"),
+                    ("Litres each", &mut t.each, "22500"),
+                ],
+                [
+                    ("Use a day (litres)", &mut t.use_per_day, "290"),
+                    ("Keep above (litres)", &mut t.keep_above, "0"),
+                    ("Tank diameter (mm)", &mut t.diameter, "Optional"),
+                ],
+            ];
+            for row in fields {
+                let mut row = row.into_iter().map(Some).collect::<Vec<_>>();
+                ui::columns(ui, 3, 16.0, false, |i, ui| {
+                    let w = ui.available_width();
+                    if let Some((label, value, hint)) = row[i].take() {
+                        ui::field(ui, label, None, |ui| ui::text_input(ui, value, hint, w));
+                    }
+                });
+            }
+            ui.add_space(-6.0);
+            ui::para(ui, "Keep above is the level to plan around, such as where the pump starts drawing air. The diameter is the inside of one tank, for giving the level as a depth of water.", theme::body(13.0), p.ink2, 600.0);
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = 16.0;
+                ui.vertical(|ui| {
+                    ui::field(ui, "Known level", None, |ui| {
+                        ui::text_input(ui, &mut t.known, "full, 26400 or 1350 mm", 220.0)
+                    });
+                });
+                ui.vertical(|ui| {
+                    ui::field(ui, "At the end of", None, |ui| {
+                        let y = chrono::Local::now().year();
+                        ui::date_input(ui, "tank-known", &mut t.known_date, 2000..=y)
+                    });
+                });
+            });
+            ui.add_space(-6.0);
+            ui::para(ui, "The level on a day you know it: \"full\" after the tanks overflowed, litres, or a depth you measured such as 1350 mm. Isobar works forward from it.", theme::body(13.0), p.ink2, 600.0);
+
+            let log = &snap.tank_log;
+            let line = match (log.first(), log.last()) {
+                (Some(a), Some(b)) => format!(
+                    "Tank record: {} days, {} to {}{}. Isobar uses its rain wherever your station has no day of its own, and its daily use and adjustments.",
+                    crate::views::tanks::litres(log.len() as f64),
+                    format::nice_date(a.date),
+                    format::nice_date(b.date),
+                    log.iter()
+                        .rev()
+                        .find(|d| d.rain.is_some())
+                        .filter(|d| d.date != b.date)
+                        .map_or(String::new(), |d| format!(", with rain to {}", format::nice_date(d.date)))
+                ),
+                _ => "No tank record. Import a spreadsheet you've kept (Excel, LibreOffice or CSV) with a Date column and an mm column, and optionally Use (litres a day) and Adjust (litres added or taken out).".into(),
+            };
+            ui::para(ui, line, theme::body(14.0), p.ink2, 640.0);
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = 10.0;
+                if ui::button(ui, "Import a tank record", Kind::Secondary).clicked() {
+                    if let Some(path) = rfd::FileDialog::new()
+                        .set_title("Choose your tank or rainfall spreadsheet")
+                        .add_filter("Spreadsheet or CSV", &["xlsx", "xlsm", "xls", "ods", "csv"])
+                        .add_filter("All files", &["*"])
+                        .pick_file()
+                    {
+                        worker.lock().tank_outcome = None;
+                        worker.send(Cmd::ImportTankLog(path));
+                    }
+                }
+                if !log.is_empty() && ui::button(ui, "Delete the record", Kind::Danger).clicked() {
+                    worker.send(Cmd::ClearTankLog);
+                }
+            });
+            if let Some(o) = outcome {
+                ui::para(
+                    ui,
+                    o.text,
+                    theme::medium(14.0),
+                    if o.ok { p.ok } else { p.heat },
+                    700.0,
+                );
+            }
+        });
+    }
+
     fn alerts(&mut self, ui: &mut Ui, p: &Palette) {
         ui::panel(ui, |ui| {
             ui::h2(ui, "Alerts");
@@ -517,5 +729,27 @@ mod tests {
         assert_eq!(parse_latitude("51.5°N"), Ok(Some(51.5)));
         assert!(parse_latitude("123").is_err());
         assert!(parse_latitude("north").is_err());
+    }
+
+    #[test]
+    fn reads_tank_fields() {
+        use super::TankDraft;
+        let mut d = TankDraft::from(None);
+        assert_eq!(d.to_tanks(), Ok(None));
+        d.roof = "385".into();
+        assert!(d.to_tanks().is_err(), "needs the litres too");
+        d.each = "22,500".into();
+        d.count = "2".into();
+        d.use_per_day = "290".into();
+        d.known = "full".into();
+        let t = d.to_tanks().unwrap().unwrap();
+        assert_eq!(t.capacity(), 45_000.0);
+        assert_eq!(t.known.unwrap().litres, 45_000.0);
+        d.known = "1350 mm".into();
+        assert!(d.to_tanks().is_err(), "a depth needs the diameter");
+        d.diameter = "3530".into();
+        let l = d.to_tanks().unwrap().unwrap().known.unwrap().litres;
+        assert!((l - 26_424.3).abs() < 0.1);
+        assert_eq!(TankDraft::from(Some(&t)).known, "full");
     }
 }

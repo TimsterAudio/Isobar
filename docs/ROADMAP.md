@@ -34,7 +34,7 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 - [x] **D1** ★ Water balance: rain minus evapotranspiration, running total for the month or season, against normal. *Stored* — **Yes**, done 2026-10-18 on the Seasons page. Uses the station's ET, or a Hargreaves estimate from the temperatures and the latitude when the station doesn't record it.
 - [x] **D2** Frost calendar: average first and last frost, frost nights a year, this year against them. *Stored* — **Yes**, done 2026-10-18
 - [x] **D3** Growing degree days: season running total against other years. *Build* — **Yes**, done 2026-10-18
-- [ ] **D4** Water tanks (the owner's note on D1): the household runs on tanks. Rain as a volume caught by the roof (litres or gallons), with tank capacity, a level estimate and daily usage. *Build* — **Yes**, waiting on the owner's tank spreadsheet (to seed it), roof area and tank sizes.
+- [x] **D4** Water tanks (the owner's note on D1): the household runs on tanks. Rain as a volume caught by the roof (litres or gallons), with tank capacity, a level estimate and daily usage. *Build* — **Yes**, done 2026-10-18 as the Tanks page. Seeded from the owner's spreadsheet (rain, use and adjustments from 2009); the model matches it to the litre. Owner's figures: 385 m² roof, 2 × 22,500 L, 290 L a day, full with 5,023 L overflow on 3 Oct 2026. Their sheet uses 43,000 L capacity and keeps 3,000 L in reserve.
 
 ## E. Energy and comfort
 - [ ] **E1** ★ Heating and cooling degree days by month and season, against normal and last year. *Stored*

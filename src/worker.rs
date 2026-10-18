@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 
 use eframe::egui;
+use isobar_core::tanks::{self, LogDay};
 use isobar_core::{dayfile, demo, DayRecord, LiveReading, MxClient, Store};
 
 use crate::alerts::{self, AlertTracker};
@@ -64,15 +65,23 @@ pub struct Shared {
     /// The last 24 hours of samples.
     pub samples: Arc<Samples>,
     pub history_outcome: Option<Outcome>,
+    /// The imported tank record, oldest first, and a count bumped when it
+    /// changes.
+    pub tank_log: Arc<Vec<LogDay>>,
+    pub tank_version: u64,
+    pub tank_outcome: Option<Outcome>,
 }
 
 pub enum Cmd {
-    Settings(Settings),
+    Settings(Box<Settings>),
     Sync {
         force: bool,
     },
     Import(PathBuf),
     ClearHistory,
+    /// Read a tank record from a spreadsheet or CSV, replacing the last one.
+    ImportTankLog(PathBuf),
+    ClearTankLog,
     /// End the thread (when switching to the demo station).
     Stop,
 }
@@ -151,7 +160,16 @@ impl Worker {
         w.update(|s| s.status.last_sync = last_sync);
         w.reload_days();
         w.reload_samples();
+        w.reload_tank_log();
         w
+    }
+
+    fn reload_tank_log(&self) {
+        let log = self.store.tank_log().unwrap_or_default();
+        self.update(|s| {
+            s.tank_log = Arc::new(log);
+            s.tank_version += 1;
+        });
     }
 
     fn update(&self, f: impl FnOnce(&mut Shared)) {
@@ -211,7 +229,7 @@ impl Worker {
                     || s.username != self.settings.username
                     || s.password != self.settings.password
                     || s.dayfile_path != self.settings.dayfile_path;
-                self.settings = s;
+                self.settings = *s;
                 if station_changed {
                     self.backfilled_for = None;
                     self.last_history_check = None;
@@ -239,6 +257,44 @@ impl Worker {
                     Err(e) => Outcome { ok: false, text: e },
                 };
                 self.update(|s| s.history_outcome = Some(outcome));
+                false
+            }
+            Cmd::ImportTankLog(path) => {
+                let today = chrono::Local::now().date_naive();
+                let outcome = match tanks::read_log(&path, today).and_then(|log| {
+                    self.store
+                        .replace_tank_log(&log)
+                        .map(|_| log)
+                        .map_err(|e| format!("Couldn't save the record: {e}"))
+                }) {
+                    Ok(log) => Outcome {
+                        ok: true,
+                        text: format!(
+                            "Imported {} days, {} to {}.",
+                            log.len(),
+                            log[0].date.format("%-d %b %Y"),
+                            log[log.len() - 1].date.format("%-d %b %Y")
+                        ),
+                    },
+                    Err(e) => Outcome { ok: false, text: e },
+                };
+                self.reload_tank_log();
+                self.update(|s| s.tank_outcome = Some(outcome));
+                false
+            }
+            Cmd::ClearTankLog => {
+                let outcome = match self.store.replace_tank_log(&[]) {
+                    Ok(()) => Outcome {
+                        ok: true,
+                        text: "Tank record deleted.".into(),
+                    },
+                    Err(e) => Outcome {
+                        ok: false,
+                        text: format!("Couldn't delete the tank record: {e}"),
+                    },
+                };
+                self.reload_tank_log();
+                self.update(|s| s.tank_outcome = Some(outcome));
                 false
             }
             Cmd::Stop => false,
@@ -465,6 +521,13 @@ fn run_demo(h: Handle, ctx: egui::Context, rx: Receiver<Cmd>) {
         }
         ctx.request_repaint();
         match rx.recv_timeout(Duration::from_secs(5)) {
+            Ok(Cmd::ImportTankLog(_)) | Ok(Cmd::ClearTankLog) => {
+                h.lock().tank_outcome = Some(Outcome {
+                    ok: false,
+                    text: "The demo station can't keep a tank record. Open Isobar normally to import yours.".into(),
+                });
+                ctx.request_repaint();
+            }
             Ok(Cmd::Sync { .. }) | Ok(Cmd::Import(_)) | Ok(Cmd::ClearHistory) => {
                 h.lock().history_outcome = Some(Outcome {
                     ok: false,

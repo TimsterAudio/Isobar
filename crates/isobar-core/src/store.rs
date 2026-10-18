@@ -4,6 +4,7 @@
 //!   fields never need a migration.
 //! * `samples`: live readings (one per minute) plus anything backfilled from
 //!   MX graph data, in long format `(metric, ts, value)`.
+//! * `tank_log`: an imported tank record (rain, use and adjustments by day).
 //! * `meta`: small key/value pairs such as the last sync time.
 
 use std::collections::BTreeMap;
@@ -13,6 +14,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::dayfile::DayRecord;
 use crate::error::{CoreError, Result};
+use crate::tanks::LogDay;
 
 pub struct Store {
     conn: Connection,
@@ -31,6 +33,10 @@ CREATE TABLE IF NOT EXISTS samples (
     PRIMARY KEY (metric, ts)
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS samples_ts ON samples(ts);
+CREATE TABLE IF NOT EXISTS tank_log (
+    date TEXT PRIMARY KEY,
+    json TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS meta (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -149,6 +155,37 @@ impl Store {
             .execute("DELETE FROM samples WHERE ts < ?1", params![before_ms])?)
     }
 
+    /// Replace the tank record with `log`.
+    pub fn replace_tank_log(&mut self, log: &[LogDay]) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        tx.execute("DELETE FROM tank_log", [])?;
+        {
+            let mut stmt =
+                tx.prepare("INSERT OR REPLACE INTO tank_log (date, json) VALUES (?1, ?2)")?;
+            for d in log {
+                let json = serde_json::to_string(d).map_err(|e| CoreError::Parse(e.to_string()))?;
+                stmt.execute(params![d.date.to_string(), json])?;
+            }
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// The tank record, oldest first.
+    pub fn tank_log(&self) -> Result<Vec<LogDay>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT json FROM tank_log ORDER BY date")?;
+        let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+        let mut out = Vec::new();
+        for json in rows {
+            if let Ok(d) = serde_json::from_str::<LogDay>(&json?) {
+                out.push(d);
+            }
+        }
+        Ok(out)
+    }
+
     pub fn meta_get(&self, key: &str) -> Result<Option<String>> {
         Ok(self
             .conn
@@ -205,6 +242,21 @@ mod tests {
         assert_eq!(got["temp"], vec![(1000, 10.0), (2000, 11.0), (3000, 12.0)]);
         assert_eq!(s.prune_samples(2500).unwrap(), 3);
         assert_eq!(s.samples_since(0).unwrap()["temp"], vec![(3000, 12.0)]);
+    }
+
+    #[test]
+    fn tank_log_replaces() {
+        let mut s = Store::open_in_memory().unwrap();
+        let d = |k: u32, rain: f64| LogDay {
+            date: NaiveDate::from_ymd_opt(2026, 9, k).unwrap(),
+            rain: Some(rain),
+            used: None,
+            adjust: None,
+        };
+        s.replace_tank_log(&[d(2, 1.0), d(1, 0.5)]).unwrap();
+        assert_eq!(s.tank_log().unwrap(), [d(1, 0.5), d(2, 1.0)]);
+        s.replace_tank_log(&[d(3, 2.0)]).unwrap();
+        assert_eq!(s.tank_log().unwrap(), [d(3, 2.0)]);
     }
 
     #[test]
