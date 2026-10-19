@@ -3,7 +3,7 @@ members = ["crates/isobar-core"]
 
 [package]
 name = "isobar"
-version = "0.2.0"
+version = "0.3.0"
 description = "A desktop companion for Cumulus MX weather stations"
 edition = "2021"
 default-run = "isobar"

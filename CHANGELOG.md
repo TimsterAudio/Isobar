@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+## 0.3.0 – 2026-10-19
+
+- **User guide:** `docs/guide/index.html`, also attached to each release as `isobar-user-guide.zip`. Every screen, what each figure means and how it's worked out, where Isobar keeps things, backups and troubleshooting, with screenshots.
 - **Detailed history from MX's logs (K4):** Isobar fetches MX's monthly log files (a reading every 10 minutes or so) in the background, newest month first, and keeps the current month topped up. Health shows the progress. With them, Insights gives the true biggest 24-hour pressure falls (with the time of the low) and splits each year's rain by how hard it fell, in mm an hour. Isobar keeps at most one reading per 10 minutes: a station logging every minute has each 10 minutes combined (averages, with the highest gust and rain rate and the latest rain totals), about 3 MB a year instead of 30. A history stored by an earlier build is thinned the same way, once, when Isobar starts.
 - **Any card in the big chart (Z6):** click a card on Now to show it in the chart above, over a span that suits it: pressure over 3 days, rain as daily totals over 7 days, tanks over 3 months, the rest over 24 hours. Chips change the span (up to 30 days, 3 months for rain, a year for tanks); click the card again, or Temperature, to go back. Long spans use MX's logs, or daily highs and lows until they've arrived.
 - **Choose and arrange the cards on Now (Z3, Z4):** Settings → Now screen turns cards on and off; drag a card by its name on Now to move it. Isobar remembers the order, and Settings can put it back.
