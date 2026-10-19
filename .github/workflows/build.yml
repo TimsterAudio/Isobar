@@ -67,6 +67,8 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+      - name: Write checksums
+        run: cd dist && sha256sum isobar-* > SHA256SUMS.txt && cat SHA256SUMS.txt
       - name: Move the latest-build tag to this commit
         if: github.ref == 'refs/heads/main'
         run: |
@@ -81,5 +83,9 @@ jobs:
           body: |
             Download `isobar-windows-x64.exe` for Windows, or `isobar-linux-x64.tar.gz` for Linux. Each is the whole program.
 
-            Built from ${{ github.sha }}.
+            Built from ${{ github.sha }} by GitHub Actions, straight from the source in this repository.
+
+            To check a download is the file GitHub built, compare its SHA-256 with `SHA256SUMS.txt`. On Windows, in PowerShell: `Get-FileHash isobar-windows-x64.exe`. On Linux: `sha256sum isobar-linux-x64.tar.gz`.
+
+            The program isn't code-signed yet, so Windows Defender's machine-learning check can flag a new build as suspicious (for example `Bearfoos.b!ml`). That's a guess about an unfamiliar file, not a known threat.
           files: dist/*
