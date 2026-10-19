@@ -11,7 +11,7 @@ use isobar_core::{LiveReading, MxClient};
 
 use crate::app::Snapshot;
 use crate::format::{self, num};
-use crate::settings::{Alerts, Settings, ThemeChoice};
+use crate::settings::{Alerts, NowCard, Settings, ThemeChoice};
 use crate::theme::{self, Palette};
 use crate::ui::{self, Kind};
 use crate::worker::{Cmd, Handle};
@@ -39,6 +39,10 @@ struct Draft {
     theme: ThemeChoice,
     clock_24h: bool,
     tanks: TankDraft,
+    /// Cards turned off on Now. Their order is set by dragging on Now.
+    hidden_cards: Vec<NowCard>,
+    /// Put the cards back in the usual order on save.
+    reset_order: bool,
 }
 
 /// The rainwater tank fields, as typed.
@@ -195,6 +199,13 @@ impl Draft {
             theme: s.theme,
             clock_24h: s.clock_24h,
             tanks: TankDraft::from(s.tanks.as_ref()),
+            hidden_cards: s
+                .cards()
+                .into_iter()
+                .filter(|c| !c.1)
+                .map(|c| c.0)
+                .collect(),
+            reset_order: false,
         }
     }
 
@@ -218,6 +229,15 @@ impl Draft {
         let opt = |s: &str| (!s.trim().is_empty()).then(|| s.trim().to_string());
         let latitude = parse_latitude(&self.latitude)?;
         let tanks = self.tanks.to_tanks()?;
+        let order: Vec<NowCard> = if self.reset_order {
+            NowCard::ALL.to_vec()
+        } else {
+            base.cards().into_iter().map(|c| c.0).collect()
+        };
+        let cards: Vec<(NowCard, bool)> = order
+            .into_iter()
+            .map(|c| (c, !self.hidden_cards.contains(&c)))
+            .collect();
         Ok(Settings {
             station_name: if self.name.trim().is_empty() {
                 "My station".into()
@@ -234,6 +254,7 @@ impl Draft {
             rail_pinned: base.rail_pinned,
             latitude,
             tanks,
+            now_cards: Vec::new(),
             alerts: Alerts {
                 enabled: self.alerts_on,
                 gust_above: alert("Gust at or above", &self.gust)?,
@@ -241,6 +262,10 @@ impl Draft {
                 heat_above: alert("Temperature at or above", &self.heat)?,
                 rain_start: self.rain_start,
             },
+        })
+        .map(|mut s| {
+            s.set_cards(&cards);
+            s
         })
     }
 }
@@ -289,6 +314,8 @@ impl SettingsView {
     pub fn saved(&mut self, result: Result<(), String>) {
         match result {
             Ok(()) => {
+                // The order has been put back; don't do it again next save.
+                self.draft.reset_order = false;
                 self.saved = self.draft.clone();
                 self.message = Some((true, "Saved".into(), Instant::now()));
             }
@@ -339,7 +366,13 @@ impl SettingsView {
     }
 
     /// Returns true if the person asked to try the demo station.
-    pub fn ui(&mut self, ui: &mut Ui, snap: &Snapshot, worker: &Handle) -> bool {
+    pub fn ui(
+        &mut self,
+        ui: &mut Ui,
+        snap: &Snapshot,
+        settings: &Settings,
+        worker: &Handle,
+    ) -> bool {
         let mut demo = false;
         let p = Palette::of(ui.ctx());
         ui::h1(ui, "Settings");
@@ -360,6 +393,7 @@ impl SettingsView {
             self.history(ui, snap, worker, &p);
             self.tanks(ui, snap, worker, &p);
             self.alerts(ui, &p);
+            self.now_cards(ui, settings, &p);
             ui::panel(ui, |ui| {
                 ui::h2(ui, "Appearance");
                 ui::field(ui, "Theme", None, |ui| {
@@ -724,6 +758,49 @@ impl SettingsView {
                     700.0,
                 );
             }
+        });
+    }
+
+    fn now_cards(&mut self, ui: &mut Ui, settings: &Settings, p: &Palette) {
+        ui::panel(ui, |ui| {
+            ui::h2(ui, "Now screen");
+            ui::para(ui, "The cards under the thermograph. Turn off the ones you don't need; to move a card, drag it by its name on Now.", theme::body(14.0), p.ink2, 600.0);
+            let order: Vec<NowCard> = if self.draft.reset_order {
+                NowCard::ALL.to_vec()
+            } else {
+                settings.cards().into_iter().map(|c| c.0).collect()
+            };
+            ui.horizontal_wrapped(|ui| {
+                ui.spacing_mut().item_spacing = egui::vec2(18.0, 8.0);
+                for card in order {
+                    let mut on = !self.draft.hidden_cards.contains(&card);
+                    let note = match card {
+                        NowCard::Indoor => " (when the station has indoor readings)",
+                        NowCard::Tanks => " (once tanks are set up)",
+                        _ => "",
+                    };
+                    if ui
+                        .checkbox(
+                            &mut on,
+                            egui::RichText::new(format!("{}{note}", card.label()))
+                                .font(theme::body(15.0)),
+                        )
+                        .changed()
+                    {
+                        if on {
+                            self.draft.hidden_cards.retain(|c| *c != card);
+                        } else {
+                            self.draft.hidden_cards.push(card);
+                            self.draft.hidden_cards.sort();
+                        }
+                    }
+                }
+            });
+            ui.checkbox(
+                &mut self.draft.reset_order,
+                egui::RichText::new("Put the cards back in the usual order")
+                    .font(theme::body(15.0)),
+            );
         });
     }
 

@@ -4,16 +4,17 @@
 use eframe::egui::{
     self, pos2, text::LayoutJob, vec2, Align, Layout, Sense, Shape, Stroke, TextFormat, Ui,
 };
-use isobar_core::analytics::compass;
+use isobar_core::analytics::{self as an, compass};
 use isobar_core::LiveReading;
 
 use crate::app::{Route, Snapshot};
 use crate::chart::{self, Chart, Series, XAxis};
 use crate::dial;
 use crate::format::{self, num, signed};
-use crate::settings::Settings;
+use crate::settings::{NowCard, Settings};
 use crate::theme::{self, alpha, Palette};
 use crate::ui;
+use crate::views::tanks;
 
 /// A stretch longer than this with no readings (Isobar closed, station
 /// offline) shows as a break in the 24-hour charts, not a straight line.
@@ -25,7 +26,26 @@ const DETAIL: f32 = 13.0;
 const SPARK_H: f32 = 32.0;
 
 #[derive(Default)]
-pub struct Now;
+pub struct Now {
+    /// A new card order from a drag, for the app to save.
+    pub reordered: Option<Vec<(NowCard, bool)>>,
+    tanks: Option<(String, Option<tanks::Glance>)>,
+}
+
+/// `order` with `from` moved to where `to` is: before it when moving back,
+/// after it when moving on.
+pub fn move_card(order: &[(NowCard, bool)], from: NowCard, to: NowCard) -> Vec<(NowCard, bool)> {
+    let mut out = order.to_vec();
+    let (Some(a), Some(b)) = (
+        out.iter().position(|c| c.0 == from),
+        out.iter().position(|c| c.0 == to),
+    ) else {
+        return out;
+    };
+    let item = out.remove(a);
+    out.insert(b, item);
+    out
+}
 
 fn trend_word(v: f64, steady: f64) -> &'static str {
     if v.abs() < steady {
@@ -135,35 +155,120 @@ impl Now {
         ui.spacing_mut().item_spacing.y = 0.0;
         ui::rule(ui, p.grid);
         ui.spacing_mut().item_spacing.y = 24.0;
-        type Instrument = fn(&Now, &mut Ui, &Snapshot, &LiveReading);
-        let mut instruments: Vec<Instrument> = vec![
-            Self::wind,
-            Self::pressure,
-            Self::rain,
-            Self::humidity,
-            Self::sun,
-        ];
-        if r.indoor_temp.is_some() {
-            instruments.push(Self::indoor);
+        if let Some(t) = settings.tanks.as_ref().filter(|t| t.is_set_up()) {
+            let key = format!(
+                "{}/{}/{}",
+                snap.days_version,
+                snap.tank_version,
+                serde_json::to_string(t).unwrap_or_default()
+            );
+            if self.tanks.as_ref().is_none_or(|c| c.0 != key) {
+                self.tanks = Some((key, tanks::glance(snap, t)));
+            }
+        } else {
+            self.tanks = None;
         }
+        let have_tanks = self.tanks.as_ref().is_some_and(|c| c.1.is_some());
+        let order = settings.cards();
+        let cards: Vec<NowCard> = order
+            .iter()
+            .filter(|(c, shown)| {
+                *shown
+                    && match c {
+                        NowCard::Indoor => r.indoor_temp.is_some(),
+                        NowCard::Tanks => have_tanks,
+                        _ => true,
+                    }
+            })
+            .map(|c| c.0)
+            .collect();
         // All in one row unless the window is narrow (text wraps in narrow
         // cards); otherwise rows of three.
-        let n = instruments.len();
-        let one_row = ui.available_width() >= 1100.0;
+        let n = cards.len().max(1);
+        let one_row = ui.available_width() >= 1100.0 && n <= 7;
         let cols = if one_row { n } else { 3 };
-        for (k, row) in instruments.chunks(cols).enumerate() {
+        let dragging = egui::DragAndDrop::has_payload_of_type::<NowCard>(ui.ctx());
+        let mut dropped: Option<(NowCard, NowCard)> = None;
+        for (k, row) in cards.chunks(cols).enumerate() {
             if k > 0 {
                 ui.spacing_mut().item_spacing.y = 0.0;
                 ui::rule(ui, p.faint);
                 ui.spacing_mut().item_spacing.y = 24.0;
             }
             ui::columns(ui, cols, 22.0, true, |i, ui| {
-                if let Some(f) = row.get(i) {
-                    ui.add_space(12.0);
-                    ui.spacing_mut().item_spacing.y = 4.0;
-                    f(self, ui, snap, r);
+                let Some(&card) = row.get(i) else { return };
+                ui.add_space(12.0);
+                ui.spacing_mut().item_spacing.y = 4.0;
+                // The title is the handle for dragging the card.
+                let title = Self::title(ui, card.label());
+                let handle = ui.interact(
+                    title.rect.expand2(vec2(6.0, 3.0)),
+                    egui::Id::new(("now-card", card)),
+                    Sense::drag(),
+                );
+                handle.dnd_set_drag_payload(card);
+                if handle.hovered() && !dragging {
+                    handle.on_hover_text("Drag to move this card");
+                }
+                match card {
+                    NowCard::Wind => self.wind(ui, snap, r),
+                    NowCard::Pressure => self.pressure(ui, snap, r),
+                    NowCard::Rain => self.rain(ui, snap, r),
+                    NowCard::Humidity => self.humidity(ui, snap, r),
+                    NowCard::Sun => self.sun(ui, snap, r),
+                    NowCard::Indoor => self.indoor(ui, snap, r),
+                    NowCard::Tanks => {
+                        if let Some(g) = self.tanks.as_ref().and_then(|c| c.1.as_ref()) {
+                            Self::tank_card(ui, g);
+                        }
+                    }
+                }
+                if dragging {
+                    let rect = ui.min_rect().expand2(vec2(10.0, 4.0));
+                    let zone = ui.interact(rect, egui::Id::new(("now-drop", card)), Sense::hover());
+                    if let Some(src) = zone.dnd_hover_payload::<NowCard>() {
+                        if *src != card {
+                            ui.painter().rect_stroke(
+                                rect,
+                                theme::RADIUS,
+                                Stroke::new(2.0, p.trace),
+                                egui::StrokeKind::Inside,
+                            );
+                        }
+                    }
+                    if let Some(src) = zone.dnd_release_payload::<NowCard>() {
+                        if *src != card {
+                            dropped = Some((*src, card));
+                        }
+                    }
                 }
             });
+        }
+        // The card being carried follows the pointer.
+        if let (Some(src), Some(pos)) = (
+            egui::DragAndDrop::payload::<NowCard>(ui.ctx()),
+            ui.ctx().pointer_hover_pos(),
+        ) {
+            let painter = ui.ctx().layer_painter(egui::LayerId::new(
+                egui::Order::Tooltip,
+                egui::Id::new("now-card-drag"),
+            ));
+            let galley =
+                painter.layout_no_wrap(src.label().to_string(), theme::display_medium(16.0), p.ink);
+            let r =
+                egui::Rect::from_min_size(pos + vec2(12.0, 8.0), galley.size() + vec2(20.0, 10.0));
+            painter.rect(
+                r,
+                theme::RADIUS,
+                p.sheet,
+                Stroke::new(1.0, p.trace),
+                egui::StrokeKind::Inside,
+            );
+            painter.galley(r.min + vec2(10.0, 5.0), galley, p.ink);
+            ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+        }
+        if let Some((from, to)) = dropped {
+            self.reordered = Some(move_card(&order, from, to));
         }
     }
 
@@ -432,9 +537,57 @@ impl Now {
         ui.painter().set(paper, Shape::Vec(shapes));
     }
 
-    fn title(ui: &mut Ui, s: &str) {
+    fn title(ui: &mut Ui, s: &str) -> egui::Response {
         let p = Palette::of(ui.ctx());
-        ui::text(ui, s, theme::display_medium(16.0), p.ink2);
+        ui::text(ui, s, theme::display_medium(16.0), p.ink2)
+    }
+
+    fn tank_card(ui: &mut Ui, g: &tanks::Glance) {
+        let p = Palette::of(ui.ctx());
+        ui::reading(ui, &tanks::litres(g.level), "L", READING, p.ink);
+        ui::text(
+            ui,
+            format!("{}% full", num(Some(g.level / g.capacity * 100.0), 0)),
+            theme::body(DETAIL),
+            p.ink,
+        );
+        let today = chrono::Local::now().date_naive();
+        ui::text(
+            ui,
+            match g.dry_low {
+                Some(d) => format!(
+                    "No rain: {} days, to {}",
+                    (d - today).num_days().max(0),
+                    format::short_date(d)
+                ),
+                None => "No rain: lasts over a year".into(),
+            },
+            theme::body(DETAIL),
+            p.ink2,
+        );
+        ui::text(
+            ui,
+            format!(
+                "30 days: {} L in, {} L over",
+                tanks::litres(g.caught30),
+                tanks::litres(g.overflow30)
+            ),
+            theme::body(DETAIL),
+            p.ink2,
+        );
+        bottom(ui, |ui| {
+            if g.recent.len() > 1 {
+                let xs: Vec<f64> = g.recent.iter().map(|d| chart::day_ts(d.0)).collect();
+                let ys: Vec<Option<f64>> = g.recent.iter().map(|d| Some(d.1)).collect();
+                Chart::sparkline("spark-tanks", SPARK_H, xs)
+                    .series(
+                        Series::line("Level", ys, p.rain)
+                            .no_points()
+                            .fill(alpha(p.rain, 0.14)),
+                    )
+                    .show(ui);
+            }
+        });
     }
 
     fn spark(ui: &mut Ui, snap: &Snapshot, key: &str, color: egui::Color32, fill: bool) {
@@ -458,7 +611,6 @@ impl Now {
     fn wind(&self, ui: &mut Ui, snap: &Snapshot, r: &LiveReading) {
         let p = Palette::of(ui.ctx());
         let u = &r.units;
-        Self::title(ui, "Wind");
         let shown = r.shown_bearing();
         dial::wind_dial(ui, 84.0, shown.map(|s| s.0), r.wind_avg, &u.wind);
         // MX's compass point belongs to the latest bearing; work one out when
@@ -517,14 +669,41 @@ impl Now {
 
     fn pressure(&self, ui: &mut Ui, snap: &Snapshot, r: &LiveReading) {
         let p = Palette::of(ui.ctx());
-        Self::title(ui, "Pressure");
         ui::reading(ui, &num(r.pressure, 1), &r.units.press, READING, p.ink);
-        let trend = match (r.press_trend, &r.press_trend_text) {
-            (Some(t), _) => format!("{}, {} per hour", trend_word(t, 0.1), signed(Some(t), 1)),
-            (None, Some(text)) => text.clone(),
-            _ => String::new(),
+        // The three-hour tendency in forecasters' words, from the recorded
+        // readings; MX's own hourly trend until there are three hours.
+        let pts = snap.samples.get("press").map(Vec::as_slice).unwrap_or(&[]);
+        let per = an::hpa_per_unit(&r.units.press);
+        let (trend, color) = match (
+            an::three_hour_change(pts),
+            r.press_trend,
+            &r.press_trend_text,
+        ) {
+            (Some(c), _, _) => {
+                let hpa = c * per;
+                let digits = if per > 5.0 { 2 } else { 1 };
+                let big_fall = hpa <= -3.6;
+                (
+                    format!(
+                        "{}, {} {} in 3 h",
+                        an::pressure_tendency(hpa),
+                        signed(Some(c), digits),
+                        r.units.press
+                    ),
+                    if big_fall { p.warn } else { p.ink },
+                )
+            }
+            (None, Some(t), _) => (
+                format!("{}, {} per hour", trend_word(t, 0.1), signed(Some(t), 1)),
+                p.ink,
+            ),
+            (None, None, Some(text)) => (text.clone(), p.ink),
+            _ => (String::new(), p.ink),
         };
-        ui::text(ui, trend, theme::body(DETAIL), p.ink);
+        let resp = ui::text(ui, trend, theme::body(DETAIL), color);
+        if color == p.warn {
+            resp.on_hover_text("A big fall in three hours: often wind and rain on the way.");
+        }
         ui::text(
             ui,
             format!("Today {} to {}", num(r.press_low, 1), num(r.press_high, 1)),
@@ -537,7 +716,6 @@ impl Now {
     fn rain(&self, ui: &mut Ui, snap: &Snapshot, r: &LiveReading) {
         let p = Palette::of(ui.ctx());
         let u = &r.units;
-        Self::title(ui, "Rain");
         ui::reading(ui, &num(r.rain_today, 1), &u.rain, READING, p.ink);
         let rate = r.rain_rate.unwrap_or(0.0);
         if rate > 0.0 {
@@ -608,7 +786,6 @@ impl Now {
 
     fn humidity(&self, ui: &mut Ui, snap: &Snapshot, r: &LiveReading) {
         let p = Palette::of(ui.ctx());
-        Self::title(ui, "Humidity");
         ui::reading(ui, &num(r.humidity, 0), "%", READING, p.ink);
         ui::text(
             ui,
@@ -627,7 +804,6 @@ impl Now {
 
     fn sun(&self, ui: &mut Ui, snap: &Snapshot, r: &LiveReading) {
         let p = Palette::of(ui.ctx());
-        Self::title(ui, "Sun");
         ui::reading(ui, &num(r.solar, 0), "W/m²", READING, p.ink)
             .on_hover_text(format!("Peak today {} W/m²", num(r.solar_high, 0)));
         // How much of the clear-sky sunshine is getting through.
@@ -713,7 +889,6 @@ impl Now {
     fn indoor(&self, ui: &mut Ui, snap: &Snapshot, r: &LiveReading) {
         let p = Palette::of(ui.ctx());
         let u = &r.units;
-        Self::title(ui, "Indoor");
         ui::reading(ui, &num(r.indoor_temp, 1), &u.temp, READING, p.ink);
         ui::text(
             ui,
@@ -829,4 +1004,25 @@ fn align(xs: &[f64], pts: &[(i64, f64)]) -> Vec<Option<f64>> {
                 .map(|p| p.1)
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn moves_cards_both_ways() {
+        let order: Vec<(NowCard, bool)> = NowCard::ALL.iter().map(|c| (*c, true)).collect();
+        let on = move_card(&order, NowCard::Wind, NowCard::Rain);
+        assert_eq!(
+            on.iter().take(3).map(|c| c.0).collect::<Vec<_>>(),
+            [NowCard::Pressure, NowCard::Rain, NowCard::Wind]
+        );
+        let back = move_card(&order, NowCard::Sun, NowCard::Pressure);
+        assert_eq!(
+            back.iter().take(3).map(|c| c.0).collect::<Vec<_>>(),
+            [NowCard::Wind, NowCard::Sun, NowCard::Pressure]
+        );
+        assert_eq!(back.len(), order.len());
+    }
 }

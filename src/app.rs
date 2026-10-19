@@ -499,7 +499,12 @@ impl eframe::App for IsobarApp {
                                         self.health.ui(ui, &snap, &self.settings, &self.worker)
                                     }
                                     Route::Settings => {
-                                        if self.settings_view.ui(ui, &snap, &self.worker) {
+                                        if self.settings_view.ui(
+                                            ui,
+                                            &snap,
+                                            &self.settings,
+                                            &self.worker,
+                                        ) {
                                             go = Some(Route::Demo);
                                         }
                                     }
@@ -510,6 +515,12 @@ impl eframe::App for IsobarApp {
                         ui.add_space(48.0);
                     });
             });
+        if let Some(order) = self.now.reordered.take() {
+            self.settings.set_cards(&order);
+            if let Some(paths) = &self.paths {
+                let _ = self.settings.save(&paths.settings);
+            }
+        }
         match go {
             Some(Route::Demo) => self.start_demo(&ctx),
             Some(r) => self.route = r,

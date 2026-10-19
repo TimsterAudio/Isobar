@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Choose and arrange the cards on Now (Z3, Z4):** Settings → Now screen turns cards on and off; drag a card by its name on Now to move it. Isobar remembers the order, and Settings can put it back.
+- **Tanks card on Now:** litres, how full, days of water with no rain, and the last 30 days caught and overflowed, with a 30-day line.
+- **Three-hour pressure tendency (I1):** the pressure card says how pressure has moved over three hours in forecasters' words (steady, rising slowly, falling quickly and so on), with the change. A fall of 3.6 hPa or more shows in amber.
 - **Rainwater tank settings are clearer:** the example values in the boxes read "e.g. 385", so they don't look filled in; a note says when the tank details aren't saved yet; and an import that can't open the file suggests closing it in Excel first.
 - **Windows file details:** the .exe now carries its company, copyright, version and original file name, and a standard application manifest, so it looks less unfamiliar to antivirus checks. Each release also lists SHA-256 checksums (`SHA256SUMS.txt`) to check a download against.
 - **Wind in light air (A1):** when the average wind is below about 3 km/h (or the same in the station's units), the dial and its text use MX's 10-minute average bearing, which reads truer than the latest. The text says "Calm" or "Light" when it does.

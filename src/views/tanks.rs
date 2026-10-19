@@ -34,6 +34,44 @@ pub fn litres(v: f64) -> String {
     }
 }
 
+/// The tank figures for the card on Now.
+pub struct Glance {
+    pub level: f64,
+    pub capacity: f64,
+    /// The day the level drops to the keep-above level with no rain.
+    pub dry_low: Option<NaiveDate>,
+    pub caught30: f64,
+    pub overflow30: f64,
+    /// The level at the end of each of the last 30 days.
+    pub recent: Vec<(NaiveDate, f64)>,
+}
+
+/// Run the model for the card on Now.
+pub fn glance(snap: &Snapshot, t: &Setup) -> Option<Glance> {
+    let inputs = tk::inputs(&snap.days, &snap.tank_log, is_inches(&snap.units()));
+    let sim = tk::simulate(&inputs, t);
+    let last = sim.last()?;
+    let (level, at) = match t.known.filter(|k| k.date > last.date) {
+        Some(k) => (k.litres, k.date),
+        None => (last.level, last.date),
+    };
+    let dry_low = (t.use_per_day > 0.0 && level > t.keep_above)
+        .then(|| at + Duration::days(((level - t.keep_above) / t.use_per_day).ceil() as i64));
+    let last30: Vec<&TankDay> = sim.iter().rev().take(30).collect();
+    Some(Glance {
+        level,
+        capacity: t.capacity(),
+        dry_low: if level <= t.keep_above {
+            Some(at)
+        } else {
+            dry_low
+        },
+        caught30: last30.iter().map(|d| d.caught).sum(),
+        overflow30: last30.iter().map(|d| d.overflow).sum(),
+        recent: last30.iter().rev().map(|d| (d.date, d.level)).collect(),
+    })
+}
+
 struct Model {
     key: (u64, u64, String, bool),
     sim: Vec<TankDay>,

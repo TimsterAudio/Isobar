@@ -49,6 +49,69 @@ impl ThemeChoice {
     }
 }
 
+/// A card under the thermograph on Now.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum NowCard {
+    Wind,
+    Pressure,
+    Rain,
+    Humidity,
+    Sun,
+    Indoor,
+    Tanks,
+}
+
+impl NowCard {
+    /// The usual order.
+    pub const ALL: [NowCard; 7] = [
+        NowCard::Wind,
+        NowCard::Pressure,
+        NowCard::Rain,
+        NowCard::Humidity,
+        NowCard::Sun,
+        NowCard::Indoor,
+        NowCard::Tanks,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            NowCard::Wind => "Wind",
+            NowCard::Pressure => "Pressure",
+            NowCard::Rain => "Rain",
+            NowCard::Humidity => "Humidity",
+            NowCard::Sun => "Sun",
+            NowCard::Indoor => "Indoor",
+            NowCard::Tanks => "Tanks",
+        }
+    }
+
+    /// The name kept in settings.json.
+    pub fn id(self) -> &'static str {
+        match self {
+            NowCard::Wind => "wind",
+            NowCard::Pressure => "pressure",
+            NowCard::Rain => "rain",
+            NowCard::Humidity => "humidity",
+            NowCard::Sun => "sun",
+            NowCard::Indoor => "indoor",
+            NowCard::Tanks => "tanks",
+        }
+    }
+
+    pub fn from_id(id: &str) -> Option<NowCard> {
+        NowCard::ALL.into_iter().find(|c| c.id() == id)
+    }
+}
+
+/// A card's place on Now and whether it shows. Kept by name, so a settings
+/// file from a later version with cards this one doesn't know still loads.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CardChoice {
+    pub card: String,
+    pub shown: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Settings {
@@ -70,6 +133,8 @@ pub struct Settings {
     pub latitude: Option<f64>,
     /// Rainwater tanks, once set up.
     pub tanks: Option<isobar_core::tanks::Tanks>,
+    /// The cards on Now, in order. Empty means the usual order, all shown.
+    pub now_cards: Vec<CardChoice>,
     pub alerts: Alerts,
 }
 
@@ -87,6 +152,7 @@ impl Default for Settings {
             rail_pinned: true,
             latitude: None,
             tanks: None,
+            now_cards: Vec::new(),
             alerts: Alerts::default(),
         }
     }
@@ -106,6 +172,35 @@ impl Settings {
         }
         let json = serde_json::to_string_pretty(self).map_err(std::io::Error::other)?;
         std::fs::write(path, json)
+    }
+
+    /// Every card in its order on Now, and whether it shows. Cards missing
+    /// from the settings (new in this version) go at the end, shown.
+    pub fn cards(&self) -> Vec<(NowCard, bool)> {
+        let mut out: Vec<(NowCard, bool)> = Vec::new();
+        for c in &self.now_cards {
+            if let Some(card) = NowCard::from_id(&c.card) {
+                if !out.iter().any(|(k, _)| *k == card) {
+                    out.push((card, c.shown));
+                }
+            }
+        }
+        for card in NowCard::ALL {
+            if !out.iter().any(|(k, _)| *k == card) {
+                out.push((card, true));
+            }
+        }
+        out
+    }
+
+    pub fn set_cards(&mut self, cards: &[(NowCard, bool)]) {
+        self.now_cards = cards
+            .iter()
+            .map(|(c, shown)| CardChoice {
+                card: c.id().to_string(),
+                shown: *shown,
+            })
+            .collect();
     }
 
     pub fn has_station(&self) -> bool {
@@ -157,6 +252,21 @@ mod tests {
         assert_eq!(s.alerts.gust_above, Some(70.0));
         assert_eq!(s.alerts.frost_below, None);
         assert!(s.has_station());
+    }
+
+    #[test]
+    fn card_order_survives_unknown_and_missing_cards() {
+        let s: Settings = serde_json::from_str(
+            r#"{"nowCards":[{"card":"rain","shown":true},{"card":"radar","shown":true},
+            {"card":"wind","shown":false},{"card":"rain","shown":false}]}"#,
+        )
+        .unwrap();
+        let cards = s.cards();
+        assert_eq!(cards.len(), NowCard::ALL.len());
+        assert_eq!(cards[0], (NowCard::Rain, true));
+        assert_eq!(cards[1], (NowCard::Wind, false));
+        assert_eq!(cards[2], (NowCard::Pressure, true));
+        assert_eq!(Settings::default().cards()[0], (NowCard::Wind, true));
     }
 
     #[test]

@@ -747,6 +747,57 @@ pub fn rain_since_midnight<D: PartialEq>(
     out
 }
 
+// ---------------------------------------------------------------- pressure
+
+/// Hectopascals in one of the station's pressure units.
+pub fn hpa_per_unit(unit: &str) -> f64 {
+    match unit.trim().to_ascii_lowercase().as_str() {
+        "inhg" | "in" => 33.8639,
+        "kpa" => 10.0,
+        "mmhg" => 1.33322,
+        _ => 1.0,
+    }
+}
+
+/// The three-hour pressure tendency in the words forecasters use, from the
+/// change in hPa: steady below 0.1, then slowly, plainly, quickly and very
+/// rapidly at 1.6, 3.6 and over 6.
+pub fn pressure_tendency(change_hpa: f64) -> String {
+    let a = change_hpa.abs();
+    if a < 0.1 {
+        return "Steady".into();
+    }
+    let dir = if change_hpa > 0.0 {
+        "Rising"
+    } else {
+        "Falling"
+    };
+    let how = if a <= 1.5 {
+        " slowly"
+    } else if a <= 3.5 {
+        ""
+    } else if a <= 6.0 {
+        " quickly"
+    } else {
+        " very rapidly"
+    };
+    format!("{dir}{how}")
+}
+
+/// The change over the last three hours: the latest reading against the one
+/// nearest three hours before it, if that's within 15 minutes of it.
+pub fn three_hour_change(pts: &[(i64, f64)]) -> Option<f64> {
+    let &(t, now) = pts.last()?;
+    let want = t - 3 * 3_600_000;
+    let i = pts.partition_point(|p| p.0 < want);
+    let near = [i.checked_sub(1), Some(i)]
+        .into_iter()
+        .flatten()
+        .filter_map(|k| pts.get(k))
+        .min_by_key(|p| (p.0 - want).abs())?;
+    ((near.0 - want).abs() <= 15 * 60_000).then_some(now - near.1)
+}
+
 // ---------------------------------------------------------------- wind
 
 pub const COMPASS16: [&str; 16] = [
@@ -951,6 +1002,25 @@ mod tests {
             day(date(2024, 1, 5), 20.0, 10.0, 0.0),
         ];
         assert_eq!(longest_run(&days, |d| !is_rain_day(d)).unwrap().length, 2);
+    }
+
+    #[test]
+    fn pressure_tendency_in_words() {
+        assert_eq!(pressure_tendency(0.05), "Steady");
+        assert_eq!(pressure_tendency(1.2), "Rising slowly");
+        assert_eq!(pressure_tendency(-2.0), "Falling");
+        assert_eq!(pressure_tendency(-4.1), "Falling quickly");
+        assert_eq!(pressure_tendency(6.5), "Rising very rapidly");
+        assert!((hpa_per_unit("inHg") - 33.8639).abs() < 1e-9);
+        assert_eq!(hpa_per_unit("mb"), 1.0);
+        let min = 60_000;
+        let pts: Vec<(i64, f64)> = (0..=200)
+            .map(|k| (k * min, 1015.0 - k as f64 * 0.02))
+            .collect();
+        let c = three_hour_change(&pts).unwrap();
+        assert!((c + 3.6).abs() < 1e-9, "{c}");
+        // Not three hours of readings yet.
+        assert_eq!(three_hour_change(&pts[..120]), None);
     }
 
     #[test]

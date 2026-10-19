@@ -2,11 +2,11 @@
 
 Everything that could be added, from the data the owner's Cumulus MX 5.1.5 station sends. Added in full on 2026-10-18 so the owner can trim it. The owner reviews it on a printable checklist page with the same IDs, and marks each item **Yes** (build it), *Later* (keep, not now) or no (drop it). Items with no mark are still undecided; don't build them.
 
-## Decisions so far (2026-10-18)
+## Decisions so far (2026-10-19)
 
-- **Yes:** A1, A2, B1, B2, B4, B6, C1, D1, D2, D3, D4, F1, F2, Z1, Z2 (D1 to F2 moved up from Later and undecided on 2026-10-18)
+- **Yes:** A1, A2, B1, B2, B4, B6, C1, D1, D2, D3, D4, F1, F2, G1, G2, I1, I2, Z1, Z2, Z3, Z4 (G1 to Z4 added on 2026-10-19)
 - **Later:** A3, B5, B7, B8
-- **Undecided:** Z3, Z4, B3, E1, E2, E3, G1, G2, H1, H2, H3, I1, I2, J1, J2, J3, K1, K2, K3, L1, L2, L3, L4
+- **Undecided:** B3, E1, E2, E3, H1, H2, H3, J1, J2, J3, K1, K2, K3, L1, L2, L3, L4
 
 Tags: **Stored** is already in the local history (no new downloading), **Live** is sent by MX in `currentdata` but not read yet (add it to `LiveReading` in `crates/isobar-core/src/live.rs` and check it against the fixture), **Build** is worked out by Isobar. ★ marks a suggested starting point.
 
@@ -55,7 +55,7 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 - [ ] **H3** Gust factor: peak gust against average speed. *Stored*
 
 ## I. Pressure
-- [ ] **I1** Three-hour pressure tendency in standard words, with a marker for big drops. *Build*
+- [x] **I1** Three-hour pressure tendency in standard words, with a marker for big drops. *Build* — **Yes**, done 2026-10-19
 - [ ] **I2** Biggest 24-hour pressure falls on record. *Stored*
 
 ## J. Long-term climate
