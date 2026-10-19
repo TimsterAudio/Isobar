@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 
 use chrono::{Datelike, NaiveDate};
 use eframe::egui::{self, Align, Layout, Margin, Ui};
-use isobar_core::tanks::{KnownLevel, Tanks};
+use isobar_core::tanks::{KnownLevel, Tank, Tanks, MAX_TANKS};
 use isobar_core::{LiveReading, MxClient};
 
 use crate::app::Snapshot;
@@ -45,9 +45,10 @@ struct Draft {
 #[derive(Clone, PartialEq)]
 struct TankDraft {
     roof: String,
-    count: String,
-    each: String,
-    diameter: String,
+    /// How many tanks, 1 to 4, and each one's litres and inside diameter.
+    count: usize,
+    litres: [String; MAX_TANKS],
+    diameter: [String; MAX_TANKS],
     use_per_day: String,
     keep_above: String,
     /// "full", litres, or a depth such as "1350 mm".
@@ -68,9 +69,9 @@ impl TankDraft {
         match t {
             None => TankDraft {
                 roof: String::new(),
-                count: "1".into(),
-                each: String::new(),
-                diameter: String::new(),
+                count: 1,
+                litres: Default::default(),
+                diameter: Default::default(),
                 use_per_day: String::new(),
                 keep_above: String::new(),
                 known: String::new(),
@@ -78,9 +79,15 @@ impl TankDraft {
             },
             Some(t) => TankDraft {
                 roof: blank(t.roof_area),
-                count: t.count.to_string(),
-                each: blank(t.each),
-                diameter: opt_num(t.diameter_mm),
+                count: t.tanks.len().clamp(1, MAX_TANKS),
+                litres: std::array::from_fn(|i| {
+                    t.tanks.get(i).map_or(String::new(), |k| blank(k.litres))
+                }),
+                diameter: std::array::from_fn(|i| {
+                    t.tanks
+                        .get(i)
+                        .map_or(String::new(), |k| opt_num(k.diameter_mm))
+                }),
                 use_per_day: blank(t.use_per_day),
                 keep_above: blank(t.keep_above),
                 known: t.known.map_or(String::new(), |k| {
@@ -109,26 +116,37 @@ impl TankDraft {
                 .ok_or_else(|| format!("{label} needs a number."))
         };
         let roof = num("Roof area", &self.roof)?;
-        let each = num("Litres each", &self.each)?;
-        if roof.is_none() && each.is_none() {
+        let n = self.count.clamp(1, MAX_TANKS);
+        let mut tanks = Vec::new();
+        for i in 0..n {
+            let litres = num(&format!("Tank {} litres", i + 1), &self.litres[i])?;
+            let diameter = num(&format!("Tank {} diameter", i + 1), &self.diameter[i])?;
+            tanks.push((litres, diameter.filter(|v| *v > 0.0)));
+        }
+        if roof.is_none() && tanks.iter().all(|t| t.0.is_none()) {
             return Ok(None);
         }
-        let (Some(roof), Some(each)) = (roof.filter(|v| *v > 0.0), each.filter(|v| *v > 0.0))
-        else {
-            return Err("For the tanks, fill in both the roof area and the litres each tank holds, or leave both empty.".into());
+        let Some(roof) = roof.filter(|v| *v > 0.0) else {
+            return Err(
+                "For the tanks, fill in the roof area, or leave all the tank boxes empty.".into(),
+            );
         };
-        let count = self
-            .count
-            .trim()
-            .parse::<u32>()
-            .ok()
-            .filter(|n| *n >= 1)
-            .ok_or("Number of tanks needs a whole number, 1 or more.")?;
+        let tanks = tanks
+            .into_iter()
+            .enumerate()
+            .map(
+                |(i, (litres, diameter_mm))| match litres.filter(|v| *v > 0.0) {
+                    Some(litres) => Ok(Tank {
+                        litres,
+                        diameter_mm,
+                    }),
+                    None => Err(format!("Fill in how many litres tank {} holds.", i + 1)),
+                },
+            )
+            .collect::<Result<Vec<_>, String>>()?;
         let mut t = Tanks {
             roof_area: roof,
-            count,
-            each,
-            diameter_mm: num("Tank diameter", &self.diameter)?.filter(|v| *v > 0.0),
+            tanks,
             use_per_day: num("Use a day", &self.use_per_day)?.unwrap_or(0.0),
             keep_above: num("Keep above", &self.keep_above)?.unwrap_or(0.0),
             known: None,
@@ -141,7 +159,7 @@ impl TankDraft {
                 let d = num("Known level", depth)?
                     .ok_or("Known level needs a depth, such as 1350 mm.")?;
                 t.litres_at_depth(d)
-                    .ok_or("To give the level as a depth, fill in the tank diameter.")?
+                    .ok_or("To give the level as a depth, fill in every tank's diameter.")?
             } else {
                 num("Known level", &k)?
                     .ok_or("Known level needs litres, a depth such as 1350 mm, or \"full\".")?
@@ -592,29 +610,55 @@ impl SettingsView {
             ui::h2(ui, "Rainwater tanks");
             ui::para(ui, "For the Tanks page: how much the roof catches and how full the tanks are, worked out day by day from the rain and what the house uses. Leave these empty if you don't have tanks.", theme::body(14.0), p.ink2, 600.0);
             let t = &mut self.draft.tanks;
-            let fields: [[(&str, &mut String, &str); 3]; 2] = [
-                [
+            {
+                let mut fields = [
                     ("Roof area (m²)", &mut t.roof, "385"),
-                    ("Number of tanks", &mut t.count, "1"),
-                    ("Litres each", &mut t.each, "22500"),
-                ],
-                [
                     ("Use a day (litres)", &mut t.use_per_day, "290"),
                     ("Keep above (litres)", &mut t.keep_above, "0"),
-                    ("Tank diameter (mm)", &mut t.diameter, "Optional"),
-                ],
-            ];
-            for row in fields {
-                let mut row = row.into_iter().map(Some).collect::<Vec<_>>();
+                ]
+                .map(Some);
                 ui::columns(ui, 3, 16.0, false, |i, ui| {
                     let w = ui.available_width();
-                    if let Some((label, value, hint)) = row[i].take() {
+                    if let Some((label, value, hint)) = fields[i].take() {
                         ui::field(ui, label, None, |ui| ui::text_input(ui, value, hint, w));
                     }
                 });
             }
+            ui::field(ui, "Tanks", None, |ui| {
+                let opts: Vec<(usize, String)> = (1..=MAX_TANKS)
+                    .map(|n| {
+                        (
+                            n,
+                            if n == 1 {
+                                "1 tank".to_string()
+                            } else {
+                                format!("{n} tanks")
+                            },
+                        )
+                    })
+                    .collect();
+                ui::select(ui, "tank-count", &mut t.count, &opts, 180.0)
+            });
+            for k in 0..t.count.clamp(1, MAX_TANKS) {
+                let (litres, diameter) = (&mut t.litres[k], &mut t.diameter[k]);
+                let mut fields = [
+                    (format!("Tank {} litres", k + 1), litres, "22500"),
+                    (
+                        format!("Tank {} inside diameter (mm)", k + 1),
+                        diameter,
+                        "Optional",
+                    ),
+                ]
+                .map(Some);
+                ui::columns(ui, 3, 16.0, false, |i, ui| {
+                    let w = ui.available_width();
+                    if let Some((label, value, hint)) = fields.get_mut(i).and_then(Option::take) {
+                        ui::field(ui, &label, None, |ui| ui::text_input(ui, value, hint, w));
+                    }
+                });
+            }
             ui.add_space(-6.0);
-            ui::para(ui, "Keep above is the level to plan around, such as where the pump starts drawing air. The diameter is the inside of one tank, for giving the level as a depth of water.", theme::body(13.0), p.ink2, 600.0);
+            ui::para(ui, "Isobar treats the tanks as linked, filling and emptying together. Keep above is the level to plan around, such as where the pump starts drawing air. The diameters are only needed to give the level as a depth of water.", theme::body(13.0), p.ink2, 600.0);
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x = 16.0;
                 ui.vertical(|ui| {
@@ -738,8 +782,11 @@ mod tests {
         assert_eq!(d.to_tanks(), Ok(None));
         d.roof = "385".into();
         assert!(d.to_tanks().is_err(), "needs the litres too");
-        d.each = "22,500".into();
-        d.count = "2".into();
+        d.count = 2;
+        d.litres[0] = "22,500".into();
+        assert!(d.to_tanks().is_err(), "tank 2 needs its litres");
+        d.litres[1] = "22500".into();
+        d.litres[2] = "999".into();
         d.use_per_day = "290".into();
         d.known = "full".into();
         let t = d.to_tanks().unwrap().unwrap();
@@ -747,9 +794,11 @@ mod tests {
         assert_eq!(t.known.unwrap().litres, 45_000.0);
         d.known = "1350 mm".into();
         assert!(d.to_tanks().is_err(), "a depth needs the diameter");
-        d.diameter = "3530".into();
+        d.diameter = ["3530".into(), "3530".into(), String::new(), String::new()];
         let l = d.to_tanks().unwrap().unwrap().known.unwrap().litres;
         assert!((l - 26_424.3).abs() < 0.1);
-        assert_eq!(TankDraft::from(Some(&t)).known, "full");
+        assert_eq!(t.tanks.len(), 2, "only the tanks chosen count");
+        let back = TankDraft::from(Some(&t));
+        assert_eq!((back.known.as_str(), back.count), ("full", 2));
     }
 }

@@ -27,17 +27,27 @@ pub struct KnownLevel {
     pub litres: f64,
 }
 
-/// The tanks and the house, as set in Settings.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// The most tanks Settings offers.
+pub const MAX_TANKS: usize = 4;
+
+/// One tank.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Tank {
+    /// Litres it holds.
+    pub litres: f64,
+    /// Inside diameter in mm, for working out litres from a depth.
+    pub diameter_mm: Option<f64>,
+}
+
+/// The tanks and the house, as set in Settings. The tanks are taken as
+/// linked, filling and emptying together.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Tanks {
     /// Roof area draining to the tanks, m².
     pub roof_area: f64,
-    pub count: u32,
-    /// Litres each tank holds.
-    pub each: f64,
-    /// Inside diameter of a tank in mm, for working out litres from a depth.
-    pub diameter_mm: Option<f64>,
+    pub tanks: Vec<Tank>,
     /// Litres the house uses a day.
     pub use_per_day: f64,
     /// The level to stay above, litres (where the pump draws air, say).
@@ -45,23 +55,9 @@ pub struct Tanks {
     pub known: Option<KnownLevel>,
 }
 
-impl Default for Tanks {
-    fn default() -> Self {
-        Tanks {
-            roof_area: 0.0,
-            count: 1,
-            each: 0.0,
-            diameter_mm: None,
-            use_per_day: 0.0,
-            keep_above: 0.0,
-            known: None,
-        }
-    }
-}
-
 impl Tanks {
     pub fn capacity(&self) -> f64 {
-        self.each * self.count.max(1) as f64
+        self.tanks.iter().map(|t| t.litres).sum()
     }
 
     /// Enough is set to run the model.
@@ -69,10 +65,17 @@ impl Tanks {
         self.roof_area > 0.0 && self.capacity() > 0.0
     }
 
-    /// Litres across all the tanks with water `depth_mm` deep in each.
+    /// Litres across all the tanks with water `depth_mm` deep in each (they
+    /// sit level and are linked), each no more than it holds. Needs every
+    /// tank's diameter.
     pub fn litres_at_depth(&self, depth_mm: f64) -> Option<f64> {
-        let r = self.diameter_mm? / 2.0;
-        Some(PI * r * r * depth_mm / 1_000_000.0 * self.count.max(1) as f64)
+        self.tanks
+            .iter()
+            .map(|t| {
+                let r = t.diameter_mm? / 2.0;
+                Some((PI * r * r * depth_mm / 1_000_000.0).min(t.litres))
+            })
+            .sum()
     }
 
     /// Litres a day of rain puts in the tanks.
@@ -528,11 +531,13 @@ mod tests {
     }
 
     fn tanks() -> Tanks {
+        let tank = Tank {
+            litres: 21_500.0,
+            diameter_mm: Some(3530.0),
+        };
         Tanks {
             roof_area: 385.0,
-            count: 2,
-            each: 21_500.0,
-            diameter_mm: Some(3530.0),
+            tanks: vec![tank, tank],
             use_per_day: 290.0,
             keep_above: 3000.0,
             known: None,
@@ -557,6 +562,31 @@ mod tests {
         assert!((t.caught(0.2) - 77.0).abs() < 1e-9);
         // The owner's sheet: 1,350 mm deep in two 3,530 mm tanks is 26,424 L.
         assert!((t.litres_at_depth(1350.0).unwrap() - 26_424.27).abs() < 0.1);
+        // Tanks of different sizes: a full small one stops at what it holds.
+        let mixed = Tanks {
+            tanks: vec![
+                Tank {
+                    litres: 22_500.0,
+                    diameter_mm: Some(3530.0),
+                },
+                Tank {
+                    litres: 5_000.0,
+                    diameter_mm: Some(2000.0),
+                },
+            ],
+            ..t.clone()
+        };
+        assert_eq!(mixed.capacity(), 27_500.0);
+        let at = mixed.litres_at_depth(2000.0).unwrap();
+        assert!((at - (PI * 1.765 * 1.765 * 2.0 * 1000.0 + 5_000.0)).abs() < 0.1);
+        let no_diameter = Tanks {
+            tanks: vec![Tank {
+                litres: 5_000.0,
+                diameter_mm: None,
+            }],
+            ..t
+        };
+        assert_eq!(no_diameter.litres_at_depth(1000.0), None);
     }
 
     #[test]

@@ -379,20 +379,26 @@ impl TanksView {
     }
 }
 
-/// The tanks side by side, filled to the level, with the keep-above line.
+/// The tanks side by side, each as wide as its share of the water, filled to
+/// the level (linked, so all to the same fraction), with the keep-above line.
 fn tank_drawing(ui: &mut Ui, p: &Palette, t: &Setup, level: f64) {
-    let n = t.count.clamp(1, 4) as usize;
-    let tank_w = if n <= 2 { 90.0 } else { 60.0 };
+    let cap = t.capacity();
+    let biggest = t.tanks.iter().map(|k| k.litres).fold(0.0, f64::max);
+    let widths: Vec<f32> = t
+        .tanks
+        .iter()
+        .map(|k| (90.0 * (k.litres / biggest).sqrt()).max(40.0) as f32)
+        .collect();
     let gap = 14.0;
     let h = 170.0;
-    let w = n as f32 * tank_w + (n - 1) as f32 * gap;
+    let w = widths.iter().sum::<f32>() + gap * widths.len().saturating_sub(1) as f32;
     let (r, _) = ui.allocate_exact_size(vec2(w.max(120.0), h + 40.0), Sense::hover());
     let painter = ui.painter_at(r.expand(2.0));
-    let frac = (level / t.capacity()).clamp(0.0, 1.0) as f32;
-    let keep = (t.keep_above / t.capacity()).clamp(0.0, 1.0) as f32;
-    for k in 0..n {
-        let x = r.left() + k as f32 * (tank_w + gap);
-        let body = Rect::from_min_size(pos2(x, r.top() + 6.0), vec2(tank_w, h));
+    let frac = (level / cap).clamp(0.0, 1.0) as f32;
+    let keep = (t.keep_above / cap).clamp(0.0, 1.0) as f32;
+    let mut x = r.left();
+    for (k, tw) in t.tanks.iter().zip(&widths) {
+        let body = Rect::from_min_size(pos2(x, r.top() + 6.0), vec2(*tw, h));
         let water = Rect::from_min_max(
             pos2(body.left(), body.bottom() - body.height() * frac),
             body.max,
@@ -407,16 +413,13 @@ fn tank_drawing(ui: &mut Ui, p: &Palette, t: &Setup, level: f64) {
             );
         }
         painter.rect_stroke(body, 10, Stroke::new(1.5, p.ink2), StrokeKind::Inside);
+        painter.text(
+            pos2(body.center().x, r.top() + h + 16.0),
+            Align2::CENTER_TOP,
+            format!("{} L", litres(k.litres)),
+            theme::body(13.0),
+            p.ink2,
+        );
+        x += tw + gap;
     }
-    painter.text(
-        pos2(r.left(), r.top() + h + 16.0),
-        Align2::LEFT_TOP,
-        if n > 1 {
-            format!("{} × {} L", t.count, litres(t.each))
-        } else {
-            format!("{} L", litres(t.each))
-        },
-        theme::body(13.0),
-        p.ink2,
-    );
 }

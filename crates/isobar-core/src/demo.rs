@@ -15,9 +15,16 @@ use crate::seasons;
 pub fn tanks() -> crate::tanks::Tanks {
     crate::tanks::Tanks {
         roof_area: 400.0,
-        count: 2,
-        each: 22_500.0,
-        diameter_mm: Some(3530.0),
+        tanks: vec![
+            crate::tanks::Tank {
+                litres: 22_500.0,
+                diameter_mm: Some(3530.0),
+            },
+            crate::tanks::Tank {
+                litres: 10_000.0,
+                diameter_mm: Some(2400.0),
+            },
+        ],
         use_per_day: 220.0,
         keep_above: 3000.0,
         known: None,
