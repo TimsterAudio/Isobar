@@ -230,6 +230,13 @@ impl Worker {
                     .collect()
             })
             .unwrap_or_default();
+        // Isobar 0.2 stored every log line; from now on it keeps one per ten
+        // minutes. Thin what an earlier version stored, once.
+        if w.store.meta_get("log_step").ok().flatten().as_deref() != Some("600")
+            && w.store.thin_all_log().is_ok()
+        {
+            let _ = w.store.meta_set("log_step", "600");
+        }
         w.refresh_log_summary();
         w
     }

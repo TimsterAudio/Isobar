@@ -66,7 +66,7 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 ## K. Bigger features
 - [ ] **K1** Readout in the system tray. *Build*
 - [ ] **K3** MX password in the system keychain instead of `settings.json`. *Build*
-- [x] **K4** Detailed history from MX's monthly log files (a reading every few minutes, back as far as MX has them), synced like the dayfile. Gives true 24-hour pressure falls, hour-by-hour rain intensity and the thermograph for any past day. *Build* — **Yes**, done 2026-10-19. `/api/data/logfile?from=YYYY-MM-DD&to=YYYY-MM-DD`, a month at a time in the background, newest first; the current month tops up every 10 minutes
+- [x] **K4** Detailed history from MX's monthly log files (a reading every few minutes, back as far as MX has them), synced like the dayfile. Gives true 24-hour pressure falls, hour-by-hour rain intensity and the thermograph for any past day. *Build* — **Yes**, done 2026-10-19. `/api/data/logfile?from=YYYY-MM-DD&to=YYYY-MM-DD`, a month at a time in the background, newest first; the current month tops up every 10 minutes; stored at most one reading per 10 minutes (one-minute logs combined, 2026-10-19)
 
 ## L. Reports
 Added 2026-10-19 at the owner's request. Each report is a page Isobar writes as a single HTML file (opens in any browser, prints well, and the browser's Print → Save as PDF makes a PDF), with a straight-to-PDF option as a later step.

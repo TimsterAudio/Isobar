@@ -51,7 +51,7 @@ Desktop notifications cover strong gusts, frost, heat, and rain starting after t
 | Live conditions | `GET /api/data/currentdata`, every 10 s by default |
 | Daily history | `GET /api/data/dayfile?draw=1&start=N&length=1000`, paged; re-checked every 30 minutes and downloaded again when the line count changes |
 | Recent detail (best effort) | `GET /api/graphdata/{temp,press,wind,wdir,rain,hum,solar}data.json`, on first connect |
-| Detailed history | `GET /api/data/logfile?from=…&to=…`, MX's monthly log files a month at a time in the background, newest first; the current month every 10 minutes |
+| Detailed history | `GET /api/data/logfile?from=…&to=…`, MX's monthly log files a month at a time in the background, newest first; the current month every 10 minutes. Kept at most one reading per 10 minutes |
 
 Isobar also stores one live sample a minute (21 days are kept), so the 24-hour charts fill in even if the graph-data endpoints aren't available.
 

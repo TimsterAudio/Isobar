@@ -5,18 +5,19 @@
 //! * `samples`: live readings (one per minute) plus anything backfilled from
 //!   MX graph data, in long format `(metric, ts, value)`.
 //! * `tank_log`: an imported tank record (rain, use and adjustments by day).
-//! * `log`: MX's log file readings, one row a timestamp, values in hundredths
-//!   as integers (small on disk), kept for good.
+//! * `log`: MX's log file readings, at most one row per ten minutes (shorter
+//!   logging intervals are combined), values in hundredths as integers
+//!   (small on disk), kept for good.
 //! * `meta`: small key/value pairs such as the last sync time.
 
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, Transaction};
 
 use crate::dayfile::DayRecord;
 use crate::error::{CoreError, Result};
-use crate::logfile::{LogRecord, LOG_METRICS};
+use crate::logfile::{self, LogRecord, LOG_METRICS, LOG_STEP_MS};
 use crate::tanks::LogDay;
 
 pub struct Store {
@@ -25,6 +26,7 @@ pub struct Store {
 
 const SCHEMA: &str = r#"
 PRAGMA journal_mode = WAL;
+PRAGMA journal_size_limit = 8388608;
 CREATE TABLE IF NOT EXISTS days (
     date TEXT PRIMARY KEY,
     json TEXT NOT NULL
@@ -165,32 +167,44 @@ impl Store {
             .execute("DELETE FROM samples WHERE ts < ?1", params![before_ms])?)
     }
 
-    /// Store log file lines, replacing any at the same times.
+    /// Store log file lines, replacing any at the same times, then combine
+    /// the ten-minute steps they fall in, and the step before (the end of the
+    /// last page). Only the step holding the newest reading is left as it
+    /// is, as it may still be filling.
     pub fn upsert_log(&mut self, recs: &[LogRecord]) -> Result<usize> {
-        let cols: Vec<&str> = LOG_METRICS.iter().map(|m| m.0).collect();
-        let sql = format!(
-            "INSERT OR REPLACE INTO log (ts, {}) VALUES (?1, {})",
-            cols.join(", "),
-            (2..=cols.len() + 1)
-                .map(|i| format!("?{i}"))
-                .collect::<Vec<_>>()
-                .join(", ")
-        );
         let tx = self.conn.transaction()?;
-        {
-            let mut stmt = tx.prepare(&sql)?;
-            for r in recs {
-                let mut vals: Vec<Option<i64>> = vec![Some(r.ts)];
-                vals.extend(
-                    r.values
-                        .iter()
-                        .map(|v| v.map(|x| (x * 100.0).round() as i64)),
-                );
-                stmt.execute(rusqlite::params_from_iter(vals))?;
-            }
+        insert_log(&tx, recs)?;
+        if let Some(lo) = recs.iter().map(|r| r.ts).min() {
+            let newest: Option<i64> = tx.query_row("SELECT MAX(ts) FROM log", [], |r| r.get(0))?;
+            thin_log(&tx, lo - LOG_STEP_MS, newest.unwrap_or(lo))?;
         }
         tx.commit()?;
         Ok(recs.len())
+    }
+
+    /// Combine every stored log reading to one per ten minutes, a month at a
+    /// time, and give the space back. Returns how many rows went.
+    pub fn thin_all_log(&mut self) -> Result<usize> {
+        let (_, first, last) = self.log_extent()?;
+        let (Some(first), Some(last)) = (first, last) else {
+            return Ok(0);
+        };
+        let chunk = 30 * 24 * 3_600_000;
+        let mut removed = 0;
+        let mut from = first.div_euclid(LOG_STEP_MS) * LOG_STEP_MS;
+        while from <= last {
+            let to = (from + chunk).min(last);
+            let tx = self.conn.transaction()?;
+            removed += thin_log(&tx, from, to)?;
+            tx.commit()?;
+            from += chunk;
+        }
+        if removed > 0 {
+            // VACUUM rewrites the file through the WAL; empty that too.
+            self.conn
+                .execute_batch("VACUUM; PRAGMA wal_checkpoint(TRUNCATE);")?;
+        }
+        Ok(removed)
     }
 
     /// Log readings of `metrics` from `from_ms` to `to_ms`, by metric.
@@ -294,6 +308,77 @@ impl Store {
     }
 }
 
+fn insert_log(tx: &Transaction, recs: &[LogRecord]) -> Result<()> {
+    let cols: Vec<&str> = LOG_METRICS.iter().map(|m| m.0).collect();
+    let sql = format!(
+        "INSERT OR REPLACE INTO log (ts, {}) VALUES (?1, {})",
+        cols.join(", "),
+        (2..=cols.len() + 1)
+            .map(|i| format!("?{i}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    let mut stmt = tx.prepare_cached(&sql)?;
+    for r in recs {
+        let mut vals: Vec<Option<i64>> = vec![Some(r.ts)];
+        vals.extend(
+            r.values
+                .iter()
+                .map(|v| v.map(|x| (x * 100.0).round() as i64)),
+        );
+        stmt.execute(rusqlite::params_from_iter(vals))?;
+    }
+    Ok(())
+}
+
+/// Combine the readings in each ten-minute step from the one holding
+/// `from_ms` up to, but not including, the one holding `to_ms`, which may
+/// still be filling. Returns how many rows went.
+fn thin_log(tx: &Transaction, from_ms: i64, to_ms: i64) -> Result<usize> {
+    let start = from_ms.div_euclid(LOG_STEP_MS) * LOG_STEP_MS;
+    let end = to_ms.div_euclid(LOG_STEP_MS) * LOG_STEP_MS;
+    if end <= start {
+        return Ok(0);
+    }
+    let cols: Vec<&str> = LOG_METRICS.iter().map(|m| m.0).collect();
+    let mut steps: BTreeMap<i64, Vec<LogRecord>> = BTreeMap::new();
+    {
+        let mut stmt = tx.prepare_cached(&format!(
+            "SELECT ts, {} FROM log WHERE ts >= ?1 AND ts < ?2 ORDER BY ts",
+            cols.join(", ")
+        ))?;
+        let mut rows = stmt.query(params![start, end])?;
+        while let Some(row) = rows.next()? {
+            let ts: i64 = row.get(0)?;
+            let mut values = [None; LOG_METRICS.len()];
+            for (k, v) in values.iter_mut().enumerate() {
+                *v = row.get::<_, Option<i64>>(k + 1)?.map(|x| x as f64 / 100.0);
+            }
+            steps
+                .entry(ts.div_euclid(LOG_STEP_MS))
+                .or_default()
+                .push(LogRecord { ts, values });
+        }
+    }
+    let mut removed = 0;
+    for (step, recs) in steps {
+        if recs.len() < 2 {
+            continue;
+        }
+        let Some(one) = logfile::combine(&recs) else {
+            continue;
+        };
+        let from = step * LOG_STEP_MS;
+        tx.execute(
+            "DELETE FROM log WHERE ts >= ?1 AND ts < ?2",
+            params![from, from + LOG_STEP_MS],
+        )?;
+        insert_log(tx, &[one])?;
+        removed += recs.len() - 1;
+    }
+    Ok(removed)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -353,6 +438,60 @@ mod tests {
         assert_eq!(got["press"][0], (2000, 1013.25));
         assert_eq!(s.log_extent().unwrap(), (3, Some(1000), Some(3000)));
         assert_eq!(s.log_last_between(0, 2500).unwrap(), Some(2000));
+    }
+
+    #[test]
+    fn log_keeps_one_reading_per_ten_minutes() {
+        let mut s = Store::open_in_memory().unwrap();
+        let min = 60_000;
+        let rec = |k: i64| {
+            let mut values = [None; LOG_METRICS.len()];
+            values[0] = Some(k as f64);
+            values[7] = Some(k as f64 / 10.0);
+            LogRecord {
+                ts: k * min,
+                values,
+            }
+        };
+        // A one-minute log for 25 minutes, in two pages: the last step is
+        // still filling, so it stays as it is.
+        let all: Vec<LogRecord> = (0..25).map(rec).collect();
+        s.upsert_log(&all[..13]).unwrap();
+        s.upsert_log(&all[13..]).unwrap();
+        let got = s.log_series(&["temp", "rain_today"], 0, i64::MAX).unwrap();
+        let mut want = vec![(9 * min, 4.5), (19 * min, 14.5)];
+        want.extend((20..25).map(|k| (k * min, k as f64)));
+        assert_eq!(got["temp"], want);
+        assert_eq!(got["rain_today"][0], (9 * min, 0.9), "latest total");
+        // Fetching the same day again gives the same result.
+        s.upsert_log(&all).unwrap();
+        assert_eq!(s.log_series(&["temp"], 0, i64::MAX).unwrap()["temp"], want);
+        // Thinning everything leaves only the newest, unfinished step.
+        assert_eq!(s.thin_all_log().unwrap(), 0);
+        s.upsert_log(&[rec(31)]).unwrap();
+        assert_eq!(s.log_extent().unwrap().0, 4);
+    }
+
+    #[test]
+    fn thins_an_old_one_minute_log() {
+        let mut s = Store::open_in_memory().unwrap();
+        // As an earlier Isobar stored it: every line, unthinned.
+        let tx = s.conn.transaction().unwrap();
+        let recs: Vec<LogRecord> = (0..100_000)
+            .map(|k| {
+                let mut values = [None; LOG_METRICS.len()];
+                values[0] = Some(20.0);
+                LogRecord {
+                    ts: k * 60_000,
+                    values,
+                }
+            })
+            .collect();
+        insert_log(&tx, &recs).unwrap();
+        tx.commit().unwrap();
+        // All but the newest step, which may still be filling.
+        assert_eq!(s.thin_all_log().unwrap(), 9_999 * 9);
+        assert_eq!(s.log_extent().unwrap().0, 9_999 + 10);
     }
 
     #[test]

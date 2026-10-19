@@ -246,9 +246,64 @@ pub fn rain_by_rate(rain_today: &[(i64, f64)], mm_per_unit: f64) -> Vec<BurstYea
     out
 }
 
+/// Isobar keeps at most one log reading per ten minutes: MX's usual
+/// interval, close enough for 24-hour falls and rain rates, and a tenth of
+/// the size of a one-minute log.
+pub const LOG_STEP_MS: i64 = 600_000;
+
+/// Combine readings from one ten-minute step into one, timed at the last.
+/// Most readings are averaged; gust and rain rate keep the highest; the
+/// bearing and the running rain totals keep the latest.
+pub fn combine(recs: &[LogRecord]) -> Option<LogRecord> {
+    let last = recs.iter().max_by_key(|r| r.ts)?;
+    let mut values = [None; LOG_METRICS.len()];
+    for (k, (name, _)) in LOG_METRICS.iter().enumerate() {
+        let mut have: Vec<(i64, f64)> = recs
+            .iter()
+            .filter_map(|r| r.values[k].map(|v| (r.ts, v)))
+            .collect();
+        if have.is_empty() {
+            continue;
+        }
+        have.sort_by_key(|h| h.0);
+        values[k] = Some(match *name {
+            "gust" | "rain_rate" => have.iter().map(|h| h.1).fold(f64::MIN, f64::max),
+            "bearing" | "rain_today" | "rain_midnight" => have[have.len() - 1].1,
+            _ => have.iter().map(|h| h.1).sum::<f64>() / have.len() as f64,
+        });
+    }
+    Some(LogRecord {
+        ts: last.ts,
+        values,
+    })
+}
+
 #[cfg(test)]
 mod analysis_tests {
     use super::*;
+
+    #[test]
+    fn combines_a_step() {
+        let rec = |ts: i64, temp: f64, gust: f64, rain: f64| {
+            let mut values = [None; LOG_METRICS.len()];
+            values[0] = Some(temp);
+            values[4] = Some(gust);
+            values[7] = Some(rain);
+            LogRecord { ts, values }
+        };
+        let c = combine(&[
+            rec(60_000, 10.0, 5.0, 1.0),
+            rec(0, 12.0, 9.0, 0.8),
+            rec(120_000, 14.0, 3.0, 1.2),
+        ])
+        .unwrap();
+        assert_eq!(c.ts, 120_000, "timed at the last reading");
+        assert_eq!(c.get("temp"), Some(12.0));
+        assert_eq!(c.get("gust"), Some(9.0));
+        assert_eq!(c.get("rain_today"), Some(1.2));
+        assert_eq!(c.get("press"), None);
+        assert_eq!(combine(&[]), None);
+    }
 
     #[test]
     fn finds_24_hour_falls() {
