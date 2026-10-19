@@ -1,7 +1,7 @@
 //! Insights: unusual days measured against the seasonal normal for that date,
 //! a records board, a monthly climate table and prevailing-wind roses.
 
-use chrono::{Datelike, Duration, NaiveDate};
+use chrono::{Datelike, Duration, NaiveDate, TimeZone};
 use eframe::egui::{self, vec2, Align, Layout, Ui};
 use isobar_core::analytics::{
     self as an, Anomaly, Field, MonthClimate, RecordRow, RecordUnit, RecordWhen, Tone, COMPASS16,
@@ -383,6 +383,43 @@ impl Insights {
                     640.0,
                 );
             }
+            let bursts = &snap.log_summary.bursts;
+            if !bursts.is_empty() {
+                ui.add_space(6.0);
+                ui::text(ui, "By how hard it fell", theme::semi(15.0), p.ink);
+                ui::para(
+                    ui,
+                    "From MX's detailed logs: the share of each year's rain that fell at under 2.5 mm an hour (light), up to 10 (moderate), up to 50 (heavy) and over 50 (violent). Rain logged across a gap of over an hour can't be timed and is left out.",
+                    theme::body(14.0),
+                    p.ink2,
+                    640.0,
+                );
+                let mut rows = Vec::new();
+                for y in bursts.iter().rev() {
+                    let timed: f64 = y.rain.iter().sum();
+                    let mut r = vec![
+                        cell(y.year.to_string()).strong(),
+                        cell(format!("{} {}", num(Some(timed), 0), u.rain)).color(p.rain),
+                    ];
+                    for k in 0..4 {
+                        r.push(
+                            cell(pct(y.rain[k], timed))
+                                .color(if k >= 2 { p.rain } else { p.ink })
+                                .tooltip(format!("{} {}", num(Some(y.rain[k]), 1), u.rain)),
+                        );
+                    }
+                    rows.push(r);
+                }
+                let cols = [
+                    col("Year", 70.0, false),
+                    col("Timed rain", 0.0, true),
+                    col("Light", 0.0, true),
+                    col("Moderate", 0.0, true),
+                    col("Heavy", 0.0, true),
+                    col("Violent", 0.0, true),
+                ];
+                ui::table(ui, &cols, &rows, 14.0);
+            }
         });
     }
 
@@ -479,6 +516,75 @@ impl Insights {
         let p = Palette::of(ui.ctx());
         let u = snap.units();
         let Some(c) = self.cache.as_ref() else { return };
+        let logged = &snap.log_summary.falls;
+        if !logged.is_empty() {
+            let digits = if an::hpa_per_unit(&u.press) > 5.0 {
+                2
+            } else {
+                1
+            };
+            let when = |ms: i64| {
+                chrono::Local.timestamp_millis_opt(ms).single().map(|t| {
+                    (
+                        t.date_naive(),
+                        format!(
+                            "{} {}",
+                            nice_date(t.date_naive()),
+                            format::clock(&t.format("%H:%M").to_string())
+                        ),
+                    )
+                })
+            };
+            ui::panel(ui, |ui| {
+                ui::h2(ui, "Biggest pressure falls");
+                ui::para(
+                    ui,
+                    "Your stormiest days: the deepest falls within 24 hours, from MX's detailed logs. Falls within two days of a bigger one count once, as one storm.",
+                    theme::body(14.0),
+                    p.ink2,
+                    760.0,
+                );
+                let rows: Vec<Vec<ui::Cell>> = logged
+                    .iter()
+                    .map(|f| {
+                        let end = when(f.to_ts);
+                        let day = end
+                            .as_ref()
+                            .and_then(|(d, _)| snap.days.iter().find(|r| r.date == *d));
+                        let hours = (f.to_ts - f.from_ts) as f64 / 3_600_000.0;
+                        vec![
+                            cell(end.map_or("–".into(), |e| e.1)).strong(),
+                            cell(format!("{} {}", num(Some(f.fall()), digits), u.press))
+                                .color(p.heat),
+                            cell(format!("{} h", num(Some(hours), 0))),
+                            cell(format!(
+                                "{} to {}",
+                                num(Some(f.from), digits),
+                                num(Some(f.to), digits)
+                            )),
+                            cell(day.and_then(|d| d.gust_max).map_or("–".into(), |g| {
+                                format!("{} {}", num(Some(g), 0), u.wind)
+                            }))
+                            .color(p.wind),
+                            cell(day.and_then(|d| d.rain).map_or("–".into(), |r| {
+                                format!("{} {}", num(Some(r), 1), u.rain)
+                            }))
+                            .color(p.rain),
+                        ]
+                    })
+                    .collect();
+                let cols = [
+                    col("Lowest at", 170.0, false),
+                    col("Fall", 0.0, true),
+                    col("Over", 0.0, true),
+                    col("From and to", 0.0, true),
+                    col("Peak gust that day", 0.0, true),
+                    col("Rain that day", 0.0, true),
+                ];
+                ui::table(ui, &cols, &rows, 14.0);
+            });
+            return;
+        }
         if c.falls.is_empty() {
             return;
         }
@@ -486,7 +592,7 @@ impl Insights {
             ui::h2(ui, "Biggest pressure falls");
             ui::para(
                 ui,
-                "Your stormiest days: the deepest drops from one day's highest pressure to the next day's lowest. Falls a day or two apart count once, as one storm.",
+                "Your stormiest days: the deepest drops from one day's highest pressure to the next day's lowest. Falls a day or two apart count once, as one storm. Once Isobar has MX's detailed logs, this shows true 24-hour falls.",
                 theme::body(14.0),
                 p.ink2,
                 760.0,

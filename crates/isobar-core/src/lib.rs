@@ -2,6 +2,7 @@
 //!
 //! * [`dayfile`] parses Cumulus `dayfile.txt` lines (from the file or the MX API).
 //! * [`live`] maps the MX `currentdata` JSON onto a typed reading.
+//! * [`logfile`] reads MX's monthly log lines (a reading every few minutes).
 //! * [`mx`] is the HTTP client for a Cumulus MX instance.
 //! * [`store`] is the local SQLite cache of daily records and live samples.
 //! * [`analytics`] turns the daily history into normals, anomalies and records.
@@ -16,6 +17,7 @@ pub mod demo;
 pub mod error;
 pub mod health;
 pub mod live;
+pub mod logfile;
 pub mod mx;
 pub mod seasons;
 pub mod store;

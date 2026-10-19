@@ -14,6 +14,7 @@ use serde_json::Value;
 use crate::dayfile::{self, DayRecord};
 use crate::error::{CoreError, Result};
 use crate::live::LiveReading;
+use crate::logfile::{self, LogRecord};
 
 const PAGE: usize = 1000;
 
@@ -79,6 +80,65 @@ impl MxClient {
     }
 
     /// Current conditions.
+    /// Like `get_json`, but an empty body (MX's answer for a log file it
+    /// doesn't have) is `None`.
+    fn get_json_or_empty(&self, path: &str) -> Result<Option<Value>> {
+        let url = format!("{}{}", self.base, path);
+        let mut req = self.http.get(&url).timeout(Duration::from_secs(60));
+        if let Some((u, p)) = &self.auth {
+            req = req.basic_auth(u, Some(p));
+        }
+        let resp = req.send()?;
+        let status = resp.status();
+        if !status.is_success() {
+            return Err(CoreError::Status(status.as_u16(), path.to_string()));
+        }
+        let body = resp.text()?;
+        if body.trim().is_empty() {
+            return Ok(None);
+        }
+        serde_json::from_str(&body)
+            .map(Some)
+            .map_err(|e| CoreError::Parse(format!("{path} did not return JSON ({e})")))
+    }
+
+    /// The log lines for the meteorological days `from` to `to` inclusive,
+    /// a page at a time. An empty list means MX has no log for that time.
+    pub fn logfile(
+        &self,
+        from: chrono::NaiveDate,
+        to: chrono::NaiveDate,
+    ) -> Result<Vec<LogRecord>> {
+        const LOG_PAGE: usize = 2000;
+        let mut out = Vec::new();
+        let mut start = 0;
+        loop {
+            let path = format!(
+                "/api/data/logfile?from={}&to={}&draw=1&start={start}&length={LOG_PAGE}",
+                from.format("%Y-%m-%d"),
+                to.format("%Y-%m-%d")
+            );
+            let Some(v) = self.get_json_or_empty(&path)? else {
+                break;
+            };
+            let total = v.get("recordsTotal").and_then(Value::as_u64).unwrap_or(0) as usize;
+            let rows = v
+                .get("data")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            if rows.is_empty() {
+                break;
+            }
+            start += rows.len();
+            out.extend(rows.iter().filter_map(logfile::from_api_row));
+            if start >= total {
+                break;
+            }
+        }
+        Ok(out)
+    }
+
     pub fn current(&self) -> Result<LiveReading> {
         let v = self.get_json("/api/data/currentdata")?;
         let now = chrono::Utc::now().timestamp_millis();

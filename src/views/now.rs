@@ -29,7 +29,35 @@ const SPARK_H: f32 = 32.0;
 pub struct Now {
     /// A new card order from a drag, for the app to save.
     pub reordered: Option<Vec<(NowCard, bool)>>,
+    /// Readings the big chart needs from the history, for the app to ask
+    /// the worker for: (key, metrics, from, to).
+    pub request: Option<(String, Vec<String>, i64, i64)>,
+    requested: Option<(String, std::time::Instant)>,
     tanks: Option<(String, Option<tanks::Glance>)>,
+    /// The card shown in detail in the big chart; none is temperature.
+    focus: Option<NowCard>,
+    /// The chosen span for each, in hours.
+    spans: std::collections::HashMap<Option<NowCard>, i64>,
+}
+
+/// The spans offered for each card's detail, in hours, and the default.
+fn spans_for(card: Option<NowCard>) -> (&'static [i64], i64) {
+    match card {
+        None => (&[24, 72, 168, 720], 24),
+        Some(NowCard::Pressure) => (&[24, 72, 168, 720], 72),
+        Some(NowCard::Rain) => (&[24, 168, 720, 2160], 168),
+        Some(NowCard::Tanks) => (&[720, 2160, 8760], 2160),
+        Some(_) => (&[24, 72, 168], 24),
+    }
+}
+
+fn span_label(h: i64) -> String {
+    match h {
+        24 => "24 hours".into(),
+        h if h < 24 * 60 => format!("{} days", h / 24),
+        h if h < 24 * 300 => format!("{} months", (h as f64 / (24.0 * 30.4)).round()),
+        _ => "1 year".into(),
+    }
 }
 
 /// `order` with `from` moved to where `to` is: before it when moving back,
@@ -140,12 +168,13 @@ impl Now {
 
         let wide = ui.available_width() >= 980.0;
         if wide {
-            ui::split(
+            ui::split_with(
                 ui,
                 0.27,
                 32.0,
-                |ui| self.reading(ui, r),
-                |ui| self.thermograph(ui, snap),
+                self,
+                |ui, s| s.reading(ui, r),
+                |ui, s| s.thermograph(ui, snap),
             );
         } else {
             self.reading(ui, r);
@@ -197,6 +226,37 @@ impl Now {
             }
             ui::columns(ui, cols, 22.0, true, |i, ui| {
                 let Some(&card) = row.get(i) else { return };
+                // A click anywhere on the card (but its own controls) shows
+                // it in the big chart; laid under the card using last
+                // frame's size, so the card's widgets still come first.
+                let rect_id = egui::Id::new(("now-card-rect", card));
+                if let Some(prev) = ui.data(|d| d.get_temp::<egui::Rect>(rect_id)) {
+                    let pick =
+                        ui.interact(prev, egui::Id::new(("now-card-pick", card)), Sense::click());
+                    if pick.hovered() && !dragging {
+                        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                    }
+                    let on = self.focus == Some(card);
+                    if pick
+                        .on_hover_text(if on {
+                            "Back to temperature in the chart above"
+                        } else {
+                            "Show this in the chart above"
+                        })
+                        .clicked()
+                    {
+                        self.focus = if on { None } else { Some(card) };
+                    }
+                    if on {
+                        ui.painter().line_segment(
+                            [
+                                pos2(prev.left(), prev.top() + 2.0),
+                                pos2(prev.right(), prev.top() + 2.0),
+                            ],
+                            Stroke::new(2.0, p.trace),
+                        );
+                    }
+                }
                 ui.add_space(12.0);
                 ui.spacing_mut().item_spacing.y = 4.0;
                 // The title is the handle for dragging the card.
@@ -223,6 +283,8 @@ impl Now {
                         }
                     }
                 }
+                let card_rect = ui.min_rect();
+                ui.data_mut(|d| d.insert_temp(rect_id, card_rect));
                 if dragging {
                     let rect = ui.min_rect().expand2(vec2(10.0, 4.0));
                     let zone = ui.interact(rect, egui::Id::new(("now-drop", card)), Sense::hover());
@@ -421,10 +483,40 @@ impl Now {
     }
 
     /// The one loud thing: the 24-hour trace on graph paper.
-    fn thermograph(&self, ui: &mut Ui, snap: &Snapshot) {
+    fn thermograph(&mut self, ui: &mut Ui, snap: &Snapshot) {
         let p = Palette::of(ui.ctx());
         let u = snap.units();
         let paper = ui.painter().add(Shape::Noop);
+        // A card hidden or gone since it was picked: back to temperature.
+        if self.focus == Some(NowCard::Tanks) && self.tanks.as_ref().is_none_or(|t| t.1.is_none()) {
+            self.focus = None;
+        }
+        let focus = self.focus;
+        let (options, default) = spans_for(focus);
+        let hours = self
+            .spans
+            .get(&focus)
+            .copied()
+            .filter(|h| options.contains(h))
+            .unwrap_or(default);
+        if focus.is_some() || hours != 24 {
+            let resp = egui::Frame::new()
+                .stroke(Stroke::new(1.0, p.grid))
+                .corner_radius(theme::RADIUS)
+                .inner_margin(egui::Margin {
+                    left: 12,
+                    right: 16,
+                    top: 16,
+                    bottom: 12,
+                })
+                .show(ui, |ui| {
+                    ui.set_width(ui.available_width());
+                    ui.spacing_mut().item_spacing.y = 8.0;
+                    self.detail(ui, snap, focus, hours, &p);
+                });
+            graph_paper(ui, resp.response.rect, paper, &p);
+            return;
+        }
         let resp = egui::Frame::new()
             .stroke(Stroke::new(1.0, p.grid))
             .corner_radius(theme::RADIUS)
@@ -509,32 +601,417 @@ impl Now {
                         );
                     }
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui::small(ui, "Last 24 hours", p.ink2);
+                        span_chips(ui, &mut self.spans, None);
                     });
                 });
             });
-        // Graph paper behind it all: a fine 12 px grid.
-        let rect = resp.response.rect;
-        let mut shapes = vec![Shape::rect_filled(rect, theme::RADIUS, p.sheet)];
-        let fine = Stroke::new(1.0, alpha(p.faint, if p.dark { 0.8 } else { 1.0 }));
-        let inner = rect.shrink(1.0);
-        let mut x = inner.left() + 12.0;
-        while x < inner.right() {
-            shapes.push(Shape::line_segment(
-                [pos2(x, inner.top()), pos2(x, inner.bottom())],
-                fine,
-            ));
-            x += 12.0;
+        graph_paper(ui, resp.response.rect, paper, &p);
+    }
+
+    /// The big chart showing one card's measure over a chosen span.
+    fn detail(
+        &mut self,
+        ui: &mut Ui,
+        snap: &Snapshot,
+        focus: Option<NowCard>,
+        hours: i64,
+        p: &Palette,
+    ) {
+        let u = snap.units();
+        let height = 226.0;
+        let to = snap.now_ms;
+        let from = to - hours * 3_600_000;
+        let span_secs = (hours * 3600) as f64;
+        // Readings from the history, asked of the worker; the last day
+        // comes straight from the live samples.
+        let metrics: &[&str] = match focus {
+            None => &["temp", "dew"],
+            Some(NowCard::Wind) => &["wind", "gust"],
+            Some(NowCard::Pressure) => &["press"],
+            Some(NowCard::Humidity) => &["hum"],
+            Some(NowCard::Sun) => &["solar", "solar_max"],
+            Some(NowCard::Indoor) => &["intemp", "temp"],
+            _ => &[],
+        };
+        let mut data: Option<&crate::worker::Samples> = None;
+        if !metrics.is_empty() {
+            let key = format!("{focus:?}-{hours}");
+            let fresh = snap
+                .detail
+                .as_ref()
+                .filter(|d| d.key == key)
+                .map(|d| d.at.elapsed().as_secs() < 120);
+            let asked = self
+                .requested
+                .as_ref()
+                .is_some_and(|(k, at)| *k == key && at.elapsed().as_secs() < 5);
+            if fresh != Some(true) && !asked {
+                self.request = Some((
+                    key.clone(),
+                    metrics.iter().map(|m| m.to_string()).collect(),
+                    from,
+                    to,
+                ));
+                self.requested = Some((key.clone(), std::time::Instant::now()));
+            }
+            data = snap
+                .detail
+                .as_ref()
+                .filter(|d| d.key == key)
+                .map(|d| &d.series);
         }
-        let mut y = inner.top() + 12.0;
-        while y < inner.bottom() {
-            shapes.push(Shape::line_segment(
-                [pos2(inner.left(), y), pos2(inner.right(), y)],
-                fine,
-            ));
-            y += 12.0;
+        let pts = |k: &str| -> Vec<(i64, f64)> {
+            if hours <= 24 && k != "solar_max" {
+                snap.samples.get(k).cloned().unwrap_or_default()
+            } else {
+                data.and_then(|d| d.get(k)).cloned().unwrap_or_default()
+            }
+        };
+        let covered = |v: &[(i64, f64)]| match (v.first(), v.last()) {
+            (Some(a), Some(b)) => (b.0 - a.0) as f64 / 1000.0 / span_secs,
+            _ => 0.0,
+        };
+        // Daily highs and lows from the history, for long spans the detailed
+        // readings don't reach (MX's logs not fetched yet, or none kept).
+        let daily = |hi: fn(&isobar_core::DayRecord) -> Option<f64>,
+                     lo: fn(&isobar_core::DayRecord) -> Option<f64>| {
+            let start = chart::ts_day((from / 1000) as f64);
+            let days: Vec<&isobar_core::DayRecord> =
+                snap.days.iter().filter(|d| d.date >= start).collect();
+            let xs: Vec<f64> = days
+                .iter()
+                .map(|d| chart::day_ts(d.date) + 12.0 * 3600.0)
+                .collect();
+            let a: Vec<Option<f64>> = days.iter().map(|d| hi(d)).collect();
+            let b: Vec<Option<f64>> = days.iter().map(|d| lo(d)).collect();
+            (xs, a, b)
+        };
+        let mut note: Option<String> = None;
+        let mut keys: Vec<(String, egui::Color32, ui::KeyMark)> = Vec::new();
+        let gap = |n: usize| GAP_SECS.max(3.0 * span_secs / n.max(1) as f64);
+        match focus {
+            Some(NowCard::Rain) if hours > 24 => {
+                // Daily totals, today's so far from the live reading.
+                let start = chart::ts_day((from / 1000) as f64);
+                let today = chrono::Local::now().date_naive();
+                let mut days: Vec<(chrono::NaiveDate, Option<f64>)> = snap
+                    .days
+                    .iter()
+                    .filter(|d| d.date >= start && d.date < today)
+                    .map(|d| (d.date, d.rain))
+                    .collect();
+                days.push((today, snap.live.as_ref().and_then(|r| r.rain_today)));
+                let total: f64 = days.iter().filter_map(|d| d.1).sum();
+                let xs: Vec<f64> = days
+                    .iter()
+                    .map(|d| chart::day_ts(d.0) + 12.0 * 3600.0)
+                    .collect();
+                Chart::new(("detail-rain", hours), height, xs, XAxis::Time)
+                    .series(
+                        Series::line("Rain", days.iter().map(|d| d.1).collect(), p.rain)
+                            .bars()
+                            .unit(format!(" {}", u.rain), 1),
+                    )
+                    .title(|x| format::nice_date(chart::ts_day(x)))
+                    .show(ui);
+                keys.push((
+                    format!("Rain each day ({}), {} in all", u.rain, num(Some(total), 1)),
+                    p.rain,
+                    ui::KeyMark::Square,
+                ));
+            }
+            Some(NowCard::Rain) => {
+                let rain = rain_today(snap);
+                let xs: Vec<f64> = rain.iter().map(|r| r.0 as f64 / 1000.0).collect();
+                let rate = snap
+                    .samples
+                    .get("rain_rate")
+                    .map(|r| align(&xs, r))
+                    .unwrap_or_default();
+                Chart::new("detail-rain-day", height, xs, XAxis::Time)
+                    .series(
+                        Series::line(
+                            "Rain since midnight",
+                            rain.iter().map(|r| Some(r.1)).collect(),
+                            p.rain,
+                        )
+                        .fill(alpha(p.rain, 0.14))
+                        .no_points()
+                        .max_gap(GAP_SECS)
+                        .unit(format!(" {}", u.rain), 1),
+                    )
+                    .series(
+                        Series::line("Rate", rate, alpha(p.ink2, 0.8))
+                            .width(1.0)
+                            .dashed()
+                            .right()
+                            .no_points()
+                            .max_gap(GAP_SECS)
+                            .unit(format!(" {}/h", u.rain), 1),
+                    )
+                    .left_from_zero()
+                    .right_from_zero()
+                    .title(chart::ts_time)
+                    .show(ui);
+                keys.push((
+                    format!("Rain since midnight ({})", u.rain),
+                    p.rain,
+                    ui::KeyMark::Square,
+                ));
+                keys.push((
+                    format!("Rate ({}/h, right)", u.rain),
+                    p.ink2,
+                    ui::KeyMark::Dashed,
+                ));
+            }
+            Some(NowCard::Tanks) => {
+                if let Some(g) = self.tanks.as_ref().and_then(|t| t.1.as_ref()) {
+                    let start = chart::ts_day((from / 1000) as f64);
+                    let rows: Vec<&(chrono::NaiveDate, f64)> =
+                        g.year.iter().filter(|d| d.0 >= start).collect();
+                    let xs: Vec<f64> = rows.iter().map(|d| chart::day_ts(d.0)).collect();
+                    Chart::new(("detail-tanks", hours), height, xs.clone(), XAxis::Time)
+                        .series(
+                            Series::line("Level", rows.iter().map(|d| Some(d.1)).collect(), p.rain)
+                                .fill(alpha(p.rain, 0.14))
+                                .no_points()
+                                .unit(" L", 0),
+                        )
+                        .series(
+                            Series::line(
+                                "Capacity",
+                                vec![Some(g.capacity); xs.len()],
+                                alpha(p.ink2, 0.5),
+                            )
+                            .width(1.0)
+                            .no_points()
+                            .hidden_in_readout(),
+                        )
+                        .left_from_zero()
+                        .left_ticks(|v, _| {
+                            if v == 0.0 {
+                                "0".into()
+                            } else {
+                                format!("{}k", num(Some(v / 1000.0), 0))
+                            }
+                        })
+                        .title(|x| format::nice_date(chart::ts_day(x)))
+                        .show(ui);
+                    keys.push(("Tank level (litres)".into(), p.rain, ui::KeyMark::Square));
+                }
+            }
+            _ => {
+                // Line charts: the first metric leads, the second aligns to it.
+                let (a_key, b_key) = (metrics[0], metrics.get(1).copied());
+                let a = pts(a_key);
+                let fallback = hours > 24 && covered(&a) < 0.5;
+                let (label_a, color_a, unit_a, label_b, color_b, unit_b, dashed_b): (
+                    String,
+                    egui::Color32,
+                    String,
+                    String,
+                    egui::Color32,
+                    String,
+                    bool,
+                ) = match focus {
+                    None => (
+                        "Temperature".into(),
+                        p.trace,
+                        u.temp.clone(),
+                        "Dew point".into(),
+                        p.ink2,
+                        u.temp.clone(),
+                        true,
+                    ),
+                    Some(NowCard::Wind) => (
+                        "Average".into(),
+                        p.wind,
+                        format!(" {}", u.wind),
+                        "Gust".into(),
+                        alpha(p.wind, 0.5),
+                        format!(" {}", u.wind),
+                        false,
+                    ),
+                    Some(NowCard::Pressure) => (
+                        "Pressure".into(),
+                        p.trace,
+                        format!(" {}", u.press),
+                        String::new(),
+                        p.ink2,
+                        String::new(),
+                        false,
+                    ),
+                    Some(NowCard::Humidity) => (
+                        "Humidity".into(),
+                        p.trace,
+                        "%".into(),
+                        String::new(),
+                        p.ink2,
+                        String::new(),
+                        false,
+                    ),
+                    Some(NowCard::Sun) => (
+                        "Solar".into(),
+                        p.warn,
+                        " W/m²".into(),
+                        "Clear-sky maximum".into(),
+                        p.ink2,
+                        " W/m²".into(),
+                        true,
+                    ),
+                    _ => (
+                        "Inside".into(),
+                        p.trace,
+                        u.temp.clone(),
+                        "Outside".into(),
+                        p.ink2,
+                        u.temp.clone(),
+                        false,
+                    ),
+                };
+                if fallback {
+                    type Pick = fn(&isobar_core::DayRecord) -> Option<f64>;
+                    let pair: Option<(Pick, Pick, &str)> = match focus {
+                        None => Some((|d| d.temp_max, |d| d.temp_min, "Daily high and low")),
+                        Some(NowCard::Wind) => Some((
+                            |d| d.gust_max,
+                            |d| d.wind_avg_max,
+                            "Daily peak gust and highest average",
+                        )),
+                        Some(NowCard::Pressure) => {
+                            Some((|d| d.press_max, |d| d.press_min, "Daily high and low"))
+                        }
+                        Some(NowCard::Humidity) => {
+                            Some((|d| d.hum_max, |d| d.hum_min, "Daily high and low"))
+                        }
+                        Some(NowCard::Sun) => Some((|d| d.solar_max, |_| None, "Daily peak")),
+                        _ => None,
+                    };
+                    if let Some((hi, lo, what)) = pair {
+                        let (xs, h, l) = daily(hi, lo);
+                        Chart::new(
+                            ("detail-daily", focus.map(|c| c.id()), hours),
+                            height,
+                            xs,
+                            XAxis::Time,
+                        )
+                        .series(
+                            Series::line("High", h, color_a)
+                                .no_points()
+                                .unit(&unit_a, 1),
+                        )
+                        .series(
+                            Series::line("Low", l, alpha(color_a, 0.6))
+                                .no_points()
+                                .unit(&unit_a, 1),
+                        )
+                        .band(0, 1, alpha(color_a, 0.1))
+                        .title(|x| format::nice_date(chart::ts_day(x)))
+                        .show(ui);
+                        keys.push((what.into(), color_a, ui::KeyMark::Line));
+                        note = Some(if snap.demo {
+                            "Daily figures: the demo station only has a day of detailed readings."
+                                .into()
+                        } else {
+                            "Daily figures for now. The detailed readings fill in once Isobar has fetched MX's log files (see Health).".into()
+                        });
+                    }
+                } else if a.len() > 1 {
+                    let xs: Vec<f64> = a.iter().map(|q| q.0 as f64 / 1000.0).collect();
+                    let g = gap(a.len());
+                    let mut c = Chart::new(
+                        ("detail", focus.map(|c| c.id()), hours),
+                        height,
+                        xs.clone(),
+                        XAxis::Time,
+                    )
+                    .series(
+                        Series::line(
+                            label_a.clone(),
+                            a.iter().map(|q| Some(q.1)).collect(),
+                            color_a,
+                        )
+                        .width(2.0)
+                        .span_gaps()
+                        .max_gap(g)
+                        .no_points()
+                        .unit(&unit_a, 1),
+                    )
+                    .title(if hours <= 24 {
+                        chart::ts_time
+                    } else {
+                        |x| {
+                            format!(
+                                "{}, {}",
+                                format::nice_date(chart::ts_day(x)),
+                                chart::ts_time(x)
+                            )
+                        }
+                    });
+                    if let Some(b) = b_key {
+                        let mut line = Series::line(label_b.clone(), align(&xs, &pts(b)), color_b)
+                            .width(1.25)
+                            .span_gaps()
+                            .max_gap(g)
+                            .no_points()
+                            .unit(&unit_b, 1);
+                        if dashed_b {
+                            line = line.dashed();
+                        }
+                        c = c.series(line);
+                    }
+                    if matches!(
+                        focus,
+                        Some(NowCard::Wind) | Some(NowCard::Sun) | Some(NowCard::Humidity)
+                    ) {
+                        c = c.left_from_zero();
+                    }
+                    c.show(ui);
+                    keys.push((label_a, color_a, ui::KeyMark::Line));
+                    if b_key.is_some() {
+                        keys.push((
+                            label_b,
+                            color_b,
+                            if dashed_b {
+                                ui::KeyMark::Dashed
+                            } else {
+                                ui::KeyMark::Line
+                            },
+                        ));
+                    }
+                } else {
+                    let (rect, _) =
+                        ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::hover());
+                    ui.painter().text(
+                        rect.center(),
+                        egui::Align2::CENTER_CENTER,
+                        "Loading readings…",
+                        theme::body(15.0),
+                        p.ink2,
+                    );
+                }
+            }
         }
-        ui.painter().set(paper, Shape::Vec(shapes));
+        ui.horizontal(|ui| {
+            ui.add_space(4.0);
+            ui.spacing_mut().item_spacing.x = 16.0;
+            for (label, color, mark) in &keys {
+                ui::key(ui, label, *color, *mark);
+            }
+            if let Some(n) = &note {
+                ui::small(ui, n, p.ink2);
+            }
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                span_chips(ui, &mut self.spans, focus);
+                if focus.is_some()
+                    && ui::chip(ui, "Temperature", false)
+                        .on_hover_text("Back to the thermograph")
+                        .clicked()
+                {
+                    self.focus = None;
+                }
+            });
+        });
     }
 
     fn title(ui: &mut Ui, s: &str) -> egui::Response {
@@ -1004,6 +1481,50 @@ fn align(xs: &[f64], pts: &[(i64, f64)]) -> Vec<Option<f64>> {
                 .map(|p| p.1)
         })
         .collect()
+}
+
+/// The chips for choosing a span, right to left.
+fn span_chips(
+    ui: &mut Ui,
+    spans: &mut std::collections::HashMap<Option<NowCard>, i64>,
+    focus: Option<NowCard>,
+) {
+    let (options, default) = spans_for(focus);
+    let cur = spans
+        .get(&focus)
+        .copied()
+        .filter(|h| options.contains(h))
+        .unwrap_or(default);
+    ui.spacing_mut().item_spacing.x = 6.0;
+    for h in options.iter().rev() {
+        if ui::chip(ui, &span_label(*h), cur == *h).clicked() {
+            spans.insert(focus, *h);
+        }
+    }
+}
+
+/// Graph paper behind the big chart: a fine 12 px grid.
+fn graph_paper(ui: &mut Ui, rect: egui::Rect, paper: egui::layers::ShapeIdx, p: &Palette) {
+    let mut shapes = vec![Shape::rect_filled(rect, theme::RADIUS, p.sheet)];
+    let fine = Stroke::new(1.0, alpha(p.faint, if p.dark { 0.8 } else { 1.0 }));
+    let inner = rect.shrink(1.0);
+    let mut x = inner.left() + 12.0;
+    while x < inner.right() {
+        shapes.push(Shape::line_segment(
+            [pos2(x, inner.top()), pos2(x, inner.bottom())],
+            fine,
+        ));
+        x += 12.0;
+    }
+    let mut y = inner.top() + 12.0;
+    while y < inner.bottom() {
+        shapes.push(Shape::line_segment(
+            [pos2(inner.left(), y), pos2(inner.right(), y)],
+            fine,
+        ));
+        y += 12.0;
+    }
+    ui.painter().set(paper, Shape::Vec(shapes));
 }
 
 #[cfg(test)]

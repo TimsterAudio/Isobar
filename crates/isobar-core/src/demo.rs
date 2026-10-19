@@ -152,11 +152,16 @@ pub fn days() -> Vec<DayRecord> {
 
 /// A smooth last 24 hours of samples, every five minutes, ending at `now_ms`.
 pub fn samples(now_ms: i64) -> BTreeMap<String, Vec<(i64, f64)>> {
+    samples_for(now_ms, 1)
+}
+
+/// Samples like [`samples`], `days` back.
+pub fn samples_for(now_ms: i64, days: i64) -> BTreeMap<String, Vec<(i64, f64)>> {
     let mut r = Rng(7);
     let mut out: BTreeMap<String, Vec<(i64, f64)>> = BTreeMap::new();
     let mut push = |k: &str, t: i64, v: f64| out.entry(k.to_string()).or_default().push((t, v));
     let mut rain_acc = 0.0;
-    let start = now_ms - 24 * 3_600_000;
+    let start = now_ms - days * 24 * 3_600_000;
     let mut t = start;
     while t <= now_ms {
         let local = Local.timestamp_millis_opt(t).unwrap();
@@ -170,10 +175,11 @@ pub fn samples(now_ms: i64) -> BTreeMap<String, Vec<(i64, f64)>> {
             round1(15.0 + 5.0 * diurnal + (tf / 3.1e6).sin() * 0.6),
         );
         push("dew", t, round1(8.0 + (tf / 9e6).sin() * 1.5));
+        // Highs and lows passing every few days.
         push(
             "press",
             t,
-            round1(1018.0 - (t - start) as f64 / 3.6e6 * 0.25 + (tf / 5e6).sin() * 0.4),
+            round1(1012.0 + 8.0 * (tf / 6.9e7).sin() + (tf / 5e6).sin() * 0.4),
         );
         let wind = (10.0 + 6.0 * diurnal.max(0.0) + (r.next() - 0.5) * 6.0).max(0.0);
         push("wind", t, round1(wind));
@@ -192,6 +198,7 @@ pub fn samples(now_ms: i64) -> BTreeMap<String, Vec<(i64, f64)>> {
         push("rain_today", t, round1(rain_acc));
         let sun = (((h - 6.0) / 13.0) * PI).sin().max(0.0);
         push("solar", t, (sun * 780.0 * (0.8 + r.next() * 0.2)).round());
+        push("solar_max", t, clear_sky(t));
         push("bearing", t, (200.0 + (tf / 4e6).sin() * 25.0).round());
         // Indoors lags the outside and swings less.
         let lag = -(((h - 6.0) / 24.0) * TAU).cos();

@@ -5,6 +5,8 @@
 //! * `samples`: live readings (one per minute) plus anything backfilled from
 //!   MX graph data, in long format `(metric, ts, value)`.
 //! * `tank_log`: an imported tank record (rain, use and adjustments by day).
+//! * `log`: MX's log file readings, one row a timestamp, values in hundredths
+//!   as integers (small on disk), kept for good.
 //! * `meta`: small key/value pairs such as the last sync time.
 
 use std::collections::BTreeMap;
@@ -14,6 +16,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::dayfile::DayRecord;
 use crate::error::{CoreError, Result};
+use crate::logfile::{LogRecord, LOG_METRICS};
 use crate::tanks::LogDay;
 
 pub struct Store {
@@ -36,6 +39,13 @@ CREATE INDEX IF NOT EXISTS samples_ts ON samples(ts);
 CREATE TABLE IF NOT EXISTS tank_log (
     date TEXT PRIMARY KEY,
     json TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS log (
+    ts INTEGER PRIMARY KEY,
+    temp INTEGER, hum INTEGER, dew INTEGER, wind INTEGER, gust INTEGER,
+    bearing INTEGER, rain_rate INTEGER, rain_today INTEGER, press INTEGER,
+    intemp INTEGER, inhum INTEGER, uv INTEGER, solar INTEGER, solar_max INTEGER,
+    rain_midnight INTEGER, feels INTEGER
 );
 CREATE TABLE IF NOT EXISTS meta (
     key TEXT PRIMARY KEY,
@@ -155,6 +165,86 @@ impl Store {
             .execute("DELETE FROM samples WHERE ts < ?1", params![before_ms])?)
     }
 
+    /// Store log file lines, replacing any at the same times.
+    pub fn upsert_log(&mut self, recs: &[LogRecord]) -> Result<usize> {
+        let cols: Vec<&str> = LOG_METRICS.iter().map(|m| m.0).collect();
+        let sql = format!(
+            "INSERT OR REPLACE INTO log (ts, {}) VALUES (?1, {})",
+            cols.join(", "),
+            (2..=cols.len() + 1)
+                .map(|i| format!("?{i}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        let tx = self.conn.transaction()?;
+        {
+            let mut stmt = tx.prepare(&sql)?;
+            for r in recs {
+                let mut vals: Vec<Option<i64>> = vec![Some(r.ts)];
+                vals.extend(
+                    r.values
+                        .iter()
+                        .map(|v| v.map(|x| (x * 100.0).round() as i64)),
+                );
+                stmt.execute(rusqlite::params_from_iter(vals))?;
+            }
+        }
+        tx.commit()?;
+        Ok(recs.len())
+    }
+
+    /// Log readings of `metrics` from `from_ms` to `to_ms`, by metric.
+    pub fn log_series(
+        &self,
+        metrics: &[&str],
+        from_ms: i64,
+        to_ms: i64,
+    ) -> Result<BTreeMap<String, Vec<(i64, f64)>>> {
+        let known: Vec<&str> = metrics
+            .iter()
+            .copied()
+            .filter(|m| LOG_METRICS.iter().any(|k| k.0 == *m))
+            .collect();
+        let mut out: BTreeMap<String, Vec<(i64, f64)>> = BTreeMap::new();
+        if known.is_empty() {
+            return Ok(out);
+        }
+        let mut stmt = self.conn.prepare(&format!(
+            "SELECT ts, {} FROM log WHERE ts >= ?1 AND ts <= ?2 ORDER BY ts",
+            known.join(", ")
+        ))?;
+        let mut rows = stmt.query(params![from_ms, to_ms])?;
+        while let Some(row) = rows.next()? {
+            let ts: i64 = row.get(0)?;
+            for (k, m) in known.iter().enumerate() {
+                if let Some(v) = row.get::<_, Option<i64>>(k + 1)? {
+                    out.entry(m.to_string())
+                        .or_default()
+                        .push((ts, v as f64 / 100.0));
+                }
+            }
+        }
+        Ok(out)
+    }
+
+    /// How many log lines are stored, and the first and last times.
+    pub fn log_extent(&self) -> Result<(usize, Option<i64>, Option<i64>)> {
+        Ok(self
+            .conn
+            .query_row("SELECT COUNT(*), MIN(ts), MAX(ts) FROM log", [], |r| {
+                Ok((r.get::<_, i64>(0)? as usize, r.get(1)?, r.get(2)?))
+            })?)
+    }
+
+    /// The newest stored log time within `from_ms` to `to_ms`.
+    pub fn log_last_between(&self, from_ms: i64, to_ms: i64) -> Result<Option<i64>> {
+        Ok(self.conn.query_row(
+            "SELECT MAX(ts) FROM log WHERE ts >= ?1 AND ts <= ?2",
+            params![from_ms, to_ms],
+            |r| r.get(0),
+        )?)
+    }
+
     /// Replace the tank record with `log`.
     pub fn replace_tank_log(&mut self, log: &[LogDay]) -> Result<()> {
         let tx = self.conn.transaction()?;
@@ -242,6 +332,27 @@ mod tests {
         assert_eq!(got["temp"], vec![(1000, 10.0), (2000, 11.0), (3000, 12.0)]);
         assert_eq!(s.prune_samples(2500).unwrap(), 3);
         assert_eq!(s.samples_since(0).unwrap()["temp"], vec![(3000, 12.0)]);
+    }
+
+    #[test]
+    fn log_roundtrip() {
+        let mut s = Store::open_in_memory().unwrap();
+        let rec = |ts: i64, t: f64| {
+            let mut values = [None; LOG_METRICS.len()];
+            values[0] = Some(t);
+            values[8] = Some(1013.25);
+            LogRecord { ts, values }
+        };
+        s.upsert_log(&[rec(1000, 12.3), rec(2000, -4.56), rec(3000, 15.0)])
+            .unwrap();
+        s.upsert_log(&[rec(2000, -4.5)]).unwrap();
+        let got = s
+            .log_series(&["temp", "press", "nonsense"], 1500, 3000)
+            .unwrap();
+        assert_eq!(got["temp"], vec![(2000, -4.5), (3000, 15.0)]);
+        assert_eq!(got["press"][0], (2000, 1013.25));
+        assert_eq!(s.log_extent().unwrap(), (3, Some(1000), Some(3000)));
+        assert_eq!(s.log_last_between(0, 2500).unwrap(), Some(2000));
     }
 
     #[test]

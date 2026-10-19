@@ -44,6 +44,8 @@ pub struct Glance {
     pub overflow30: f64,
     /// The level at the end of each of the last 30 days.
     pub recent: Vec<(NaiveDate, f64)>,
+    /// The level at the end of each of the last year's days.
+    pub year: Vec<(NaiveDate, f64)>,
 }
 
 /// Run the model for the card on Now.
@@ -69,6 +71,10 @@ pub fn glance(snap: &Snapshot, t: &Setup) -> Option<Glance> {
         caught30: last30.iter().map(|d| d.caught).sum(),
         overflow30: last30.iter().map(|d| d.overflow).sum(),
         recent: last30.iter().rev().map(|d| (d.date, d.level)).collect(),
+        year: sim[sim.len().saturating_sub(365)..]
+            .iter()
+            .map(|d| (d.date, d.level))
+            .collect(),
     })
 }
 

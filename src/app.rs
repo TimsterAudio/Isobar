@@ -70,6 +70,8 @@ pub struct Snapshot {
     pub samples: Arc<Samples>,
     pub tank_log: Arc<Vec<isobar_core::tanks::LogDay>>,
     pub tank_version: u64,
+    pub log_summary: Arc<crate::worker::LogSummary>,
+    pub detail: Option<Arc<crate::worker::Detail>>,
     pub now_ms: i64,
     pub demo: bool,
 }
@@ -153,6 +155,8 @@ impl IsobarApp {
             samples: s.samples.clone(),
             tank_log: s.tank_log.clone(),
             tank_version: s.tank_version,
+            log_summary: s.log_summary.clone(),
+            detail: s.detail.clone(),
             now_ms: chrono::Utc::now().timestamp_millis(),
             demo: self.paths.is_none(),
         }
@@ -515,6 +519,14 @@ impl eframe::App for IsobarApp {
                         ui.add_space(48.0);
                     });
             });
+        if let Some((key, metrics, from_ms, to_ms)) = self.now.request.take() {
+            self.worker.send(crate::worker::Cmd::Detail {
+                key,
+                metrics,
+                from_ms,
+                to_ms,
+            });
+        }
         if let Some(order) = self.now.reordered.take() {
             self.settings.set_cards(&order);
             if let Some(paths) = &self.paths {

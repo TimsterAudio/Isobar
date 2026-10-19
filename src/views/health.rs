@@ -500,6 +500,37 @@ impl Health {
                     row(ui, p, Level::Note, "Gap filling", "Not run yet. Isobar fills gaps from MX's graph data when it connects, and after any break over 15 minutes.");
                 }
             }
+            if let Some(l) = &snap.status.logs {
+                let day = |ms: Option<i64>| {
+                    ms.and_then(|t| Local.timestamp_millis_opt(t).single())
+                        .map_or("–".to_string(), |d| nice_date(d.date_naive()))
+                };
+                let (level, text) = match (&l.error, l.done >= l.total) {
+                    (Some(e), _) => (
+                        Level::Warn,
+                        format!("Couldn't fetch MX's log files: {}. Isobar tries again in half an hour.", format::capitalise(e)),
+                    ),
+                    (None, true) => (
+                        Level::Ok,
+                        format!(
+                            "{} readings from MX's log files, {} to {}. The current month tops up every 10 minutes.",
+                            crate::views::tanks::litres(l.records as f64),
+                            day(l.first),
+                            day(l.last)
+                        ),
+                    ),
+                    (None, false) => (
+                        Level::Note,
+                        format!(
+                            "Fetching MX's log files: {} of {} months, {} readings so far. It carries on in the background, newest first.",
+                            l.done,
+                            l.total,
+                            crate::views::tanks::litres(l.records as f64)
+                        ),
+                    ),
+                };
+                row(ui, p, level, "Detailed history", &text);
+            }
         });
     }
 }
