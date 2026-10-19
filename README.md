@@ -6,6 +6,8 @@ It's one program: a single `isobar.exe` on Windows, a single `isobar` file on Li
 
 ![Now screen](docs/now-light.png)
 
+**The user guide** is in [`docs/guide/index.html`](docs/guide/index.html): every screen, what each figure means and how it's worked out, where Isobar keeps things, and backups.
+
 ## Getting it
 
 **Download:** the [Releases page](../../releases) has the latest build: `isobar-windows-x64.exe` and `isobar-linux-x64.tar.gz`. Put the file anywhere and open it.

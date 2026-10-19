@@ -31,6 +31,10 @@ cargo clippy --target x86_64-pc-windows-gnu -- -D warnings
 
 For anything visible, run it and look: `cargo run -- --demo` (the demo station) under Xvfb in a cloud session, in light and dark (Settings → Appearance). Xvfb also needs `libxkbcommon-x11-0` installed. To test the real path without a station, a small fake MX server serving `currentdata` and a paged `dayfile` works well.
 
+## User guide
+
+`docs/guide/index.html` is the user guide: every screen, the analyses behind each figure, data sources, storage, backups and troubleshooting, with screenshots in `docs/guide/img/` (WebP, cropped from the demo station at 1600 × 1000 under Xvfb). Its tone is friendly with a little dry humour, at the owner's request. **Keep it current:** any change someone could see or would want to know about (a screen, a setting, a threshold, a file location) updates the guide in the same commit, with fresh screenshots where the picture changed and a line in its "About this guide" table. It's also published as a claude.ai artifact (https://claude.ai/artifact/4jBzHVTDK2YWYogeVK5BkX): republish it from a copy of `index.html` without its first three lines (the doctype and meta tags, which the artifact adds itself), with the images as files under `img/`.
+
 GitHub Actions (`.github/workflows/build.yml`) runs the checks, builds both programs, and publishes them on the Releases page: "Latest build" for each push to `main`, a named release for a `vX.Y.Z` tag.
 
 ## State

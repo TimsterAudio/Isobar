@@ -1,0 +1,1107 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Isobar User Guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: a recording-chart page. Contents rail on the left, the guide on
+   graph paper on the right; the app's own palette and fonts. */
+:root {
+  --paper: #e9eee8;
+  --sheet: #f6f8f4;
+  --grid: #cdd8cb;
+  --faint: #dfe6dd;
+  --ink: #1c2633;
+  --ink2: #5a6570;
+  --trace: #5b3a9e;
+  --heat: #b3362b;
+  --cold: #2a6896;
+  --rain: #2b68ad;
+  --wind: #23796a;
+  --warn: #a8700c;
+  --ok: #2f7a3e;
+  --mark: rgba(91, 58, 158, .16);
+  --shade: rgba(28, 38, 51, .55);
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", "DejaVu Sans Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #131a20; --sheet: #19222a; --grid: #2a3741; --faint: #222d36;
+    --ink: #e6ebee; --ink2: #9aa7b2; --trace: #b49cf0; --heat: #f0806c;
+    --cold: #7fb6e4; --rain: #6ea7ea; --wind: #5cc4a7; --warn: #e2b04e; --ok: #7fcf8b;
+    --mark: rgba(180, 156, 240, .22); --shade: rgba(0, 0, 0, .7);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #131a20; --sheet: #19222a; --grid: #2a3741; --faint: #222d36;
+  --ink: #e6ebee; --ink2: #9aa7b2; --trace: #b49cf0; --heat: #f0806c;
+  --cold: #7fb6e4; --rain: #6ea7ea; --wind: #5cc4a7; --warn: #e2b04e; --ok: #7fcf8b;
+  --mark: rgba(180, 156, 240, .22); --shade: rgba(0, 0, 0, .7);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 16.5px/1.6 var(--body);
+}
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto;
+  height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--sheet);
+}
+a { color: var(--trace); text-underline-offset: 2px; }
+a:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visible, figure:focus-visible, .pin:focus-visible {
+  outline: 2px solid var(--trace); outline-offset: 2px;
+}
+h1, h2, h3, h4 { font-family: var(--display); font-weight: 600; line-height: 1.15; text-wrap: balance; margin: 0; }
+code, kbd { font-family: var(--mono); font-size: .86em; background: var(--faint); padding: .08em .35em; border-radius: 3px; }
+kbd { border: 1px solid var(--grid); }
+
+/* Top bar */
+.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  background: var(--sheet); border-bottom: 1px solid var(--grid);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.top-in { display: flex; align-items: center; gap: 14px; height: 58px; max-width: 1320px; margin: 0 auto; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); flex: none; }
+.brand svg { width: 26px; height: 26px; }
+.brand b { font: 600 22px/1 var(--display); letter-spacing: .01em; }
+.brand span { font: 500 15px/1 var(--display); color: var(--ink2); }
+.search { flex: 1; min-width: 0; max-width: 420px; margin-left: auto; position: relative; }
+.search input {
+  width: 100%; height: 36px; padding: 0 12px 0 34px;
+  background: var(--paper); color: var(--ink); border: 1px solid var(--grid); border-radius: 6px;
+  font: 400 15px var(--body);
+}
+.search svg { position: absolute; left: 10px; top: 10px; width: 16px; height: 16px; color: var(--ink2); }
+.search-note { position: absolute; right: 10px; top: 9px; font-size: 13px; color: var(--ink2); pointer-events: none; }
+.theme { display: flex; border: 1px solid var(--grid); border-radius: 6px; overflow: hidden; flex: none; }
+.theme button {
+  border: 0; background: transparent; color: var(--ink2); font: 500 13px var(--body);
+  padding: 0 10px; height: 34px; cursor: pointer;
+}
+.theme button[aria-pressed="true"] { background: var(--ink); color: var(--sheet); }
+.menu-btn { display: none; border: 1px solid var(--grid); background: transparent; color: var(--ink); border-radius: 6px; height: 36px; padding: 0 10px; font: 500 14px var(--body); cursor: pointer; flex: none; }
+
+/* Page */
+.wrap {
+  display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: 40px;
+  max-width: 1320px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 80px;
+}
+nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 78px); align-self: start; max-height: calc(100vh - 100px); overflow: auto; padding-right: 6px; }
+.toc ol { list-style: none; margin: 0; padding: 0; }
+.toc li a {
+  display: block; padding: 5px 10px; border-left: 2px solid transparent;
+  color: var(--ink2); text-decoration: none; font-size: 15px; line-height: 1.35;
+}
+.toc li a:hover { color: var(--ink); }
+.toc li a.on { color: var(--ink); border-left-color: var(--trace); background: var(--sheet); }
+.toc .grp { font: 600 12px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink2); padding: 16px 10px 4px; }
+.toc .grp:first-child { padding-top: 0; }
+.toc li.hide { display: none; }
+
+main { min-width: 0; }
+.hero {
+  background: var(--sheet); border: 1px solid var(--grid); border-radius: 8px;
+  padding: 28px 28px 24px;
+  background-image:
+    linear-gradient(var(--faint) 1px, transparent 1px),
+    linear-gradient(90deg, var(--faint) 1px, transparent 1px);
+  background-size: 14px 14px; background-position: -1px -1px;
+}
+.hero h1 { font-size: clamp(40px, 6vw, 64px); font-weight: 700; letter-spacing: -.01em; }
+.hero .lede { font-size: 19px; max-width: 62ch; margin: 10px 0 0; }
+.hero .meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 16px; font-size: 14px; color: var(--ink2); }
+.hero .meta b { color: var(--ink); font-weight: 600; }
+.trace { display: block; width: 100%; height: 54px; margin-top: 14px; }
+
+section.s { padding-top: 46px; }
+section.s > h2 { font-size: 34px; display: flex; align-items: baseline; gap: 12px; }
+section.s > h2 .tag { font: 500 13px var(--body); color: var(--ink2); letter-spacing: .06em; text-transform: uppercase; }
+section.s h3 { font-size: 23px; margin-top: 28px; }
+section.s h4 { font-size: 18px; margin-top: 18px; }
+.prose p, .prose li { max-width: 72ch; }
+.prose p { margin: 10px 0; }
+.prose ul, .prose ol { padding-left: 22px; margin: 8px 0; }
+.prose li { margin: 4px 0; }
+.lead { font-size: 18px; color: var(--ink); }
+.muted { color: var(--ink2); }
+mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1px; }
+section.s.hidden { display: none; }
+.nohits { display: none; padding: 40px 0; color: var(--ink2); font-size: 18px; }
+
+/* Asides */
+.idea, .tip, .warn {
+  border: 1px solid var(--grid); border-left-width: 4px; border-radius: 6px;
+  background: var(--sheet); padding: 12px 16px; margin: 16px 0; max-width: 78ch;
+}
+.idea { border-left-color: var(--trace); }
+.tip { border-left-color: var(--wind); }
+.warn { border-left-color: var(--warn); }
+.idea > b:first-child, .tip > b:first-child, .warn > b:first-child {
+  display: block; font: 600 12px var(--body); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 2px;
+}
+.idea > b:first-child { color: var(--trace); }
+.tip > b:first-child { color: var(--wind); }
+.warn > b:first-child { color: var(--warn); }
+.idea p, .tip p, .warn p { margin: 4px 0; }
+
+/* Figures */
+figure.shot { margin: 18px 0; cursor: zoom-in; max-width: 100%; }
+figure.shot img {
+  display: block; width: 100%; height: auto; border: 1px solid var(--grid); border-radius: 6px;
+  background: var(--sheet); box-shadow: 0 1px 0 var(--grid);
+}
+figure.shot.narrow { max-width: 560px; }
+figure.shot.half { max-width: 760px; }
+figcaption { font-size: 14px; color: var(--ink2); margin-top: 6px; max-width: 80ch; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.pair figure.shot { margin: 8px 0; }
+
+/* Annotated screenshot */
+.annot { position: relative; margin: 18px 0 8px; }
+.annot img { display: block; width: 100%; height: auto; border: 1px solid var(--grid); border-radius: 6px; }
+.pin {
+  position: absolute; transform: translate(-50%, -50%);
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--trace); color: #fff; border: 2px solid var(--sheet);
+  font: 600 13px/22px var(--body); text-align: center; cursor: pointer; padding: 0;
+  box-shadow: 0 1px 4px rgba(0,0,0,.25);
+}
+.pin.on { background: var(--ink); color: var(--sheet); }
+.legend-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 6px 22px; margin: 10px 0 0; padding: 0; list-style: none; }
+.legend-list li { display: grid; grid-template-columns: 26px 1fr; gap: 10px; padding: 7px 8px; border-radius: 6px; cursor: pointer; font-size: 15px; line-height: 1.45; }
+.legend-list li .n { width: 22px; height: 22px; border-radius: 50%; background: var(--trace); color: #fff; font: 600 12px/22px var(--body); text-align: center; }
+.legend-list li.on { background: var(--sheet); outline: 1px solid var(--grid); }
+.legend-list li b { font-weight: 600; }
+.switch { display: inline-flex; border: 1px solid var(--grid); border-radius: 6px; overflow: hidden; margin-top: 8px; }
+.switch button { border: 0; background: transparent; color: var(--ink2); padding: 5px 12px; font: 500 14px var(--body); cursor: pointer; }
+.switch button[aria-pressed="true"] { background: var(--ink); color: var(--sheet); }
+
+/* Tables */
+.tbl { overflow-x: auto; margin: 14px 0; max-width: 100%; }
+table { border-collapse: collapse; font-size: 15px; min-width: 460px; width: 100%; }
+th, td { text-align: left; padding: 7px 12px 7px 0; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { font: 600 13px var(--body); color: var(--ink2); letter-spacing: .03em; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td:first-child { font-weight: 500; }
+
+/* Cards of screens */
+.screens { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 16px 0; }
+.screens a {
+  display: block; padding: 12px 14px; border: 1px solid var(--grid); border-radius: 6px;
+  background: var(--sheet); text-decoration: none; color: var(--ink);
+}
+.screens a:hover { border-color: var(--trace); }
+.screens b { font: 600 20px var(--display); display: block; }
+.screens span { font-size: 14px; color: var(--ink2); line-height: 1.4; display: block; margin-top: 2px; }
+
+/* Calculators */
+.calc {
+  border: 1px solid var(--grid); border-radius: 8px; background: var(--sheet);
+  padding: 16px 18px; margin: 18px 0; max-width: 780px;
+}
+.calc h4 { margin: 0 0 8px; font-size: 19px; }
+.calc .row { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: end; }
+.calc label { display: grid; gap: 3px; font: 600 13px var(--body); color: var(--ink2); }
+.calc input[type="number"] {
+  width: 120px; height: 34px; padding: 0 8px; border: 1px solid var(--grid); border-radius: 5px;
+  background: var(--paper); color: var(--ink); font: 400 15px var(--body); font-variant-numeric: tabular-nums;
+}
+.calc input[type="range"] { width: min(360px, 70vw); accent-color: var(--trace); }
+.calc .out { font: 600 26px var(--display); margin-top: 10px; }
+.calc .out small { font: 400 15px var(--body); color: var(--ink2); margin-left: 6px; }
+.calc .note { font-size: 14px; color: var(--ink2); margin: 6px 0 0; }
+.word-fall { color: var(--warn); }
+
+/* FAQ */
+details { border-bottom: 1px solid var(--grid); padding: 10px 0; max-width: 80ch; }
+summary { cursor: pointer; font-weight: 600; font-size: 17px; }
+details p, details ul { margin: 8px 0 4px; }
+
+/* Lightbox */
+.lb { position: fixed; inset: 0; z-index: 50; background: var(--shade); display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.lb-in { max-width: min(1500px, 100%); max-height: 100%; display: grid; gap: 8px; }
+.lb img { max-width: 100%; max-height: calc(100vh - 110px); object-fit: contain; border-radius: 6px; background: var(--sheet); }
+.lb-bar { display: flex; gap: 10px; align-items: center; color: #fff; font-size: 14px; }
+.lb-bar p { margin: 0; flex: 1; min-width: 0; }
+.lb button { border: 1px solid rgba(255,255,255,.5); background: rgba(0,0,0,.3); color: #fff; border-radius: 6px; height: 34px; padding: 0 12px; cursor: pointer; font: 500 14px var(--body); }
+
+footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid); color: var(--ink2); font-size: 14px; }
+
+@media (max-width: 900px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  nav.toc {
+    display: none; position: fixed; z-index: 25; inset: calc(env(safe-area-inset-top, 0px) + 59px) 0 0 0;
+    max-height: none; background: var(--sheet); padding: 16px max(16px, env(safe-area-inset-right, 0px)) 40px max(16px, env(safe-area-inset-left, 0px));
+  }
+  nav.toc.open { display: block; }
+  .menu-btn { display: block; }
+  .brand span { display: none; }
+  .hero { padding: 20px 18px; }
+}
+@media (max-width: 560px) {
+  .theme button { padding: 0 7px; }
+  .theme .sys { display: none; }
+  .search-note { display: none; }
+  body { font-size: 16px; }
+}
+</style>
+
+<header class="top">
+  <div class="top-in">
+    <button class="menu-btn" id="menu" aria-expanded="false" aria-controls="toc">Contents</button>
+    <a class="brand" href="#top" aria-label="Isobar user guide, back to the top">
+      <svg viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="13" cy="13" r="6.5" fill="none" stroke="var(--trace)" stroke-width="2"/></svg>
+      <b>Isobar</b><span>User guide</span>
+    </a>
+    <div class="search">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M11 11l4 4" stroke="currentColor" stroke-width="1.6"/></svg>
+      <input id="q" type="search" placeholder="Search the guide (try “frost” or “backup”)" aria-label="Search the guide" autocomplete="off">
+      <span class="search-note" id="qn"></span>
+    </div>
+    <div class="theme" role="group" aria-label="Theme">
+      <button type="button" class="sys" data-t="" aria-pressed="true">Auto</button>
+      <button type="button" data-t="light" aria-pressed="false">Light</button>
+      <button type="button" data-t="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap" id="top">
+<nav class="toc" id="toc" aria-label="Contents">
+  <ol>
+    <li class="grp">Start here</li>
+    <li><a href="#welcome">Welcome</a></li>
+    <li><a href="#install">Getting Isobar</a></li>
+    <li><a href="#connect">Connecting your station</a></li>
+    <li><a href="#around">Finding your way around</a></li>
+    <li class="grp">The screens</li>
+    <li><a href="#now">Now</a></li>
+    <li><a href="#history">History</a></li>
+    <li><a href="#compare">Compare</a></li>
+    <li><a href="#insights">Insights</a></li>
+    <li><a href="#seasons">Seasons</a></li>
+    <li><a href="#tanks">Tanks</a></li>
+    <li><a href="#health">Health</a></li>
+    <li><a href="#settings">Settings</a></li>
+    <li><a href="#alerts">Alerts</a></li>
+    <li class="grp">Under the bonnet</li>
+    <li><a href="#data">Where the data comes from</a></li>
+    <li><a href="#storage">Where Isobar keeps things</a></li>
+    <li><a href="#backup">Backups and a second computer</a></li>
+    <li><a href="#maths">The maths, explained</a></li>
+    <li class="grp">Help</li>
+    <li><a href="#faq">Troubleshooting</a></li>
+    <li><a href="#next">What's coming</a></li>
+    <li><a href="#changes">About this guide</a></li>
+  </ol>
+</nav>
+
+<main class="prose">
+
+<!-- ============================================================ welcome -->
+<section class="s" id="welcome" style="padding-top:0">
+  <div class="hero">
+    <h1>Isobar</h1>
+    <p class="lede">A desktop companion for Cumulus MX weather stations. It reads your station, keeps its own copy of everything, and turns years of numbers into charts you'll actually look at.</p>
+    <svg class="trace" viewBox="0 0 600 54" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0 40 C40 38 60 18 100 20 S160 44 200 40 S260 10 300 14 S360 46 400 38 S470 8 520 16 S580 30 600 26" fill="none" stroke="var(--trace)" stroke-width="2.2" vector-effect="non-scaling-stroke"/>
+      <path d="M0 46 C60 46 100 40 160 42 S260 34 320 36 S440 44 520 40 S580 38 600 40" fill="none" stroke="var(--ink2)" stroke-width="1.4" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>
+    </svg>
+    <div class="meta">
+      <span>For <b>Windows and Linux</b></span>
+      <span>Checked against <b>Cumulus MX 5.1.5</b></span>
+      <span>Guide covers Isobar as of <b>19 October 2026</b></span>
+    </div>
+  </div>
+
+  <p class="lead" style="margin-top:22px">Cumulus MX is brilliant at collecting weather. It's less brilliant at showing you what it all means. Isobar sits on your desktop, asks MX for everything it knows, and lays it out on graph paper like the recording instruments weather stations used to have, the ones with a pen scratching a violet line across a drum.</p>
+  <p>It's one program, with nothing else to install. It never changes anything on your station: it only reads. Delete Isobar tomorrow and your Cumulus setup won't notice.</p>
+  <div class="screens">
+    <a href="#now"><b>Now</b><span>What's happening outside, with a 24-hour trace.</span></a>
+    <a href="#history"><b>History</b><span>Any date range, against your station's normals.</span></a>
+    <a href="#compare"><b>Compare</b><span>This October against every other October.</span></a>
+    <a href="#insights"><b>Insights</b><span>Odd days, records, storms and dry spells.</span></a>
+    <a href="#seasons"><b>Seasons</b><span>Water balance, frost, growing warmth and sun.</span></a>
+    <a href="#tanks"><b>Tanks</b><span>For houses on rainwater: how long it lasts.</span></a>
+    <a href="#health"><b>Health</b><span>Is it the weather, or is it the station?</span></a>
+    <a href="#settings"><b>Settings</b><span>Your station, tanks, alerts and looks.</span></a>
+  </div>
+  <div class="tip"><b>Using this guide</b>
+    <p>Search with the box at the top. Click any screenshot to see it full size (arrow keys step through them). The numbered pins on the Now screenshot explain each part. Everything here comes from the demo station, so if the numbers look suspiciously pleasant, that's why.</p>
+  </div>
+</section>
+
+<!-- ============================================================ install -->
+<section class="s" id="install">
+  <h2>Getting Isobar</h2>
+  <p>Builds live on the GitHub Releases page of <a href="https://github.com/TimsterAudio/Isobar/releases" target="_blank" rel="noopener">TimsterAudio/Isobar</a>. <b>Latest build</b> is rebuilt every time something changes; numbered releases appear when there's a tag.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>System</th><th>File</th><th>What to do</th></tr></thead>
+    <tbody>
+      <tr><td>Windows 10 or 11</td><td><code>isobar-windows-x64.exe</code></td><td>Put it anywhere (Desktop, Documents, a USB stick) and double-click it.</td></tr>
+      <tr><td>Linux (x86-64)</td><td><code>isobar-linux-x64.tar.gz</code></td><td><code>tar xzf isobar-linux-x64.tar.gz</code>, then <code>./isobar</code>.</td></tr>
+    </tbody>
+  </table></div>
+  <p>That's the whole installation. No installer, no runtime, no "please also install this other thing first".</p>
+
+  <h3>Windows being suspicious</h3>
+  <p>Isobar isn't code-signed (signing certificates cost real money every year), so Windows treats it like a stranger at the door.</p>
+  <ul>
+    <li><b>SmartScreen</b> may say "Windows protected your PC". Choose <b>More info</b>, then <b>Run anyway</b>. It only asks the first time.</li>
+    <li><b>Defender</b> has, once, quarantined a build as <code>Win32/Bearfoos.B!ml</code>. The <code>!ml</code> means a machine-learning guess, not a known virus. VirusTotal had 1 hit out of 71. Since then the .exe carries proper file details and a standard Windows manifest, which has kept Defender calm.</li>
+  </ul>
+  <div class="tip"><b>Check a download is genuine</b>
+    <p>Each release includes <code>SHA256SUMS.txt</code>. Compare it with your copy:</p>
+    <p>Windows (PowerShell): <code>Get-FileHash .\isobar-windows-x64.exe</code><br>
+    Linux: <code>sha256sum -c SHA256SUMS.txt --ignore-missing</code></p>
+    <p>If the numbers match, the file is exactly what GitHub built from the published source.</p>
+  </div>
+
+  <h3>Try it without a station</h3>
+  <p>The first time Isobar opens, choose <b>Try the demo station</b> (or start it as <code>isobar --demo</code>). You get about eight years of made-up weather near Sydney, two tanks, a three-day gap to find on Health, and a station alarm that's always going off. Nothing about your real setup is saved or touched, and anything you change in the demo is forgotten when you close it.</p>
+</section>
+
+<!-- ============================================================ connect -->
+<section class="s" id="connect">
+  <h2>Connecting your station</h2>
+  <ol>
+    <li>Open <b>Settings</b>.</li>
+    <li>Enter your <b>Cumulus MX address</b>, for example <code>http://192.168.1.20:8998</code>. It's the same address you type into a browser for the MX dashboard. Port 8998 is the MX default.</li>
+    <li>If you've put a username and password on the MX interface, fill those in too.</li>
+    <li>Press <b>Test connection</b>. You should see something like "Connected. 15.8 °C, 1018.5 hPa, 60% humidity."</li>
+    <li>Press <b>Save settings</b> at the bottom. Nothing sticks until you do.</li>
+  </ol>
+  <p>Then Isobar gets busy in the background:</p>
+  <ul>
+    <li><b>Live readings</b> start straight away, every 10 seconds unless you change <b>Check every</b>.</li>
+    <li><b>Daily history</b> (MX's dayfile, one line per day) downloads in pages. The status at the bottom of the left rail shows "Syncing 1,200 of 3,151 days". On a typical home network it takes seconds.</li>
+    <li><b>Recent detail</b> (MX's last three days of one-minute graph data) fills the 24-hour charts so they aren't empty on the first day.</li>
+    <li><b>Detailed history</b> (MX's monthly log files) trickles in a month at a time, newest first. With many years of logs this can take a while; Health shows how far it's got. You can carry on using Isobar meanwhile.</li>
+  </ul>
+  <div class="idea"><b>The idea</b>
+    <p>Isobar treats Cumulus MX as the single source of truth and itself as a well-organised cache. Anything Isobar stores, it can fetch again from MX. That's why it's safe to delete its database, and why two computers can both run Isobar against the same station.</p>
+  </div>
+  <p><b>No MX on the network?</b> Point <b>Dayfile on this computer</b> (Settings → History) at a <code>dayfile.txt</code> instead, for example in a shared folder. Isobar reads it and re-reads it whenever it changes. You won't get live readings, alarms or the rain gauge that way, but History, Compare, Insights, Seasons and Tanks all work.</p>
+</section>
+
+<!-- ============================================================ around -->
+<section class="s" id="around">
+  <h2>Finding your way around</h2>
+  <p>The rail on the left lists the screens. At its foot, a status line tells you how things are going:</p>
+  <div class="tbl"><table>
+    <thead><tr><th>It says</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><span style="color:var(--ok)">●</span> Live, 5 s ago</td><td>All good. The number is the age of the last reading.</td></tr>
+      <tr><td><span style="color:var(--warn)">●</span> Syncing 1,200 of 3,151 days</td><td>Daily history is downloading.</td></tr>
+      <tr><td><span style="color:var(--ink2)">●</span> Reading a dayfile</td><td>No station address, working from a local <code>dayfile.txt</code>.</td></tr>
+      <tr><td><span style="color:var(--heat)">●</span> Can't reach station</td><td>MX isn't answering. Now says why.</td></tr>
+    </tbody>
+  </table></div>
+  <p>A small amber dot beside <b>Health</b> means something there wants a look: MX has gone quiet, MX says the station has stopped sending data, or an MX alarm has gone off. Routine notices like "a Cumulus update is available" don't count.</p>
+
+  <h3>Folding the rail away</h3>
+  <p>Press <b>«</b> beside the Isobar name and the rail folds to a thin strip, giving the charts the whole window. Point at the strip and the rail slides out over the screen; press the pin to keep it open again. Isobar remembers which you prefer.</p>
+  <div class="pair">
+    <figure class="shot"><img src="img/rail-folded.webp" alt="The rail folded to a thin strip on the left" loading="lazy"><figcaption>Folded: the charts get the room.</figcaption></figure>
+    <figure class="shot"><img src="img/rail-peek.webp" alt="The rail sliding out over the screen, with a pin button" loading="lazy"><figcaption>Point at the strip and it slides out. The pin keeps it there.</figcaption></figure>
+  </div>
+  <h3>Light and dark</h3>
+  <p>Settings → Appearance → <b>Theme</b>: Match system, Light or Dark. Light is pale green-grey chart paper with slate ink; dark is the same instrument after hours. The violet "pen" colour is kept for the main recorded line on each chart, so your eye knows where to land.</p>
+</section>
+
+<!-- ============================================================ now -->
+<section class="s" id="now">
+  <h2>Now <span class="tag">Screen</span></h2>
+  <p class="lead">What's happening outside right now, and over the last day. It's the screen to leave open on a spare monitor.</p>
+  <div class="annot" id="annot">
+    <img id="now-img" src="img/now-light.webp" alt="The Now screen with numbered pins" loading="lazy">
+  </div>
+  <div class="switch" role="group" aria-label="Screenshot theme">
+    <button type="button" data-src="img/now-light.webp" aria-pressed="true">Light</button>
+    <button type="button" data-src="img/now-dark.webp" aria-pressed="false">Dark</button>
+  </div>
+  <ul class="legend-list" id="legend"></ul>
+
+  <h3>The big reading</h3>
+  <p>The temperature, large enough to read from across the room. Under it:</p>
+  <ul>
+    <li><b>Trend</b>: how fast it's changing per hour, with a red up-arrow or a blue down-arrow. Grey means steady (under 0.05° an hour).</li>
+    <li><b>High and Low</b> since the station's day began, with the times they happened.</li>
+    <li><b>Feels like</b> and <b>dew point</b>. Dew point is the honest measure of how muggy it is: humidity changes with temperature, dew point doesn't.</li>
+    <li>MX's own <b>forecast</b> line in italics, when it sends one. Treat it with the scepticism you'd give any barometer-based forecast.</li>
+  </ul>
+
+  <h3>The thermograph</h3>
+  <p>The one loud thing on the screen: the last 24 hours on graph paper. Temperature is the violet pen, dew point the dashed grey line. When it has rained since midnight, a blue line with a fill shows the running total on its own scale at the right. It starts again at midnight, even if your station's rain day starts at 9 am.</p>
+  <p>Isobar records one reading a minute. A stretch of over 20 minutes with nothing (Isobar closed, laptop asleep, station offline) shows as a gap rather than a misleading straight line. When Isobar starts, and after any gap over 15 minutes, it asks MX for its recent detail and fills the hole.</p>
+
+  <h3>The cards</h3>
+  <p>Under the thermograph sits a row of instrument cards, each with a 24-hour sparkline along the bottom.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Card</th><th>Shows</th></tr></thead>
+    <tbody>
+      <tr><td>Wind</td><td>A dial with the speed and the direction it's coming from, the latest gust and today's peak gust with its time. In light air (under about 3 km/h) the dial uses MX's 10-minute average direction, because the latest one swings about like a weathervane in a teacup. The text then says "Calm" or "Light".</td></tr>
+      <tr><td>Pressure</td><td>The reading, the <b>three-hour tendency</b> in forecasters' words ("Falling slowly, −0.5 hPa in 3 h") and today's range. A fall of 3.6 hPa or more in three hours turns amber: often wind and rain on the way. See <a href="#maths">the maths</a> for the words.</td></tr>
+      <tr><td>Rain</td><td>Today's total and the rate ("Raining, 4.2 mm/h", or "Not raining"). Then the current storm and when it started, yesterday, the last 24 hours, week, month and year, and when it last rained.</td></tr>
+      <tr><td>Humidity</td><td>Relative humidity, dew point and today's range.</td></tr>
+      <tr><td>Sun</td><td>Solar radiation in W/m², plus a cloudiness gauge: sunshine now against what a clear sky would give at this time of day (Clear 85%+, Hazy 60%+, Cloudy 30%+, otherwise Overcast). UV with its band, sunshine hours today, sunrise, sunset and day length. Hover the sunrise line for moonrise and moonset.</td></tr>
+      <tr><td>Indoor</td><td>Inside temperature and humidity, how much warmer or cooler it is than outside, and a sparkline of inside against outside (violet). Only appears if your station reports indoor readings.</td></tr>
+      <tr><td>Tanks</td><td>Litres in the tanks, how full, how many days the water lasts with no rain, and the last 30 days caught and overflowed. Appears once tanks are set up.</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>Rearrange them:</b> drag a card by its name. <b>Hide some:</b> Settings → Now screen. Isobar remembers both.</p>
+
+  <h3>Any card in the big chart</h3>
+  <p>Click a card and the thermograph shows that measure instead, over a span that suits it. A violet line on top of the card marks the one on show. Chips under the chart change the span; <b>Temperature</b>, or clicking the card again, goes back.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Card</th><th>Starts at</th><th>Spans offered</th><th>Drawn as</th></tr></thead>
+    <tbody>
+      <tr><td>Temperature</td><td>24 hours</td><td>24 h, 3, 7, 30 days</td><td>Temperature and dew point</td></tr>
+      <tr><td>Pressure</td><td>3 days</td><td>24 h, 3, 7, 30 days</td><td>Pressure (a front shows up as a long slope)</td></tr>
+      <tr><td>Rain</td><td>7 days</td><td>24 h, 7, 30 days, 3 months</td><td>Bars of daily totals; 24 h shows the running total and the rate</td></tr>
+      <tr><td>Tanks</td><td>3 months</td><td>30 days, 3 months, 1 year</td><td>Tank level against capacity</td></tr>
+      <tr><td>Wind, Humidity, Sun, Indoor</td><td>24 hours</td><td>24 h, 3, 7 days</td><td>Average and gust; humidity; solar against clear-sky; inside against outside</td></tr>
+    </tbody>
+  </table></div>
+  <div class="pair">
+    <figure class="shot"><img src="img/now-pressure.webp" alt="Pressure over three days in the big chart" loading="lazy"><figcaption>Pressure over three days.</figcaption></figure>
+    <figure class="shot"><img src="img/now-rain.webp" alt="Daily rain bars over seven days in the big chart" loading="lazy"><figcaption>Rain as daily totals over a week.</figcaption></figure>
+  </div>
+  <p>Longer spans come from MX's detailed logs. Until Isobar has fetched those, it shows daily highs and lows from the dayfile instead and says so under the chart.</p>
+
+  <h3>When things go quiet</h3>
+  <p>Top right says "Updated 5 s ago" in green. If no reading has arrived for two minutes it turns amber; if MX stops answering it turns red with "Offline" and the reason. If MX can't be reached at all, Now tells you what went wrong and offers to open Settings. Usually the address is wrong, MX isn't running, or the computer running MX has gone to sleep.</p>
+</section>
+
+<!-- ============================================================ history -->
+<section class="s" id="history">
+  <h2>History <span class="tag">Screen</span></h2>
+  <p class="lead">Any stretch of your station's past, set against what's normal for those dates.</p>
+  <figure class="shot"><img src="img/history.webp" alt="History over 30 days: summary, temperature band with normals, rain and wind charts" loading="lazy"><figcaption>The last 30 days. The faint dashed lines are the normal max and min for each date.</figcaption></figure>
+  <h3>Choosing a range</h3>
+  <p>Presets: 7, 30 or 90 days, this month, this year, 12 months, or all. Or pick dates with the two date boxes at the top right. Drag across any chart to zoom into that stretch; double-click to zoom back out. Hover to read values.</p>
+  <h3>The summary strip</h3>
+  <p>Highest, lowest, average max, average min, rain and peak gust for the range. Each has its date or its difference from normal ("+1.1°C vs normal", "11 rain days, 119% of normal").</p>
+  <h3>The charts</h3>
+  <ul>
+    <li><b>Temperature</b>: a shaded band from each day's min to its max, with the normals dashed.</li>
+    <li><b>Rain</b>: daily bars and a violet running total on the right-hand scale.</li>
+    <li><b>Wind</b>: peak gust and the day's highest average.</li>
+    <li><b>Pressure range</b>: each day's high and low.</li>
+  </ul>
+  <p>Long ranges would turn into a solid smear, so Isobar switches to weekly values beyond about 200 days and monthly values beyond three years. Temperatures and wind then show the week's or month's extremes, and rain shows totals.</p>
+  <figure class="shot"><img src="img/history-all.webp" alt="History for all eight years, in monthly values" loading="lazy"><figcaption>Everything, in monthly values. Seasons, as it turns out, are a thing.</figcaption></figure>
+  <h3>Year at a glance</h3>
+  <p>A heatmap with a square for every day of a year: red warmer than normal, blue colder, or blue shades for rainfall. Choose the measure (max or min temperature against normal, or rainfall) and the year. Hover a square for the day's figures. It's the quickest way to spot a heatwave or a wet month.</p>
+  <figure class="shot"><img src="img/history-heatmap.webp" alt="Year at a glance heatmap with a tooltip on one day" loading="lazy"><figcaption>Each square is a day. Hovering one shows the reading and how far it was from normal.</figcaption></figure>
+</section>
+
+<!-- ============================================================ compare -->
+<section class="s" id="compare">
+  <h2>Compare <span class="tag">Screen</span></h2>
+  <p class="lead">Settles arguments like "it's the wettest October we've ever had" (it usually isn't).</p>
+  <h3>Across years</h3>
+  <p>Pick a month (or the whole year) and a measure: daily maximum, daily minimum, rain as a running total, or peak gust. Every year on record is drawn in faint grey, their average dashed, and the year you highlight in violet. Hover for the values on any day.</p>
+  <figure class="shot"><img src="img/compare-hover.webp" alt="Rain running total for October in every year, with this year highlighted" loading="lazy"><figcaption>October's rain, year by year. This year is the violet line hugging the bottom.</figcaption></figure>
+  <p>Beside it, <b>How each year compares</b> ranks the years by the chosen measure: average max and min, rain, rain days and peak gust. The current year is marked "partial" until it's over.</p>
+  <h3>Two periods</h3>
+  <p>Any two date ranges side by side, A and B. Shortcuts cover the usual questions: this month against the same month last year, this year against last year to date, and the last 30 days against the 30 before. The table gives averages, extremes, rain, rain days, peak gust and how many days had data, with B − A in the last column. Two wind roses show where the wind mostly came from in each.</p>
+  <figure class="shot"><img src="img/compare-periods.webp" alt="Two periods compared side by side with wind roses" loading="lazy"><figcaption>October 2025 against October 2026 so far.</figcaption></figure>
+</section>
+
+<!-- ============================================================ insights -->
+<section class="s" id="insights">
+  <h2>Insights <span class="tag">Screen</span></h2>
+  <p class="lead">The interesting bits, found for you: odd days, records, how the rain falls, dry spells, storms, and your station's climate.</p>
+  <figure class="shot"><img src="img/insights-1.webp" alt="Unusual days and the records board" loading="lazy"></figure>
+  <h3>Unusual days</h3>
+  <p>Days in the last 30 days, 90 days or 12 months whose maximum or minimum was well away from normal for that date: a hot day, cold day, warm night or cold night. Each row shows the reading, the normal, and a bar of how unusual it was, in standard deviations.</p>
+  <div class="idea"><b>The idea</b>
+    <p>"Normal" here is the average of the same dates, a week either side, across all your other years. A 30° day is ordinary in January and remarkable in July (southern hemisphere); comparing against one average for the whole year would flag every summer day. A day is listed when it's at least 1.5 standard deviations from normal, which is roughly the most unusual 13% of days. It needs two years of history to know what normal looks like.</p>
+  </div>
+  <h3>Records</h3>
+  <p>All time, or this year: hottest and coldest days, warmest and coldest nights, wettest day and month, highest rain rate, strongest gust, lowest and highest pressure, and the longest dry and wet spells, each with when it happened.</p>
+  <figure class="shot"><img src="img/insights-2.webp" alt="Rain intensity table and the dry spell panel" loading="lazy"></figure>
+  <h3>Rain intensity</h3>
+  <p>How each year's rain fell. Days are sorted by their total: light (under 2 mm), moderate (2 to 10), heavy (10 to 25) and very heavy (25 mm or more). The table gives the share of the year's rain that came on each kind of day, plus the wettest hours on record.</p>
+  <p>Once Isobar has MX's detailed logs, a second table, <b>By how hard it fell</b>, splits the rain by its actual rate between readings: light under 2.5 mm an hour, moderate up to 10, heavy up to 50, and violent beyond. Rain logged across a gap of over an hour can't be timed, so it's left out.</p>
+  <div class="idea"><b>The idea</b>
+    <p>Fifty millimetres in a month can mean twenty-five drizzly days that barely wet the garden, or one downpour that fills the tanks and overflows them. The totals look the same; the effect doesn't.</p>
+  </div>
+  <h3>Dry spell</h3>
+  <p>How many dry days in a row up to the last day on record, and the last rain. Then context: the longest dry spell at this time of year, the longest on record, and how many years had a spell at least this long within a fortnight of now. A dry day has less than 0.2 mm, which is one tip of a typical gauge.</p>
+  <figure class="shot"><img src="img/insights-3.webp" alt="Biggest pressure falls table" loading="lazy"></figure>
+  <h3>Biggest pressure falls</h3>
+  <p>Your stormiest days, ranked by how far the pressure dropped. Each row has the date, the fall, the pressures it went from and to, and that day's peak gust and rain. Falls within two days of a bigger one count once, so one big storm doesn't fill the whole list.</p>
+  <p>From the dayfile alone, a fall is one day's highest pressure to the next day's lowest. Once MX's detailed logs are in, it becomes the true deepest fall within any 24 hours, with the time of the low.</p>
+  <figure class="shot"><img src="img/insights-4.webp" alt="Monthly climate table and prevailing wind roses" loading="lazy"></figure>
+  <h3>Your station's climate</h3>
+  <p>A month-by-month table: average max and min, highest, lowest, rain, rain days, and how many years each figure comes from. Rain only counts months with at least 25 days of data, so a month with a dead gauge doesn't drag the average down.</p>
+  <h3>Prevailing wind</h3>
+  <p>Two wind roses, all time and this year, showing the share of days by the day's dominant wind direction.</p>
+</section>
+
+<!-- ============================================================ seasons -->
+<section class="s" id="seasons">
+  <h2>Seasons <span class="tag">Screen</span></h2>
+  <p class="lead">The rhythm of the year: water, frost, warmth and sun. Mostly for gardeners, farmers and people who like knowing when to plant the tomatoes.</p>
+  <p>Seasons follow your hemisphere, worked out from your latitude: spring is September to November in the south and March to May in the north.</p>
+  <figure class="shot"><img src="img/seasons-1.webp" alt="Water balance chart and the top of the frost panel" loading="lazy"></figure>
+  <h3>Water balance</h3>
+  <p>Rain less evaporation, as a running total for this month, season or year. Above zero the soil is gaining water; below, it's drying out. The dashed line is normal for this point, the shaded band the range of other years.</p>
+  <p>Evaporation (strictly, evapotranspiration: what the ground and plants give back to the air) comes from your station if it records it. If not, Isobar estimates it from each day's high and low temperatures with the Hargreaves method, which needs your latitude. Either way the panel says which.</p>
+  <h3>Frost</h3>
+  <p>Nights when the low reached 0° or below; switch to 2° to include nights that frost the grass. You get the average first and last frost with the earliest and latest on record, frost nights a year, this year so far, and a calendar with a tick for every frost night on record. The shaded block is the average frost season.</p>
+  <div class="warn"><b>Mind the gap</b>
+    <p>The low is the air temperature at your sensor, usually about 1.2 m up. The ground is often a little colder, so you can get frost on the lawn on a night that reads 2°.</p>
+  </div>
+  <figure class="shot"><img src="img/seasons-2.webp" alt="Frost calendar and growing degree days" loading="lazy"></figure>
+  <h3>Growing degree days</h3>
+  <p>The warmth that drives growth. Each day adds how far its average temperature was above a base: 10° suits most fruit, vegetables and vines, and 5° suits grass, cereals and cool-season crops. The growing year runs from 1 July in the south (1 January in the north). The chart shows this year's running total against every other year, with the normal, the warmest so far, and last year.</p>
+  <figure class="shot"><img src="img/seasons-3.webp" alt="Sunshine hours by month against normal" loading="lazy"></figure>
+  <h3>Sunshine</h3>
+  <p>Hours of sunshine each month against the normal for that month: this month so far, the last 12 full months, the sunniest and dullest months on record, and a table by calendar month. Cumulus MX works sunshine out from a solar radiation sensor; no sensor, no panel. Months need at least 25 days of records to count.</p>
+  <figure class="shot"><img src="img/seasons-5.webp" alt="Day length through the year with average sunshine" loading="lazy"></figure>
+  <h3>Day length</h3>
+  <p>Hours from sunrise to sunset through the year at your latitude, with the longest and shortest days and today's change from yesterday. Average sunshine sits against it, which gives the <b>sunny share of daylight</b>: how much of the time the sun's up, it's actually out.</p>
+  <div class="tip"><b>Latitude</b>
+    <p>Set it in Settings → Station (south is negative: −33.9 or 33.9 S). Leave it empty and Isobar works it out from the day's sunrise and sunset, which is surprisingly accurate except near the equinoxes, when everywhere gets about twelve hours.</p>
+  </div>
+</section>
+
+<!-- ============================================================ tanks -->
+<section class="s" id="tanks">
+  <h2>Tanks <span class="tag">Screen</span></h2>
+  <p class="lead">For houses that drink the rain. How full the tanks are, how long the water lasts, and how much the roof catches and wastes.</p>
+  <figure class="shot"><img src="img/tanks-1.webp" alt="Tanks page: two tank drawings, level, outlook, and the level chart" loading="lazy"><figcaption>Two tanks drawn to scale, the headline figures, and the level chart with a year's outlook.</figcaption></figure>
+  <h3>The headline figures</h3>
+  <ul>
+    <li><b>In the tanks</b>: litres now and how full.</li>
+    <li><b>With no rain</b>: how many days until the level reaches your keep-above level, and the date.</li>
+    <li><b>With rain like past years</b>: replays the rain of every past year from today's date. "Low in 1 of 8" means one of eight past years' weather would take you below keep-above within a year.</li>
+    <li><b>Last 30 days</b>: litres in, used and overflowed.</li>
+  </ul>
+  <p>Below them, a few sentences: what the roof caught this year, what overflowed, what the house used, and what the year ahead would likely spill.</p>
+  <h3>The level chart</h3>
+  <p>The level day by day, then a year ahead: straight down with no rain (red dashes), and the range of what each past year's rain would do (shaded, the middle one dashed). Overflow shows as bars on the right-hand scale. Choose 3 months, 12 months, everything, or your own dates; an end date after today adds the outlook up to that date.</p>
+  <figure class="shot"><img src="img/tanks-2.webp" alt="The yearly tank table" loading="lazy"></figure>
+  <h3>Each year</h3>
+  <p>Rain, litres caught, used and overflowed, the lowest level and when, and how many days were at or below keep-above.</p>
+
+  <h3>How the model works</h3>
+  <p>Every day: <b>yesterday's level + rain × roof area − daily use + any adjustment</b>, never more than the tanks hold (the rest is overflow) and never below empty. One millimetre on one square metre is one litre, so a 385 m² roof catches 385 L per mm. Days with 0.1 mm or less catch nothing: that much just wets the roof.</p>
+  <div class="calc" id="roof">
+    <h4>Roof maths</h4>
+    <div class="row">
+      <label for="roof-a">Roof area (m²)<input id="roof-a" type="number" min="0" step="1" value="385"></label>
+      <label for="roof-r">Rain (mm)<input id="roof-r" type="number" min="0" step="0.1" value="12"></label>
+      <label for="roof-c">Tank capacity (L)<input id="roof-c" type="number" min="0" step="100" value="45000"></label>
+      <label for="roof-l">Level now (L)<input id="roof-l" type="number" min="0" step="100" value="40000"></label>
+    </div>
+    <div class="out" id="roof-out" aria-live="polite"></div>
+    <p class="note" id="roof-note"></p>
+  </div>
+  <p>Without a starting point, Isobar assumes the tanks were full on the first day on record and works forward. That's a guess, so give it a <b>known level</b> in Settings: "full" on a day they overflowed, a number of litres, or a depth you measured with a stick (like "1350 mm", which needs the tank diameters). From then on the model starts from what you told it.</p>
+  <h3>Importing a tank spreadsheet</h3>
+  <p>If you've kept a spreadsheet (Excel, LibreOffice or CSV), Settings → Rainwater tanks → <b>Import a tank record</b> reads it. It needs a <b>Date</b> column and an <b>mm</b> column; <b>Use</b> (litres that day) and <b>Adjust</b> (litres added or taken out, such as a water delivery) are optional. Isobar finds the header row itself.</p>
+  <ul>
+    <li>Its rain fills in days before your station's history began. Where both have a day, the station wins.</li>
+    <li>Its use and adjustments replace the usual daily figure on those days.</li>
+    <li>Blank rain rows count as dry, up to the last row with rain in it.</li>
+  </ul>
+  <div class="warn"><b>Excel, let go</b>
+    <p>If the import says it can't open the file, it's probably still open in Excel, which locks it. Close it there and try again.</p>
+  </div>
+</section>
+
+<!-- ============================================================ health -->
+<section class="s" id="health">
+  <h2>Health <span class="tag">Screen</span></h2>
+  <p class="lead">Is it the weather, or is it the station? The page that saves you a walk out to the mast in your dressing-gown.</p>
+  <figure class="shot"><img src="img/health.webp" alt="Health page with station, alarms, daily history and recent readings" loading="lazy"></figure>
+  <p>Each line has a coloured dot: green is fine, amber wants a look, red is a problem, grey is just information.</p>
+  <h3>Station</h3>
+  <ul>
+    <li><b>Connection</b>: live with the time of the last reading, or what went wrong and since when.</li>
+    <li><b>Data from the station</b>: MX's own "data stopped" flag. "Stopped" means MX is running but isn't hearing from the station: check its console, cable or radio link.</li>
+    <li><b>Cumulus MX</b>: the version and build MX reports.</li>
+    <li><b>Isobar checks</b>: how often it polls.</li>
+  </ul>
+  <h3>MX alarms and the rain gauge</h3>
+  <p>Any MX alarms that have gone off (sensor contact lost, battery low, spike removed and so on), with what to do about them, then the ones that haven't. <b>Rain gauge last tipped</b> says when the bucket last moved. If it rained and the gauge didn't tip, check the funnel for leaves, dirt or spiders. Spiders love a rain gauge.</p>
+  <h3>Daily history</h3>
+  <p>Days stored and the range, whether the newest day is up to date, <b>missing days</b> (gaps in the dayfile, as date ranges) and <b>incomplete days</b> (days without temperatures or rain). <b>Download history again</b> fetches everything from MX afresh. Gaps that are also in MX's own dayfile will stay; MX can only send what it recorded.</p>
+  <h3>Recent readings and detailed history</h3>
+  <ul>
+    <li><b>Last 24 hours</b>: how many readings Isobar has and how much of the day they cover.</li>
+    <li><b>Gap filling</b>: when Isobar last fetched MX's recent detail to fill a gap, and how many readings it brought.</li>
+    <li><b>Detailed history</b>: progress fetching MX's log files ("12 of 87 months, 52,000 readings so far"), the range stored, or why it couldn't fetch them. After an error it tries again in half an hour.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ settings -->
+<section class="s" id="settings">
+  <h2>Settings <span class="tag">Screen</span></h2>
+  <p class="lead">Changes only stick when you press <b>Save settings</b> at the bottom. Isobar shows "Unsaved changes" until you do.</p>
+  <div class="pair">
+    <figure class="shot"><img src="img/settings-1.webp" alt="Station settings" loading="lazy"></figure>
+    <figure class="shot"><img src="img/settings-2.webp" alt="History and rainwater tank settings" loading="lazy"></figure>
+  </div>
+  <h3>Station</h3>
+  <div class="tbl"><table>
+    <tbody>
+      <tr><td>Name</td><td>Shown at the top of Now and in alerts.</td></tr>
+      <tr><td>Cumulus MX address</td><td>The MX interface, usually port 8998. <code>192.168.1.20:8998</code> works too; Isobar adds the <code>http://</code>.</td></tr>
+      <tr><td>Username, password</td><td>Only if you've secured the MX interface. Stored <b>unencrypted</b> in the settings file.</td></tr>
+      <tr><td>Check every</td><td>Seconds between live readings. 10 is plenty; MX itself updates about that often.</td></tr>
+      <tr><td>Latitude</td><td>Degrees, south negative. Used for day length and the evaporation estimate. Empty means "work it out from sunrise and sunset".</td></tr>
+      <tr><td>Test connection</td><td>Asks MX for a reading without saving anything.</td></tr>
+    </tbody>
+  </table></div>
+  <h3>History</h3>
+  <div class="tbl"><table>
+    <tbody>
+      <tr><td>Dayfile on this computer</td><td>Read a <code>dayfile.txt</code> directly instead of from MX. Only for setups without the MX interface.</td></tr>
+      <tr><td>Download history again</td><td>Refetches the whole dayfile from MX. Handy after you've fixed something in MX's data.</td></tr>
+      <tr><td>Import a dayfile</td><td>Merges an archive dayfile, such as one from an earlier station location, into the history.</td></tr>
+      <tr><td>Delete local history</td><td>Clears Isobar's copy of the daily history. Your station's files aren't touched, and it all downloads again.</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Rainwater tanks</h3>
+  <p>Roof area, daily use, keep-above level, how many tanks (one to four) with each one's litres and, optionally, inside diameter. The tanks are treated as linked, filling and emptying together. Keep above is the level you plan around, such as where the pump starts sucking air. Then the known level and its date, and the tank record import. The boxes show greyed examples ("e.g. 385") until you type; those aren't values.</p>
+  <figure class="shot half"><img src="img/settings-4.webp" alt="Alerts, Now screen card choices and Appearance settings" loading="lazy"></figure>
+  <h3>Alerts, Now screen, Appearance</h3>
+  <ul>
+    <li><b>Alerts</b>: see <a href="#alerts">Alerts</a>.</li>
+    <li><b>Now screen</b>: tick the cards you want. "Put the cards back in the usual order" undoes your dragging.</li>
+    <li><b>Appearance</b>: theme (Match system, Light, Dark) and times (24-hour 16:52, or 12-hour 4:52 PM).</li>
+  </ul>
+</section>
+
+<!-- ============================================================ alerts -->
+<section class="s" id="alerts">
+  <h2>Alerts</h2>
+  <p>Desktop notifications for weather worth knowing about, while Isobar is running:</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Alert</th><th>When</th><th>How often</th></tr></thead>
+    <tbody>
+      <tr><td>Gust</td><td>A gust at or above your limit</td><td>At most every three hours</td></tr>
+      <tr><td>Frost</td><td>Temperature at or below your limit</td><td>Once a day</td></tr>
+      <tr><td>Heat</td><td>Temperature at or above your limit</td><td>Once a day</td></tr>
+      <tr><td>Rain starting</td><td>Rain after three dry hours</td><td>Each time it starts again</td></tr>
+    </tbody>
+  </table></div>
+  <p>Limits are in your station's units. Leave a box empty to turn that alert off, or untick <b>Show desktop notifications</b> to silence the lot.</p>
+</section>
+
+<!-- ============================================================ data -->
+<section class="s" id="data">
+  <h2>Where the data comes from</h2>
+  <p>Everything comes from Cumulus MX's own web interface, the same one its dashboard uses. Isobar only ever reads.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>What</th><th>From MX</th><th>How often</th></tr></thead>
+    <tbody>
+      <tr><td>Live readings</td><td><code>/api/data/currentdata</code></td><td>Every 10 s (Check every)</td></tr>
+      <tr><td>Daily history</td><td><code>/api/data/dayfile</code>, in pages</td><td>Checked every 30 minutes; fetched again when the line count changes</td></tr>
+      <tr><td>Recent detail</td><td><code>/api/graphdata/*.json</code> (72 hours, a reading a minute)</td><td>At startup, and after any gap over 15 minutes</td></tr>
+      <tr><td>Detailed history</td><td><code>/api/data/logfile</code>, a month at a time</td><td>Back to the start of your history, newest first; the current month every 10 minutes</td></tr>
+    </tbody>
+  </table></div>
+  <p>On top of that, Isobar keeps one live reading a minute itself, so the 24-hour charts work even if MX's graph data isn't available.</p>
+  <p><b>Units</b> come from your station: whatever MX reports (°C or °F, mm or in, km/h, m/s, mph or knots, hPa or inHg) is what Isobar shows. Charts assume the history is in the same units.</p>
+</section>
+
+<!-- ============================================================ storage -->
+<section class="s" id="storage">
+  <h2>Where Isobar keeps things</h2>
+  <p>Two files, both in a folder called <code>app.isobar.desktop</code>:</p>
+  <div class="tbl"><table>
+    <thead><tr><th>File</th><th>Windows</th><th>Linux</th></tr></thead>
+    <tbody>
+      <tr><td><code>settings.json</code></td><td><code>%APPDATA%\app.isobar.desktop\</code></td><td><code>~/.config/app.isobar.desktop/</code></td></tr>
+      <tr><td><code>isobar.sqlite</code></td><td><code>%APPDATA%\app.isobar.desktop\</code></td><td><code>~/.local/share/app.isobar.desktop/</code></td></tr>
+    </tbody>
+  </table></div>
+  <p>On Windows, <code>%APPDATA%</code> is usually <code>C:\Users\<i>you</i>\AppData\Roaming</code>. Paste <code>%APPDATA%\app.isobar.desktop</code> into Explorer's address bar to go straight there.</p>
+  <h3>settings.json</h3>
+  <p>A few kilobytes: station address and login, latitude, tank setup and known level, card order, alerts, theme. The MX password, if you set one, is in here as plain text.</p>
+  <h3>isobar.sqlite</h3>
+  <p>A SQLite database, which is Isobar's local copy of everything:</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Table</th><th>Holds</th><th>Rebuilt from MX?</th></tr></thead>
+    <tbody>
+      <tr><td><code>days</code></td><td>One row per day from the dayfile</td><td>Yes, in seconds</td></tr>
+      <tr><td><code>log</code></td><td>MX's detailed logs, at most one reading per 10 minutes</td><td>Yes, over a while</td></tr>
+      <tr><td><code>samples</code></td><td>Isobar's own reading a minute, the last 21 days</td><td>Mostly (MX keeps 72 hours of graph data)</td></tr>
+      <tr><td><code>tank_log</code></td><td>Your imported tank spreadsheet</td><td>No: import the spreadsheet again</td></tr>
+      <tr><td><code>meta</code></td><td>Bookkeeping, such as which log months are fetched</td><td>Yes</td></tr>
+    </tbody>
+  </table></div>
+  <p>Size: the detailed logs are the big part, about 3 MB a year. If your MX logs every minute, Isobar combines each 10 minutes into one reading as it arrives (averages, with the highest gust and rain rate and the latest rain totals), which is a tenth of the size and loses nothing the charts or Insights use. A database from before 19 October 2026 is thinned this way once, the first time a newer Isobar starts.</p>
+  <p>While Isobar runs you may also see <code>isobar.sqlite-wal</code> and <code>isobar.sqlite-shm</code> beside it. They're SQLite's working files and part of the database; leave them be.</p>
+</section>
+
+<!-- ============================================================ backup -->
+<section class="s" id="backup">
+  <h2>Backups and a second computer</h2>
+  <h3>What to back up</h3>
+  <ol>
+    <li><b>Cumulus MX's own folder</b>, especially <code>data</code> (the dayfile and monthly logs) and <code>Cumulus.ini</code>. Everything Isobar knows comes from there.</li>
+    <li><b><code>settings.json</code></b>. It's small, and retyping tank diameters is nobody's idea of fun.</li>
+    <li><b>Your tank spreadsheet</b>, if you imported one.</li>
+  </ol>
+  <p><code>isobar.sqlite</code> is optional: it only saves the wait while Isobar fetches the history again. If you do copy it, close Isobar first, so the database and its working files are all in step.</p>
+  <h3>Starting again on a new computer</h3>
+  <p>Download Isobar, put <code>settings.json</code> in place (or just type the station address in), start it, and import the tank spreadsheet again if you use one. Daily history is back in seconds; the detailed history comes back in the background.</p>
+  <h3>Two computers, one station</h3>
+  <p>Run Isobar on both, each pointing at MX. MX is the shared dataset; each Isobar keeps its own small cache. <b>Don't</b> put <code>isobar.sqlite</code> on a network share and open it from two machines: SQLite expects to live on the machine using it, and over a network it can lock up or get damaged. Copy <code>settings.json</code> across instead.</p>
+</section>
+
+<!-- ============================================================ maths -->
+<section class="s" id="maths">
+  <h2>The maths, explained</h2>
+  <p>No black boxes. Here's how Isobar works out each figure, in plain words.</p>
+
+  <h3>Normals</h3>
+  <p>The normal for a date is the average of every other year's values from a week before to a week after that date. So normal for 15 October uses 8–22 October in every other year: about 15 days × (years − 1) values. The year being looked at is left out, so a day isn't compared with itself. Standard deviation comes from the same values and measures how much the weather usually varies at that time of year.</p>
+
+  <h3>Unusual days</h3>
+  <p>A day is unusual when its max or min is at least 1.5 standard deviations from that date's normal. If normal is 20° and the usual spread is 3°, a day of 24.5° or more (or 15.5° or less) makes the list.</p>
+
+  <h3>Rain days, dry days and intensity</h3>
+  <p>A rain day has at least 0.2 mm; anything less is a dry day. By the day's total: light under 2 mm, moderate 2 to 10, heavy 10 to 25, very heavy 25 or more. By rate, from the detailed logs: light under 2.5 mm an hour, moderate under 10, heavy under 50, violent beyond.</p>
+
+  <h3>Pressure tendency</h3>
+  <p>The change over the last three hours of recorded readings, in hPa, put into the words forecasters use. Until there are three hours of readings, Isobar uses MX's own hourly trend.</p>
+  <div class="calc" id="press">
+    <h4>Try it</h4>
+    <label for="press-r">Change in 3 hours: <span id="press-v"></span></label>
+    <input id="press-r" type="range" min="-8" max="8" step="0.1" value="-0.5">
+    <div class="out" id="press-out" aria-live="polite"></div>
+    <p class="note">Steady under 0.1 hPa; slowly up to 1.5; plain rising or falling up to 3.5; quickly up to 6; very rapidly beyond. A fall of 3.6 hPa or more shows in amber on Now.</p>
+  </div>
+
+  <h3>Pressure falls</h3>
+  <p>With detailed logs: for every reading, the highest pressure in the 24 hours before it, minus that reading. The biggest of those are the falls, keeping only the biggest within any two days. With the dayfile only: each day's highest pressure minus the next day's lowest.</p>
+
+  <h3>Dry spells</h3>
+  <p>A run of consecutive dry days. "This time of year" compares with dry spells in other years that touched the dates within a fortnight of today.</p>
+
+  <h3>Water balance and evaporation</h3>
+  <p>Each day adds its rain and takes away its evapotranspiration, summed from the start of the month, season or year. If the station has no ET figure, Isobar uses the Hargreaves estimate: 0.0023 × extraterrestrial radiation × (mean temperature + 17.8) × √(max − min). The radiation depends on latitude and date, which is why Isobar needs your latitude.</p>
+
+  <h3>Growing degree days</h3>
+  <p>For each day, the average of the max and min, minus the base (10° or 5°), counted only when positive. A day of 24° and 12° adds 18 − 10 = 8 at base 10.</p>
+
+  <h3>Frost dates</h3>
+  <p>The frost year runs January to December in the south (July to June in the north), so a winter isn't split in two. First and last frost are the first and last nights at or below the threshold in each frost year, averaged by day of year across years that had any.</p>
+
+  <h3>Sunshine and day length</h3>
+  <p>Monthly sunshine totals count months with at least 25 days of records. Day length comes from the sun's declination and your latitude. The latitude estimate runs that the other way round, from the day's sunrise and sunset.</p>
+
+  <h3>Cloudiness gauge</h3>
+  <p>Solar radiation now divided by MX's clear-sky maximum for this moment. Clear at 85% or more, hazy 60%, cloudy 30%, overcast below.</p>
+
+  <h3>Tank outlook</h3>
+  <p>The model runs forward a year from today's level, once with no rain and once for each past year's rain on the same calendar dates. The shaded band is the spread of those runs; "Low in 1 of 8" counts the runs that went below keep-above.</p>
+
+  <h3>Ten-minute storage</h3>
+  <p>Detailed log readings are grouped into 10-minute steps on the clock. Within a step, readings are averaged, except gust and rain rate (the highest is kept) and bearing and the rain totals (the latest is kept). The step is timed at its last reading.</p>
+</section>
+
+<!-- ============================================================ faq -->
+<section class="s" id="faq">
+  <h2>Troubleshooting</h2>
+  <details>
+    <summary>Now says "Can't reach your station"</summary>
+    <p>Check the address in Settings is the MX interface (port 8998 by default), that MX is running, and that the computer running it hasn't gone to sleep. Open the same address in a browser on the same computer as Isobar; if the MX dashboard doesn't load there either, it's the network or MX, not Isobar.</p>
+  </details>
+  <details>
+    <summary>A reading on Now shows "–"</summary>
+    <p>Your station or MX version doesn't send that field. Isobar has been checked against MX 5.1.5. If something's missing that you know your station measures, the MX output at <code>/api/data/currentdata</code> shows what it actually sends.</p>
+  </details>
+  <details>
+    <summary>Tank settings don't seem to save</summary>
+    <ul>
+      <li>Press <b>Save settings</b> at the very bottom. A note in the tanks panel says when the details aren't saved yet.</li>
+      <li>Greyed "e.g." text in a box is an example, not a value. Type the number.</li>
+      <li>Every tank needs its litres, and a depth as the known level needs every tank's diameter.</li>
+    </ul>
+  </details>
+  <details>
+    <summary>The 24-hour chart has a gap</summary>
+    <p>Nothing was recorded for over 20 minutes. Isobar fills gaps from MX's recent detail when it can; Health → Gap filling says whether MX sent any. MX keeps 72 hours of that, so a gap older than three days stays unless the detailed logs cover it.</p>
+  </details>
+  <details>
+    <summary>Health lists missing days</summary>
+    <p>Those dates aren't in the dayfile. Try <b>Download history again</b>. If they're still missing, they're missing in MX too (the station was off, or MX wasn't running). MX can only send what it recorded.</p>
+  </details>
+  <details>
+    <summary>The detailed history is taking ages</summary>
+    <p>Each month is a separate request, and years of one-minute logs are a lot of lines. It runs in the background and resumes where it left off after a restart. If it shows an error, Isobar tries again in half an hour.</p>
+  </details>
+  <details>
+    <summary>Windows quarantined Isobar</summary>
+    <p>See <a href="#install">Windows being suspicious</a>. Check the checksum, then restore the file from Defender's Protection history and allow it.</p>
+  </details>
+  <details>
+    <summary>I want to start completely fresh</summary>
+    <p>Close Isobar and delete the <code>app.isobar.desktop</code> folder (or folders, on Linux). Isobar starts as if new. Your Cumulus data isn't touched.</p>
+  </details>
+</section>
+
+<!-- ============================================================ next -->
+<section class="s" id="next">
+  <h2>What's coming</h2>
+  <p>The roadmap lives in <code>docs/ROADMAP.md</code> in the repository, with a printable checklist for deciding what gets built. Still on the table, among others: reports (NOAA-style summaries, a yearly almanac, CSV export), units of your choice, heating and cooling degree days, wind run and gust factor, a warming-trend chart, more colour themes, and a readout in the system tray.</p>
+</section>
+
+<!-- ============================================================ changes -->
+<section class="s" id="changes">
+  <h2>About this guide</h2>
+  <p>It lives alongside the code, in <code>docs/guide/</code>, and is updated whenever Isobar changes, screenshots included. If something here doesn't match what you see, the guide is wrong; please say so.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Date</th><th>Change</th></tr></thead>
+    <tbody>
+      <tr><td>19 Oct 2026</td><td>First edition: every screen, the data and storage, backups, and the maths behind each figure.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<p class="nohits" id="nohits">Nothing in the guide matches that. Try a shorter word, like “rain” or “tank”.</p>
+
+<footer>Isobar user guide · Screens from the demo station · Cumulus MX is by Sandaysoft and the Cumulus community; Isobar is an independent companion.</footer>
+</main>
+</div>
+
+<div class="lb" id="lb" hidden role="dialog" aria-modal="true" aria-label="Screenshot">
+  <div class="lb-in">
+    <img id="lb-img" alt="">
+    <div class="lb-bar"><button type="button" id="lb-prev" aria-label="Previous screenshot">‹</button><p id="lb-cap"></p><button type="button" id="lb-next" aria-label="Next screenshot">›</button><button type="button" id="lb-x">Close</button></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) {} }
+  };
+
+  // Theme
+  const themeBtns = $$(".theme button");
+  function setTheme(t) {
+    if (t) document.documentElement.setAttribute("data-theme", t);
+    else document.documentElement.removeAttribute("data-theme");
+    themeBtns.forEach(b => b.setAttribute("aria-pressed", String(b.dataset.t === (t || ""))));
+    store.set("isobar-guide-theme", t);
+  }
+  themeBtns.forEach(b => b.addEventListener("click", () => setTheme(b.dataset.t)));
+  setTheme(store.get("isobar-guide-theme") || "");
+
+  // Mobile contents
+  const toc = $("#toc"), menu = $("#menu");
+  menu.addEventListener("click", () => {
+    const open = !toc.classList.contains("open");
+    toc.classList.toggle("open", open);
+    menu.setAttribute("aria-expanded", String(open));
+  });
+  $$("#toc a").forEach(a => a.addEventListener("click", () => {
+    toc.classList.remove("open"); menu.setAttribute("aria-expanded", "false");
+  }));
+
+  // Scrollspy
+  const sections = $$("section.s");
+  const links = new Map($$("#toc a").map(a => [a.getAttribute("href").slice(1), a]));
+  const spy = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.remove("on"));
+        const l = links.get(e.target.id);
+        if (l) l.classList.add("on");
+      }
+    });
+  }, { rootMargin: "-80px 0px -70% 0px" });
+  sections.forEach(s => spy.observe(s));
+
+  // Annotated Now screenshot
+  const pins = [
+    [20, 24.7, "The temperature", "Big enough to read from across the room."],
+    [17.5, 37.1, "Trend", "Change per hour: red rising, blue falling, grey steady."],
+    [18.8, 45.2, "High and low", "Since the station's day began, with times."],
+    [19.4, 54.4, "Feels like, dew point, forecast", "MX's own forecast in italics."],
+    [67.5, 27.4, "The thermograph", "24 hours of temperature (violet), dew point (dashed) and rain since midnight (blue, right scale)."],
+    [87.5, 48.2, "Span chips", "Look further back: 3, 7 or 30 days."],
+    [16.4, 69.6, "Wind dial", "Speed, direction and gusts. Drag a card's name to move it."],
+    [30.9, 71.1, "Pressure tendency", "Three hours' change in forecasters' words. Amber for a big fall."],
+    [43.1, 74.9, "Storm total", "Rain in the current storm, and when it began."],
+    [63.8, 72.3, "Cloudiness gauge", "Sunshine now against a clear sky at this hour."],
+    [92.5, 93.2, "Sparklines", "Every card has 24 hours along its foot. Click a card to put it in the big chart."],
+    [94.4, 5.9, "Last update", "Green when live, amber after two quiet minutes, red when MX stops answering."],
+    [4.75, 54.4, "Health dot", "Something on Health wants a look."],
+    [10.1, 5.8, "Fold the rail", "Gives the charts the whole window."]
+  ];
+  const annot = $("#annot"), legend = $("#legend");
+  function pick(i) {
+    $$(".pin", annot).forEach((p, k) => p.classList.toggle("on", k === i));
+    $$("li", legend).forEach((p, k) => p.classList.toggle("on", k === i));
+  }
+  pins.forEach(([x, y, t, d], i) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "pin"; b.textContent = i + 1;
+    b.style.left = x + "%"; b.style.top = y + "%";
+    b.setAttribute("aria-label", (i + 1) + ": " + t);
+    b.addEventListener("click", e => { e.stopPropagation(); pick(i); legend.children[i].scrollIntoView({ block: "nearest" }); });
+    annot.appendChild(b);
+    const li = document.createElement("li");
+    li.innerHTML = '<span class="n">' + (i + 1) + '</span><span><b></b> <span class="d"></span></span>';
+    li.querySelector("b").textContent = t + ".";
+    li.querySelector(".d").textContent = d;
+    li.addEventListener("mouseenter", () => pick(i));
+    li.addEventListener("click", () => pick(i));
+    legend.appendChild(li);
+  });
+  $$(".switch button").forEach(b => b.addEventListener("click", () => {
+    $("#now-img").src = b.dataset.src;
+    $$(".switch button").forEach(o => o.setAttribute("aria-pressed", String(o === b)));
+  }));
+
+  // Lightbox
+  const figs = $$("figure.shot");
+  const lb = $("#lb"), lbImg = $("#lb-img"), lbCap = $("#lb-cap");
+  let at = -1, back = null;
+  function show(i) {
+    at = (i + figs.length) % figs.length;
+    const img = $("img", figs[at]), cap = $("figcaption", figs[at]);
+    lbImg.src = img.src; lbImg.alt = img.alt;
+    lbCap.textContent = cap ? cap.textContent : img.alt;
+    lb.hidden = false;
+  }
+  function close() { lb.hidden = true; at = -1; if (back) back.focus(); }
+  figs.forEach((f, i) => {
+    f.tabIndex = 0;
+    f.setAttribute("role", "button");
+    f.setAttribute("aria-label", "Show full size: " + $("img", f).alt);
+    f.addEventListener("click", () => { back = f; show(i); $("#lb-x").focus(); });
+    f.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); back = f; show(i); $("#lb-x").focus(); } });
+  });
+  $("#lb-x").addEventListener("click", close);
+  $("#lb-prev").addEventListener("click", () => show(at - 1));
+  $("#lb-next").addEventListener("click", () => show(at + 1));
+  lb.addEventListener("click", e => { if (e.target === lb) close(); });
+  document.addEventListener("keydown", e => {
+    if (lb.hidden) {
+      if (e.key === "/" && document.activeElement !== q) { e.preventDefault(); q.focus(); }
+      return;
+    }
+    if (e.key === "Escape") close();
+    if (e.key === "ArrowLeft") show(at - 1);
+    if (e.key === "ArrowRight") show(at + 1);
+  });
+
+  // Search
+  const q = $("#q"), qn = $("#qn"), nohits = $("#nohits");
+  const blocks = "p, li, td, th, h2, h3, h4, summary, figcaption";
+  const original = new Map();
+  $$(blocks, $("main")).forEach(el => { if (!el.closest(".legend-list")) original.set(el, el.innerHTML); });
+  function clearMarks() { original.forEach((h, el) => { if (el.innerHTML !== h) el.innerHTML = h; }); }
+  function markText(el, re) {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(n => {
+      if (!re.test(n.nodeValue)) return;
+      re.lastIndex = 0;
+      const frag = document.createDocumentFragment();
+      let last = 0, m;
+      while ((m = re.exec(n.nodeValue))) {
+        frag.appendChild(document.createTextNode(n.nodeValue.slice(last, m.index)));
+        const mk = document.createElement("mark"); mk.textContent = m[0]; frag.appendChild(mk);
+        last = m.index + m[0].length;
+      }
+      frag.appendChild(document.createTextNode(n.nodeValue.slice(last)));
+      n.parentNode.replaceChild(frag, n);
+    });
+  }
+  let timer = 0;
+  q.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(run, 120); });
+  function run() {
+    clearMarks();
+    const term = q.value.trim();
+    if (!term) {
+      sections.forEach(s => s.classList.remove("hidden"));
+      links.forEach(l => l.parentElement.classList.remove("hide"));
+      qn.textContent = ""; nohits.style.display = "none"; return;
+    }
+    const re = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+    let hits = 0, shown = 0;
+    sections.forEach(s => {
+      const text = s.textContent;
+      const n = (text.match(re) || []).length;
+      s.classList.toggle("hidden", n === 0);
+      const l = links.get(s.id); if (l) l.parentElement.classList.toggle("hide", n === 0);
+      if (n) { shown++; hits += n; $$(blocks, s).forEach(el => { if (original.has(el)) { re.lastIndex = 0; markText(el, re); } }); }
+    });
+    qn.textContent = hits ? hits + (hits === 1 ? " match" : " matches") : "";
+    nohits.style.display = shown ? "none" : "block";
+  }
+
+  // Roof maths
+  const fmt = n => Math.round(n).toLocaleString("en-AU");
+  function roof() {
+    const a = +$("#roof-a").value || 0, r = +$("#roof-r").value || 0;
+    const cap = +$("#roof-c").value || 0, lvl = Math.min(+$("#roof-l").value || 0, cap);
+    const caught = r > 0.1 ? a * r : 0;
+    const room = Math.max(cap - lvl, 0);
+    const kept = Math.min(caught, room), over = caught - kept;
+    $("#roof-out").innerHTML = fmt(caught) + " L<small>caught</small>";
+    $("#roof-note").textContent = r <= 0.1
+      ? "0.1 mm or less only wets the roof, so nothing reaches the tanks."
+      : over > 0
+        ? fmt(kept) + " L fits in the tanks; " + fmt(over) + " L overflows. The tanks would be full."
+        : "All of it fits: the tanks would be at " + fmt(lvl + kept) + " L, " + Math.round((lvl + kept) / (cap || 1) * 100) + "% full.";
+  }
+  ["#roof-a", "#roof-r", "#roof-c", "#roof-l"].forEach(s => $(s).addEventListener("input", roof));
+  roof();
+
+  // Pressure tendency
+  function tendency(c) {
+    const a = Math.abs(c);
+    if (a < 0.1) return "Steady";
+    const dir = c > 0 ? "Rising" : "Falling";
+    if (a <= 1.5) return dir + " slowly";
+    if (a <= 3.5) return dir;
+    if (a <= 6.0) return dir + " quickly";
+    return dir + " very rapidly";
+  }
+  function press() {
+    const c = +$("#press-r").value;
+    $("#press-v").textContent = (c > 0 ? "+" : c < 0 ? "−" : "") + Math.abs(c).toFixed(1) + " hPa";
+    const out = $("#press-out");
+    out.textContent = tendency(c);
+    out.classList.toggle("word-fall", c <= -3.6);
+  }
+  $("#press-r").addEventListener("input", press);
+  press();
+})();
+</script>
