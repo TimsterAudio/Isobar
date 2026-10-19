@@ -6,7 +6,7 @@ Everything that could be added, from the data the owner's Cumulus MX 5.1.5 stati
 
 - **Yes:** A1, A2, B1, B2, B4, B6, C1, D1, D2, D3, D4, F1, F2, G1, G2, I1, I2, Z1, Z2, Z3, Z4 (G1 to Z4 added on 2026-10-19)
 - **Later:** A3, B5, B7, B8
-- **Undecided:** B3, E1, E2, E3, H1, H2, H3, J1, J2, J3, K1, K2, K3, K4, L1, L2, L3, L4, Z5
+- **Undecided:** B3, E1, E2, E3, H1, H2, H3, J1, J2, J3, K1, K3, K4, L1, L2, L3, L4, L5, Z5
 
 Tags: **Stored** is already in the local history (no new downloading), **Live** is sent by MX in `currentdata` but not read yet (add it to `LiveReading` in `crates/isobar-core/src/live.rs` and check it against the fixture), **Build** is worked out by Isobar. ★ marks a suggested starting point.
 
@@ -65,7 +65,6 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 
 ## K. Bigger features
 - [ ] **K1** Readout in the system tray. *Build*
-- [ ] **K2** Export the daily history to CSV. *Build*
 - [ ] **K3** MX password in the system keychain instead of `settings.json`. *Build*
 - [ ] **K4** Detailed history from MX's monthly log files (a reading every few minutes, back as far as MX has them), synced like the dayfile. Gives true 24-hour pressure falls, hour-by-hour rain intensity and the thermograph for any past day. *Build*
 
@@ -75,6 +74,7 @@ Added 2026-10-19 at the owner's request. Each report is a page Isobar writes as 
 - [ ] **L2** Weather almanac for a year: the year in review, month by month against normal, records set, firsts and lasts (first frost, last 30° day), wettest and driest spells, and the tank year. *Stored*
 - [ ] **L3** Monthly summary page: a one-page review of a month with its charts, ready to print or share. *Stored*
 - [ ] **L4** Save straight to PDF from Isobar, without going through a browser. *Build*
+- [ ] **L5** Export the daily history to CSV, for any range, to open in a spreadsheet (moved from K2 on 2026-10-19). *Build*
 
 ## Z. The owner's own tweaks
 Changes to the views and anything not listed, added as the owner sends them.
