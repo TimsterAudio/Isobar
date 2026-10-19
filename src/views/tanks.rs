@@ -49,8 +49,20 @@ struct Model {
 
 #[derive(Default)]
 pub struct TanksView {
-    all_years: bool,
+    range: Range,
+    /// The chosen dates for `Range::Dates`, once picked.
+    dates: Option<(NaiveDate, NaiveDate)>,
     model: Option<Model>,
+}
+
+/// What the level chart covers.
+#[derive(Clone, Copy, PartialEq, Eq, Default, Hash, Debug)]
+enum Range {
+    Months3,
+    #[default]
+    Months12,
+    All,
+    Dates,
 }
 
 impl TanksView {
@@ -231,8 +243,10 @@ impl TanksView {
     }
 
     fn level_chart(&mut self, ui: &mut Ui, p: &Palette, t: &Setup) {
-        let mut all = self.all_years;
+        let mut range = self.range;
         let Some(m) = self.model.as_ref() else { return };
+        let first_day = m.sim.first().map_or(m.at, |d| d.date);
+        let (mut from, mut to) = self.dates.unwrap_or((m.at - Duration::days(90), m.at));
         ui::panel(ui, |ui| {
             ui.horizontal(|ui| {
                 ui::h2(ui, "Level");
@@ -240,18 +254,54 @@ impl TanksView {
                     eframe::egui::Layout::right_to_left(eframe::egui::Align::Center),
                     |ui| {
                         ui.spacing_mut().item_spacing.x = 6.0;
-                        if ui::chip(ui, "Everything", all).clicked() {
-                            all = true;
-                        }
-                        if ui::chip(ui, "Last year and next", !all).clicked() {
-                            all = false;
+                        for (r, label) in [
+                            (Range::Dates, "Dates"),
+                            (Range::All, "Everything"),
+                            (Range::Months12, "12 months"),
+                            (Range::Months3, "3 months"),
+                        ] {
+                            if ui::chip(ui, label, range == r).clicked() {
+                                range = r;
+                            }
                         }
                     },
                 );
             });
+            if range == Range::Dates {
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = 10.0;
+                    let years = first_day.year()..=m.at.year() + 1;
+                    ui::small(ui, "From", p.ink2);
+                    ui::date_input(ui, "tank-from", &mut from, years.clone());
+                    ui::small(ui, "to", p.ink2);
+                    ui::date_input(ui, "tank-to", &mut to, years);
+                });
+                if to < from {
+                    std::mem::swap(&mut from, &mut to);
+                }
+            }
+            // The days of history shown, and how far ahead to look.
+            let (start, end, ahead_days) = match range {
+                Range::Months3 => (m.at - Duration::days(91), m.at, 90),
+                Range::Months12 => (m.at - Duration::days(365), m.at, AHEAD),
+                Range::All => (first_day, m.at, AHEAD),
+                Range::Dates => (
+                    from.min(m.at),
+                    to.min(m.at),
+                    (to - m.at).num_days().clamp(0, AHEAD as i64) as usize,
+                ),
+            };
+            let start = start.max(first_day).min(end);
             ui::para(
                 ui,
-                "The level day by day, then a year ahead: with no rain, and with the rain of each past year from this date (the shaded range, with the middle of them dashed).",
+                if ahead_days > 0 {
+                    "The level day by day, then ahead: with no rain, and with the rain of each past year from this date (the shaded range, with the middle of them dashed).".to_string()
+                } else {
+                    format!(
+                        "The level day by day. Choose an end date after {} to see the outlook too.",
+                        short_date(m.at)
+                    )
+                },
                 theme::body(14.0),
                 p.ink2,
                 760.0,
@@ -259,48 +309,48 @@ impl TanksView {
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x = 18.0;
                 ui::key(ui, "Level", p.trace, KeyMark::Line);
-                ui::key(ui, "Past years' rain", alpha(p.rain, 0.4), KeyMark::Square);
-                ui::key(ui, "Middle of them", p.ink2, KeyMark::Dashed);
-                ui::key(ui, "No rain", p.heat, KeyMark::Dashed);
+                if ahead_days > 0 {
+                    ui::key(ui, "Past years' rain", alpha(p.rain, 0.4), KeyMark::Square);
+                    ui::key(ui, "Middle of them", p.ink2, KeyMark::Dashed);
+                    ui::key(ui, "No rain", p.heat, KeyMark::Dashed);
+                }
                 ui::key(ui, "Overflow (right)", alpha(p.rain, 0.6), KeyMark::Square);
                 if t.keep_above > 0.0 {
                     ui::key(ui, "Keep above", p.warn, KeyMark::Dashed);
                 }
             });
-            let hist: Vec<&TankDay> = if all {
-                m.sim.iter().collect()
-            } else {
-                m.sim
-                    .iter()
-                    .filter(|d| (m.at - d.date).num_days() < 365)
-                    .collect()
-            };
-            let first = hist.first().map_or(m.at, |d| d.date);
-            let n = (m.at - first).num_days() as usize + 1 + AHEAD;
-            let dates: Vec<NaiveDate> = (0..n).map(|k| first + Duration::days(k as i64)).collect();
+            let hist: Vec<&TankDay> = m
+                .sim
+                .iter()
+                .filter(|d| d.date >= start && d.date <= end)
+                .collect();
+            let n = (end - start).num_days() as usize + 1 + ahead_days;
+            let dates: Vec<NaiveDate> = (0..n).map(|k| start + Duration::days(k as i64)).collect();
             let xs: Vec<f64> = dates.iter().map(|d| chart::day_ts(*d)).collect();
-            let split = n - AHEAD;
+            let split = n - ahead_days;
             let mut level = vec![None; n];
             for d in &hist {
-                level[(d.date - first).num_days() as usize] = Some(d.level);
+                level[(d.date - start).num_days() as usize] = Some(d.level);
             }
-            level[split - 1] = Some(m.level);
+            if end == m.at {
+                level[split - 1] = Some(m.level);
+            }
             let mut spill = vec![None; n];
             for d in hist.iter().filter(|d| d.overflow > 0.0) {
-                spill[(d.date - first).num_days() as usize] = Some(d.overflow);
+                spill[(d.date - start).num_days() as usize] = Some(d.overflow);
             }
             let ahead = |v: &[f64]| -> Vec<Option<f64>> {
                 let mut out = vec![None; n];
-                if !v.is_empty() {
+                if ahead_days > 0 && !v.is_empty() {
                     out[split - 1] = Some(m.level);
-                    for (k, x) in v.iter().enumerate() {
+                    for (k, x) in v.iter().take(ahead_days).enumerate() {
                         out[split + k] = Some(*x);
                     }
                 }
                 out
             };
             let o = &m.outlook;
-            let mut c = Chart::new(("tank-level", all), 300.0, xs, XAxis::Time)
+            let mut c = Chart::new(("tank-level", range, start, end), 300.0, xs, XAxis::Time)
                 .left_from_zero()
                 .left_ticks(|v, _| {
                     if v == 0.0 {
@@ -366,7 +416,10 @@ impl TanksView {
             );
             c.show(ui);
         });
-        self.all_years = all;
+        self.range = range;
+        if range == Range::Dates {
+            self.dates = Some((from, to));
+        }
     }
 
     fn year_table(ui: &mut Ui, p: &Palette, t: &Setup, m: &Model) {
