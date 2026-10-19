@@ -148,6 +148,7 @@ impl TanksView {
                     let last30: Vec<&TankDay> = m.sim.iter().rev().take(30).collect();
                     let caught30: f64 = last30.iter().map(|d| d.caught).sum();
                     let used30: f64 = last30.iter().map(|d| d.used).sum();
+                    let over30: f64 = last30.iter().map(|d| d.overflow).sum();
                     let stats = vec![
                         Stat::new("In the tanks", format!("{} L", litres(m.level)), p.rain).detail(
                             format!("{}% full at the end of {}", num(Some(m.level / cap * 100.0), 0), short_date(m.at)),
@@ -179,7 +180,14 @@ impl TanksView {
                             .detail(format!("Earliest down to {keep}: {}", nice_date(earliest)), p.ink2)
                         },
                         Stat::new("Last 30 days", format!("{} L in", litres(caught30)), p.rain)
-                            .detail(format!("{} L used", litres(used30)), p.ink2),
+                            .detail(
+                                if over30 > 0.0 {
+                                    format!("{} L used, {} L overflowed", litres(used30), litres(over30))
+                                } else {
+                                    format!("{} L used, none overflowed", litres(used30))
+                                },
+                                p.ink2,
+                            ),
                     ];
                     ui::stats(ui, &stats);
                     if let Some(y) = this_year {
@@ -194,6 +202,23 @@ impl TanksView {
                             ),
                             p.ink2,
                         );
+                    }
+                    if !o.overflow.is_empty() {
+                        let mut v = o.overflow.clone();
+                        v.sort_by(f64::total_cmp);
+                        let mid = v[v.len() / 2];
+                        let (lo, hi) = (v[0], v[v.len() - 1]);
+                        let text = if hi <= 0.0 {
+                            "In the year ahead, none of the past years' rain would fill the tanks to overflowing.".to_string()
+                        } else {
+                            format!(
+                                "In the year ahead, the past years' rain would overflow about {} L (from {} L to {} L), water the tanks can't hold.",
+                                litres(mid),
+                                litres(lo),
+                                litres(hi)
+                            )
+                        };
+                        ui::small(ui, text, p.ink2);
                     }
                     let from = match t.known {
                         Some(k) => format!("Worked out from the rain since the known level on {} ({} L).", nice_date(k.date), litres(k.litres)),
@@ -237,6 +262,7 @@ impl TanksView {
                 ui::key(ui, "Past years' rain", alpha(p.rain, 0.4), KeyMark::Square);
                 ui::key(ui, "Middle of them", p.ink2, KeyMark::Dashed);
                 ui::key(ui, "No rain", p.heat, KeyMark::Dashed);
+                ui::key(ui, "Overflow (right)", alpha(p.rain, 0.6), KeyMark::Square);
                 if t.keep_above > 0.0 {
                     ui::key(ui, "Keep above", p.warn, KeyMark::Dashed);
                 }
@@ -259,6 +285,10 @@ impl TanksView {
                 level[(d.date - first).num_days() as usize] = Some(d.level);
             }
             level[split - 1] = Some(m.level);
+            let mut spill = vec![None; n];
+            for d in hist.iter().filter(|d| d.overflow > 0.0) {
+                spill[(d.date - first).num_days() as usize] = Some(d.overflow);
+            }
             let ahead = |v: &[f64]| -> Vec<Option<f64>> {
                 let mut out = vec![None; n];
                 if !v.is_empty() {
@@ -298,6 +328,20 @@ impl TanksView {
                         .no_points()
                         .unit(" L", 0),
                 )
+                .series(
+                    Series::line("Overflow", spill, p.rain)
+                        .bars()
+                        .right()
+                        .unit(" L", 0),
+                )
+                .right_from_zero()
+                .right_ticks(|v, _| {
+                    if v == 0.0 {
+                        "0".into()
+                    } else {
+                        format!("{}k", num(Some(v / 1000.0), 0))
+                    }
+                })
                 .series(
                     Series::line("Level", level, p.trace)
                         .width(2.0)

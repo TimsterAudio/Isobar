@@ -232,6 +232,9 @@ pub struct Outlook {
     /// For each past year used: the day the level would reach the
     /// keep-above level with that year's rain, if it would.
     pub years: Vec<(i32, Option<NaiveDate>)>,
+    /// Litres that would overflow over the days ahead with each past year's
+    /// rain, in the same order as `years`.
+    pub overflow: Vec<f64>,
 }
 
 /// From `level` at the end of `from`, `horizon` days ahead: with no rain,
@@ -245,27 +248,31 @@ pub fn outlook(
     horizon: usize,
 ) -> Outlook {
     let cap = t.capacity();
-    let run = |rain: &dyn Fn(usize) -> f64| -> (Vec<f64>, Option<NaiveDate>) {
+    let run = |rain: &dyn Fn(usize) -> f64| -> (Vec<f64>, Option<NaiveDate>, f64) {
         let mut l = level;
         let mut low = None;
+        let mut spilt = 0.0;
         let levels = (0..horizon)
             .map(|k| {
-                l = (l + t.caught(rain(k)) - t.use_per_day).clamp(0.0, cap);
+                let before = l + t.caught(rain(k)) - t.use_per_day;
+                spilt += (before - cap).max(0.0);
+                l = before.clamp(0.0, cap);
                 if low.is_none() && l <= t.keep_above {
                     low = Some(from + Duration::days(k as i64 + 1));
                 }
                 l
             })
             .collect();
-        (levels, low)
+        (levels, low, spilt)
     };
-    let (dry, dry_low) = run(&|_| 0.0);
+    let (dry, dry_low, _) = run(&|_| 0.0);
     let by_date: BTreeMap<NaiveDate, f64> = inputs
         .iter()
         .filter_map(|i| i.rain.map(|r| (i.date, r)))
         .collect();
     let mut runs: Vec<Vec<f64>> = Vec::new();
     let mut years = Vec::new();
+    let mut overflow = Vec::new();
     for back in 1..=60 {
         let y = from.year() - back;
         let Some(start) = from
@@ -281,11 +288,13 @@ pub fn outlook(
         if (have as f64) < horizon as f64 * 0.9 {
             continue;
         }
-        let (levels, low) = run(&|k| rains[k].unwrap_or(0.0));
+        let (levels, low, spilt) = run(&|k| rains[k].unwrap_or(0.0));
         runs.push(levels);
         years.push((y, low));
+        overflow.push(spilt);
     }
     years.reverse();
+    overflow.reverse();
     let (mut low, mut mid, mut high) = (Vec::new(), Vec::new(), Vec::new());
     if !runs.is_empty() {
         for k in 0..horizon {
@@ -307,6 +316,7 @@ pub fn outlook(
         mid,
         high,
         years,
+        overflow,
     }
 }
 
@@ -639,6 +649,11 @@ mod tests {
             (2023, Some(date(2026, 1, 1) + Duration::days(59)))
         );
         assert_eq!(o.years[2].1, None, "a wet year keeps it up");
+        // The dry year spills nothing; a wet one spills once the tanks fill.
+        assert_eq!(o.overflow, [0.0, 0.0, 0.0], "not full enough to spill");
+        let near_full = outlook(&ins, date(2026, 1, 1), 42_500.0, &t, 120);
+        assert_eq!(near_full.overflow[0], 0.0);
+        assert!(near_full.overflow[2] > 0.0);
         assert!(o.low[119] < o.mid[119] && o.mid[119] <= o.high[119]);
     }
 

@@ -252,6 +252,11 @@ impl Chart {
         self
     }
 
+    pub fn right_ticks(mut self, f: impl Fn(f64, f64) -> String + 'static) -> Self {
+        self.right_fmt = Box::new(f);
+        self
+    }
+
     /// The heading of the hover read-out for an x value.
     pub fn title(mut self, f: impl Fn(f64) -> String + 'static) -> Self {
         self.title = Box::new(f);
