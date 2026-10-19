@@ -606,15 +606,17 @@ impl SettingsView {
 
     fn tanks(&mut self, ui: &mut Ui, snap: &Snapshot, worker: &Handle, p: &Palette) {
         let outcome = worker.lock().tank_outcome.clone();
+        let unsaved = self.draft.tanks != self.saved.tanks;
         ui::panel(ui, |ui| {
             ui::h2(ui, "Rainwater tanks");
+
             ui::para(ui, "For the Tanks page: how much the roof catches and how full the tanks are, worked out day by day from the rain and what the house uses. Leave these empty if you don't have tanks.", theme::body(14.0), p.ink2, 600.0);
             let t = &mut self.draft.tanks;
             {
                 let mut fields = [
-                    ("Roof area (m²)", &mut t.roof, "385"),
-                    ("Use a day (litres)", &mut t.use_per_day, "290"),
-                    ("Keep above (litres)", &mut t.keep_above, "0"),
+                    ("Roof area (m²)", &mut t.roof, "e.g. 385"),
+                    ("Use a day (litres)", &mut t.use_per_day, "e.g. 290"),
+                    ("Keep above (litres)", &mut t.keep_above, "e.g. 3000"),
                 ]
                 .map(Some);
                 ui::columns(ui, 3, 16.0, false, |i, ui| {
@@ -642,7 +644,7 @@ impl SettingsView {
             for k in 0..t.count.clamp(1, MAX_TANKS) {
                 let (litres, diameter) = (&mut t.litres[k], &mut t.diameter[k]);
                 let mut fields = [
-                    (format!("Tank {} litres", k + 1), litres, "22500"),
+                    (format!("Tank {} litres", k + 1), litres, "e.g. 22500"),
                     (
                         format!("Tank {} inside diameter (mm)", k + 1),
                         diameter,
@@ -663,7 +665,7 @@ impl SettingsView {
                 ui.spacing_mut().item_spacing.x = 16.0;
                 ui.vertical(|ui| {
                     ui::field(ui, "Known level", None, |ui| {
-                        ui::text_input(ui, &mut t.known, "full, 26400 or 1350 mm", 220.0)
+                        ui::text_input(ui, &mut t.known, "e.g. full, 26400 or 1350 mm", 220.0)
                     });
                 });
                 ui.vertical(|ui| {
@@ -676,6 +678,10 @@ impl SettingsView {
             ui.add_space(-6.0);
             ui::para(ui, "The level on a day you know it: \"full\" after the tanks overflowed, litres, or a depth you measured such as 1350 mm. Isobar works forward from it.", theme::body(13.0), p.ink2, 600.0);
 
+            // Below the boxes, so appearing mid-typing doesn't move them.
+            if unsaved {
+                ui::notice(ui, "These tank details aren't saved yet. Press Save settings at the bottom to keep them.");
+            }
             let log = &snap.tank_log;
             let line = match (log.first(), log.last()) {
                 (Some(a), Some(b)) => format!(

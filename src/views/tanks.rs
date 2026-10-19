@@ -80,7 +80,7 @@ impl TanksView {
                 if ui::empty(
                     ui,
                     "No tanks set up",
-                    "If your house runs on rainwater, add your roof area and tanks in Settings. Isobar then works out how full they are from the rain, and how long the water lasts.",
+                    "If your house runs on rainwater, add your roof area and tanks in Settings → Rainwater tanks, then press Save settings. Isobar then works out how full they are from the rain, and how long the water lasts.",
                     Some("Open settings"),
                 ) {
                     *go = Some(Route::Settings);

@@ -478,7 +478,7 @@ pub fn read_log(path: &Path, today: NaiveDate) -> Result<Vec<LogDay>, String> {
         .to_ascii_lowercase();
     if ext == "csv" || ext == "txt" {
         let text = std::fs::read_to_string(path)
-            .map_err(|e| format!("Couldn't read {}: {e}", path.display()))?;
+            .map_err(|e| format!("Couldn't read {}: {e}. If it's open in Excel or another program, close it there and try again.", path.display()))?;
         let rows: Vec<Vec<Cell>> = text
             .lines()
             .map(|l| {
@@ -505,7 +505,12 @@ pub fn read_log(path: &Path, today: NaiveDate) -> Result<Vec<LogDay>, String> {
     }
     use calamine::{open_workbook_auto, Data, Reader};
     let mut book =
-        open_workbook_auto(path).map_err(|e| format!("Couldn't open {}: {e}", path.display()))?;
+        open_workbook_auto(path).map_err(|e| {
+        format!(
+            "Couldn't open {}: {e}. If it's open in Excel or another program, close it there and try again.",
+            path.display()
+        )
+    })?;
     let mut last_err = String::from("The workbook has no sheets.");
     for (_, range) in book.worksheets() {
         let rows: Vec<Vec<Cell>> = range

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Rainwater tank settings are clearer:** the example values in the boxes read "e.g. 385", so they don't look filled in; a note says when the tank details aren't saved yet; and an import that can't open the file suggests closing it in Excel first.
 - **Windows file details:** the .exe now carries its company, copyright, version and original file name, and a standard application manifest, so it looks less unfamiliar to antivirus checks. Each release also lists SHA-256 checksums (`SHA256SUMS.txt`) to check a download against.
 - **Wind in light air (A1):** when the average wind is below about 3 km/h (or the same in the station's units), the dial and its text use MX's 10-minute average bearing, which reads truer than the latest. The text says "Calm" or "Light" when it does.
 - **24-hour times (A2):** times show as 16:52 by default, including chart axes and the station's own times, which MX 5 sends as "4:52 PM". Settings → Appearance → Times switches to 12-hour.
