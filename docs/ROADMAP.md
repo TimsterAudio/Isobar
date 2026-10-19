@@ -5,7 +5,7 @@ Everything that could be added, from the data the owner's Cumulus MX 5.1.5 stati
 ## Decisions so far (2026-10-19)
 
 - **Yes:** A1, A2, B1, B2, B4, B6, C1, D1, D2, D3, D4, F1, F2, G1, G2, I1, I2, K4, Z1, Z2, Z3, Z4, Z6
-- **Later:** A3, B5, B7, B8
+- **Later:** A3, B5, B7, B8, Z7
 - **Undecided:** B3, E1, E2, E3, H1, H2, H3, J1, J2, J3, K1, K3, L1, L2, L3, L4, L5, Z5
 
 Tags: **Stored** is already in the local history (no new downloading), **Live** is sent by MX in `currentdata` but not read yet (add it to `LiveReading` in `crates/isobar-core/src/live.rs` and check it against the fixture), **Build** is worked out by Isobar. ★ marks a suggested starting point.
@@ -85,6 +85,7 @@ Changes to the views and anything not listed, added as the owner sends them.
 - [x] **Z4** Drag a card by its name on Now to reorder; the order is remembered. — **Yes**, done 2026-10-19
 - [x] **Z6** Click a card on Now to show it in the big chart, over a span that suits it (pressure 3 days, rain 7 days of daily totals, tanks 3 months; others 24 hours), with span chips. — **Yes**, done 2026-10-19
 - [ ] **Z5** Units of your choice (metric, imperial, or one by one: °C/°F, mm/in, km/h, m/s, mph, knots, hPa/inHg), as a setting that overrides the station's. By default Isobar keeps following the units MX reports. *Build*
+- [~] **Z7** More colour themes beyond chart-paper light and dark (for example a warmer paper, a high-contrast theme, or ones matched to other instruments). *Build* — *Later*, parked 2026-10-19
 
 ## Notes for building
 - Most of D–J use dayfile fields already parsed into `DayRecord` but unused: `et`, `sunshine`, `hdd`, `cdd`, `wind_run`, `rain_hour_max`, `dew_*`, `hum_*`, `feels_*`, `apparent_*`. Check each against the station's real dayfile before relying on it; older lines leave the later fields empty.
