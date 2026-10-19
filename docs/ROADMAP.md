@@ -6,7 +6,7 @@ Everything that could be added, from the data the owner's Cumulus MX 5.1.5 stati
 
 - **Yes:** A1, A2, B1, B2, B4, B6, C1, D1, D2, D3, D4, F1, F2, G1, G2, I1, I2, Z1, Z2, Z3, Z4 (G1 to Z4 added on 2026-10-19)
 - **Later:** A3, B5, B7, B8
-- **Undecided:** B3, E1, E2, E3, H1, H2, H3, J1, J2, J3, K1, K2, K3, L1, L2, L3, L4
+- **Undecided:** B3, E1, E2, E3, H1, H2, H3, J1, J2, J3, K1, K2, K3, K4, L1, L2, L3, L4, Z5
 
 Tags: **Stored** is already in the local history (no new downloading), **Live** is sent by MX in `currentdata` but not read yet (add it to `LiveReading` in `crates/isobar-core/src/live.rs` and check it against the fixture), **Build** is worked out by Isobar. ★ marks a suggested starting point.
 
@@ -67,6 +67,7 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 - [ ] **K1** Readout in the system tray. *Build*
 - [ ] **K2** Export the daily history to CSV. *Build*
 - [ ] **K3** MX password in the system keychain instead of `settings.json`. *Build*
+- [ ] **K4** Detailed history from MX's monthly log files (a reading every few minutes, back as far as MX has them), synced like the dayfile. Gives true 24-hour pressure falls, hour-by-hour rain intensity and the thermograph for any past day. *Build*
 
 ## L. Reports
 Added 2026-10-19 at the owner's request. Each report is a page Isobar writes as a single HTML file (opens in any browser, prints well, and the browser's Print → Save as PDF makes a PDF), with a straight-to-PDF option as a later step.
@@ -82,6 +83,7 @@ Changes to the views and anything not listed, added as the owner sends them.
 - [x] **Z2** Rain since midnight on the thermograph: a line with a fill underneath, on its own scale, starting again at midnight (not at the station's rain-day hour). — **Yes**, done 2026-10-18
 - [x] **Z3** Choose which cards show under the thermograph: tick boxes in Settings. — **Yes**, done 2026-10-19, with a Tanks card added
 - [x] **Z4** Drag a card by its name on Now to reorder; the order is remembered. — **Yes**, done 2026-10-19
+- [ ] **Z5** Units of your choice (metric, imperial, or one by one: °C/°F, mm/in, km/h, m/s, mph, knots, hPa/inHg), as a setting that overrides the station's. By default Isobar keeps following the units MX reports. *Build*
 
 ## Notes for building
 - Most of D–J use dayfile fields already parsed into `DayRecord` but unused: `et`, `sunshine`, `hdd`, `cdd`, `wind_run`, `rain_hour_max`, `dew_*`, `hum_*`, `feels_*`, `apparent_*`. Check each against the station's real dayfile before relying on it; older lines leave the later fields empty.
