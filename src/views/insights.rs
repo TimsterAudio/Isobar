@@ -20,6 +20,12 @@ struct Cache {
     climate: Vec<MonthClimate>,
     rose_all: ([usize; 16], usize),
     rose_year: ([usize; 16], usize),
+    intensity: Vec<an::IntensityYear>,
+    wettest_hours: Vec<(NaiveDate, f64)>,
+    spells: Vec<an::DrySpell>,
+    dry_now: Option<an::DrySpell>,
+    last_rain: Option<(NaiveDate, f64)>,
+    falls: Vec<an::PressureFall>,
 }
 
 pub struct Insights {
@@ -75,6 +81,23 @@ impl Insights {
                 climate: an::monthly_climate(days),
                 rose_all: an::wind_rose(days),
                 rose_year: an::wind_rose(year_days),
+                intensity: an::rain_intensity(
+                    days,
+                    if snap.units().rain.trim().eq_ignore_ascii_case("in") {
+                        25.4
+                    } else {
+                        1.0
+                    },
+                ),
+                wettest_hours: an::wettest_hours(days, 5),
+                spells: an::dry_spells(days),
+                dry_now: an::current_dry_spell(days),
+                last_rain: days
+                    .iter()
+                    .rev()
+                    .find(|d| an::is_rain_day(d))
+                    .map(|d| (d.date, d.rain.unwrap_or(0.0))),
+                falls: an::biggest_pressure_falls(days, 10),
             });
         }
 
@@ -92,6 +115,20 @@ impl Insights {
             self.unusual(ui, snap);
             self.records(ui, snap);
         }
+        if wide {
+            ui::split_with(
+                ui,
+                0.6,
+                24.0,
+                self,
+                |ui, s| s.intensity(ui, snap),
+                |ui, s| s.dry_spell(ui, snap, last),
+            );
+        } else {
+            self.intensity(ui, snap);
+            self.dry_spell(ui, snap, last);
+        }
+        self.pressure_falls(ui, snap);
         self.climate(ui, snap, days[0].date, last);
         self.wind(ui, last);
     }
@@ -265,6 +302,230 @@ impl Insights {
                     ui::rule(ui, p.faint);
                 });
             }
+        });
+    }
+
+    fn intensity(&mut self, ui: &mut Ui, snap: &Snapshot) {
+        let p = Palette::of(ui.ctx());
+        let u = snap.units();
+        let Some(c) = self.cache.as_ref() else { return };
+        ui::panel(ui, |ui| {
+            ui::h2(ui, "Rain intensity");
+            let inches = u.rain.trim().eq_ignore_ascii_case("in");
+            let edges: Vec<String> = an::INTENSITY_MM
+                .iter()
+                .map(|mm| {
+                    if inches {
+                        num(Some(mm / 25.4), 2)
+                    } else {
+                        num(Some(*mm), if *mm < 1.0 { 1 } else { 0 })
+                    }
+                })
+                .collect();
+            ui::para(
+                ui,
+                format!(
+                    "How each year's rain fell: the share that came on light days (under {} {u}), moderate ({} to {}), heavy ({} to {}) and very heavy days ({} or more). Heavy days do the most for tanks and dams; light ones mostly wet the surface.",
+                    edges[1], edges[1], edges[2], edges[2], edges[3], edges[3],
+                    u = u.rain
+                ),
+                theme::body(14.0),
+                p.ink2,
+                640.0,
+            );
+            let pct = |part: f64, total: f64| {
+                if total > 0.0 {
+                    format!("{}%", num(Some(part / total * 100.0), 0))
+                } else {
+                    "–".into()
+                }
+            };
+            let mut rows = Vec::new();
+            for y in c.intensity.iter().rev() {
+                let mut r = vec![
+                    cell(y.year.to_string()).strong(),
+                    cell(format!("{} {}", num(Some(y.total), 0), u.rain)).color(p.rain),
+                ];
+                for k in 0..4 {
+                    r.push(
+                        cell(pct(y.rain[k], y.total))
+                            .color(if k >= 2 { p.rain } else { p.ink })
+                            .tooltip(format!(
+                                "{} {} on {} days",
+                                num(Some(y.rain[k]), 1),
+                                u.rain,
+                                y.days[k]
+                            )),
+                    );
+                }
+                rows.push(r);
+            }
+            let cols = [
+                col("Year", 70.0, false),
+                col("Rain", 0.0, true),
+                col("Light", 0.0, true),
+                col("Moderate", 0.0, true),
+                col("Heavy", 0.0, true),
+                col("Very heavy", 0.0, true),
+            ];
+            ui::table(ui, &cols, &rows, 14.0);
+            if !c.wettest_hours.is_empty() {
+                let list: Vec<String> = c
+                    .wettest_hours
+                    .iter()
+                    .map(|(d, r)| format!("{} {} on {}", num(Some(*r), 1), u.rain, nice_date(*d)))
+                    .collect();
+                ui::para(
+                    ui,
+                    format!("Wettest hours on record: {}.", list.join("; ")),
+                    theme::body(14.0),
+                    p.ink,
+                    640.0,
+                );
+            }
+        });
+    }
+
+    fn dry_spell(&mut self, ui: &mut Ui, snap: &Snapshot, last: NaiveDate) {
+        let p = Palette::of(ui.ctx());
+        let u = snap.units();
+        let Some(c) = self.cache.as_ref() else { return };
+        ui::panel(ui, |ui| {
+            ui::h2(ui, "Dry spell");
+            let len = c.dry_now.map_or(0, |s| s.days());
+            let (near, years) = an::dry_spell_context(&c.spells, c.dry_now, last, len.max(1));
+            let longest = c
+                .spells
+                .iter()
+                .filter(|s| Some(**s) != c.dry_now)
+                .max_by_key(|s| s.days())
+                .copied();
+            let span = |s: an::DrySpell| format!("{} to {}", nice_date(s.first), nice_date(s.last));
+            let n_years = c.intensity.len();
+            let stats = vec![
+                ui::Stat::new(
+                    "Dry days in a row",
+                    format!("{len} {}", if len == 1 { "day" } else { "days" }),
+                    if len >= 14 { p.heat } else { p.ink },
+                )
+                .detail(
+                    match c.last_rain {
+                        Some((d, r)) if len > 0 => format!(
+                            "To {}; last rain {} {} on {}",
+                            nice_date(last),
+                            num(Some(r), 1),
+                            u.rain,
+                            nice_date(d)
+                        ),
+                        Some((d, r)) => {
+                            format!("{} {} on {}", num(Some(r), 1), u.rain, nice_date(d))
+                        }
+                        None => String::new(),
+                    },
+                    p.ink2,
+                ),
+                ui::Stat::new(
+                    "Longest at this time of year",
+                    near.map_or("–".into(), |s| format!("{} days", s.days())),
+                    p.ink,
+                )
+                .detail(near.map_or(String::new(), span), p.ink2),
+                ui::Stat::new(
+                    "This long, this time of year",
+                    if len < 3 {
+                        "–".into()
+                    } else {
+                        format!("{years} of {n_years} years")
+                    },
+                    p.ink,
+                )
+                .detail(
+                    match len {
+                        0 => "Rain on the last day on record",
+                        1 | 2 => "Too short a spell to compare",
+                        _ => "Years with a dry spell at least as long, within a fortnight of now",
+                    },
+                    p.ink2,
+                ),
+                ui::Stat::new(
+                    "Longest on record",
+                    longest.map_or("–".into(), |s| format!("{} days", s.days())),
+                    p.ink,
+                )
+                .detail(longest.map_or(String::new(), span), p.ink2),
+            ];
+            ui::stats(ui, &stats);
+            if snap
+                .live
+                .as_ref()
+                .and_then(|r| r.rain_today)
+                .is_some_and(|r| r >= an::RAIN_DAY)
+            {
+                ui::small(ui, "It has rained today, so this spell ends today.", p.rain);
+            }
+            ui::small(
+                ui,
+                format!(
+                    "A dry day has less than {} {} of rain.",
+                    num(Some(an::RAIN_DAY), 1),
+                    u.rain
+                ),
+                p.ink2,
+            );
+        });
+    }
+
+    fn pressure_falls(&mut self, ui: &mut Ui, snap: &Snapshot) {
+        let p = Palette::of(ui.ctx());
+        let u = snap.units();
+        let Some(c) = self.cache.as_ref() else { return };
+        if c.falls.is_empty() {
+            return;
+        }
+        ui::panel(ui, |ui| {
+            ui::h2(ui, "Biggest pressure falls");
+            ui::para(
+                ui,
+                "Your stormiest days: the deepest drops from one day's highest pressure to the next day's lowest. Falls a day or two apart count once, as one storm.",
+                theme::body(14.0),
+                p.ink2,
+                760.0,
+            );
+            let digits = if an::hpa_per_unit(&u.press) > 5.0 {
+                2
+            } else {
+                1
+            };
+            let rows: Vec<Vec<ui::Cell>> =
+                c.falls
+                    .iter()
+                    .map(|f| {
+                        vec![
+                            cell(nice_date(f.date)).strong(),
+                            cell(format!("{} {}", num(Some(f.fall()), digits), u.press))
+                                .color(p.heat),
+                            cell(num(Some(f.from), digits)),
+                            cell(num(Some(f.to), digits)),
+                            cell(f.gust.map_or("–".into(), |g| {
+                                format!("{} {}", num(Some(g), 0), u.wind)
+                            }))
+                            .color(p.wind),
+                            cell(f.rain.map_or("–".into(), |r| {
+                                format!("{} {}", num(Some(r), 1), u.rain)
+                            }))
+                            .color(p.rain),
+                        ]
+                    })
+                    .collect();
+            let cols = [
+                col("Day", 130.0, false),
+                col("Fall", 0.0, true),
+                col("From", 0.0, true),
+                col("To", 0.0, true),
+                col("Peak gust", 0.0, true),
+                col("Rain", 0.0, true),
+            ];
+            ui::table(ui, &cols, &rows, 14.0);
         });
     }
 

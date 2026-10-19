@@ -747,6 +747,197 @@ pub fn rain_since_midnight<D: PartialEq>(
     out
 }
 
+// ---------------------------------------------------------------- rain intensity
+
+/// Daily rain classes, by the lower edge of each in mm: light, moderate,
+/// heavy and very heavy.
+pub const INTENSITY_MM: [f64; 4] = [RAIN_DAY, 2.0, 10.0, 25.0];
+pub const INTENSITY_NAMES: [&str; 4] = ["Light", "Moderate", "Heavy", "Very heavy"];
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct IntensityYear {
+    pub year: i32,
+    pub total: f64,
+    /// Rain that fell on days of each class, and how many such days.
+    pub rain: [f64; 4],
+    pub days: [usize; 4],
+}
+
+/// Each year's rain split by how heavy the day was. `mm_per_unit` turns the
+/// station's rain unit into mm (25.4 for inches).
+pub fn rain_intensity(days: &[DayRecord], mm_per_unit: f64) -> Vec<IntensityYear> {
+    let mut out: Vec<IntensityYear> = Vec::new();
+    for d in days {
+        let Some(r) = d.rain else { continue };
+        if out.last().is_none_or(|y| y.year != d.date.year()) {
+            out.push(IntensityYear {
+                year: d.date.year(),
+                total: 0.0,
+                rain: [0.0; 4],
+                days: [0; 4],
+            });
+        }
+        let y = out.last_mut().unwrap();
+        y.total += r;
+        let mm = r * mm_per_unit;
+        if let Some(k) = INTENSITY_MM.iter().rposition(|edge| mm >= *edge) {
+            y.rain[k] += r;
+            y.days[k] += 1;
+        }
+    }
+    out
+}
+
+/// The days with the most rain in an hour, wettest first.
+pub fn wettest_hours(days: &[DayRecord], n: usize) -> Vec<(NaiveDate, f64)> {
+    let mut v: Vec<(NaiveDate, f64)> = days
+        .iter()
+        .filter_map(|d| d.rain_hour_max.filter(|r| *r > 0.0).map(|r| (d.date, r)))
+        .collect();
+    v.sort_by(|a, b| b.1.total_cmp(&a.1));
+    v.truncate(n);
+    v
+}
+
+// ---------------------------------------------------------------- dry spells
+
+/// Consecutive days without a rain day.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DrySpell {
+    pub first: NaiveDate,
+    pub last: NaiveDate,
+}
+
+impl DrySpell {
+    pub fn days(&self) -> i64 {
+        (self.last - self.first).num_days() + 1
+    }
+}
+
+/// Every dry spell on record. A day missing from the history ends a spell,
+/// since there's no knowing whether it rained.
+pub fn dry_spells(days: &[DayRecord]) -> Vec<DrySpell> {
+    let mut out = Vec::new();
+    let mut cur: Option<DrySpell> = None;
+    let mut prev: Option<NaiveDate> = None;
+    for d in days {
+        let gap = prev.is_some_and(|p| (d.date - p).num_days() > 1);
+        if gap || d.rain.is_none() || is_rain_day(d) {
+            out.extend(cur.take());
+        }
+        if d.rain.is_some() && !is_rain_day(d) {
+            match cur.as_mut() {
+                Some(c) => c.last = d.date,
+                None => {
+                    cur = Some(DrySpell {
+                        first: d.date,
+                        last: d.date,
+                    })
+                }
+            }
+        }
+        prev = Some(d.date);
+    }
+    out.extend(cur);
+    out
+}
+
+/// The dry spell running up to the last day on record, if that day was dry.
+pub fn current_dry_spell(days: &[DayRecord]) -> Option<DrySpell> {
+    let last = days.last()?.date;
+    dry_spells(days).into_iter().rev().find(|s| s.last == last)
+}
+
+/// Whether a spell covers any day within `window` days either side of
+/// `date`'s day of the year, in the year it falls in.
+fn spell_near(s: &DrySpell, date: NaiveDate, window: i64) -> bool {
+    let mut d = s.first;
+    while d <= s.last {
+        let a = doy_index(d) as i64;
+        let b = doy_index(date) as i64;
+        let diff = (a - b).rem_euclid(366);
+        if diff.min(366 - diff) <= window {
+            return true;
+        }
+        d += Duration::days(1);
+    }
+    false
+}
+
+/// The longest dry spell on record, other than `current`, that took in this
+/// time of year (within a fortnight of `date`), and how many years had one
+/// at least `len` days long then, out of the years on record.
+pub fn dry_spell_context(
+    spells: &[DrySpell],
+    current: Option<DrySpell>,
+    date: NaiveDate,
+    len: i64,
+) -> (Option<DrySpell>, usize) {
+    let near: Vec<&DrySpell> = spells
+        .iter()
+        .filter(|s| Some(**s) != current && spell_near(s, date, 14))
+        .collect();
+    let longest = near.iter().max_by_key(|s| s.days()).map(|s| **s);
+    let mut years: Vec<i32> = near
+        .iter()
+        .filter(|s| s.days() >= len)
+        .map(|s| s.last.year())
+        .collect();
+    years.sort_unstable();
+    years.dedup();
+    (longest, years.len())
+}
+
+// ---------------------------------------------------------------- pressure falls
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PressureFall {
+    /// The day of the low.
+    pub date: NaiveDate,
+    /// The day before's highest and the day's lowest.
+    pub from: f64,
+    pub to: f64,
+    pub gust: Option<f64>,
+    pub rain: Option<f64>,
+}
+
+impl PressureFall {
+    pub fn fall(&self) -> f64 {
+        self.from - self.to
+    }
+}
+
+/// The biggest falls from one day's highest pressure to the next day's
+/// lowest, biggest first, at most one per storm (falls within two days of a
+/// bigger one are left out).
+pub fn biggest_pressure_falls(days: &[DayRecord], n: usize) -> Vec<PressureFall> {
+    let mut all: Vec<PressureFall> = days
+        .windows(2)
+        .filter(|w| (w[1].date - w[0].date).num_days() == 1)
+        .filter_map(|w| {
+            Some(PressureFall {
+                date: w[1].date,
+                from: w[0].press_max?,
+                to: w[1].press_min?,
+                gust: w[1].gust_max,
+                rain: w[1].rain,
+            })
+        })
+        .filter(|f| f.fall() > 0.0)
+        .collect();
+    all.sort_by(|a, b| b.fall().total_cmp(&a.fall()));
+    let mut out: Vec<PressureFall> = Vec::new();
+    for f in all {
+        if out.iter().all(|o| (o.date - f.date).num_days().abs() > 2) {
+            out.push(f);
+            if out.len() == n {
+                break;
+            }
+        }
+    }
+    out
+}
+
 // ---------------------------------------------------------------- pressure
 
 /// Hectopascals in one of the station's pressure units.
@@ -1002,6 +1193,82 @@ mod tests {
             day(date(2024, 1, 5), 20.0, 10.0, 0.0),
         ];
         assert_eq!(longest_run(&days, |d| !is_rain_day(d)).unwrap().length, 2);
+    }
+
+    fn wet(y: i32, m: u32, d: u32, rain: f64) -> DayRecord {
+        DayRecord {
+            date: NaiveDate::from_ymd_opt(y, m, d).unwrap(),
+            rain: Some(rain),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn splits_rain_by_intensity() {
+        let days = vec![
+            wet(2025, 1, 1, 0.1),
+            wet(2025, 1, 2, 1.0),
+            wet(2025, 1, 3, 5.0),
+            wet(2025, 1, 4, 30.0),
+            wet(2026, 1, 1, 12.0),
+        ];
+        let y = rain_intensity(&days, 1.0);
+        assert_eq!(y.len(), 2);
+        assert_eq!(y[0].rain, [1.0, 5.0, 0.0, 30.0]);
+        assert_eq!(y[0].days, [1, 1, 0, 1]);
+        assert!((y[0].total - 36.1).abs() < 1e-9);
+        assert_eq!(y[1].days[2], 1);
+        // In inches: 0.5 in is 12.7 mm, a heavy day.
+        assert_eq!(rain_intensity(&[wet(2026, 1, 1, 0.5)], 25.4)[0].days[2], 1);
+    }
+
+    #[test]
+    fn finds_dry_spells() {
+        let mut days = Vec::new();
+        for k in 1..=20 {
+            days.push(wet(2025, 10, k, if k == 5 || k == 15 { 3.0 } else { 0.0 }));
+        }
+        days.retain(|d| d.date.day() != 10);
+        let s = dry_spells(&days);
+        // 1–4, 6–9 (the 10th is missing), 11–14, 16–20.
+        assert_eq!(s.iter().map(|s| s.days()).collect::<Vec<_>>(), [4, 4, 4, 5]);
+        let cur = current_dry_spell(&days).unwrap();
+        assert_eq!(cur.days(), 5);
+        let (longest, years) = dry_spell_context(
+            &s,
+            Some(cur),
+            NaiveDate::from_ymd_opt(2026, 10, 18).unwrap(),
+            4,
+        );
+        assert_eq!(longest.map(|l| l.days()), Some(4));
+        assert_eq!(years, 1);
+        let mut rained = days.clone();
+        rained.push(wet(2025, 10, 21, 1.0));
+        assert_eq!(current_dry_spell(&rained), None);
+    }
+
+    #[test]
+    fn finds_the_biggest_pressure_falls() {
+        let p = |y, m, d, lo: f64, hi: f64| DayRecord {
+            date: NaiveDate::from_ymd_opt(y, m, d).unwrap(),
+            press_min: Some(lo),
+            press_max: Some(hi),
+            ..Default::default()
+        };
+        let days = vec![
+            p(2025, 6, 1, 1015.0, 1022.0),
+            p(2025, 6, 2, 998.0, 1016.0),
+            p(2025, 6, 3, 990.0, 1000.0),
+            p(2025, 6, 4, 995.0, 1005.0),
+            p(2025, 7, 1, 1010.0, 1020.0),
+            p(2025, 7, 2, 1000.0, 1012.0),
+        ];
+        let f = biggest_pressure_falls(&days, 5);
+        // 2 Jun (24 hPa), 3 Jun (26 hPa) and 4 Jun (5 hPa) are one storm:
+        // keep 3 Jun.
+        assert_eq!(f.len(), 2);
+        assert_eq!((f[0].date.day(), f[0].fall()), (3, 26.0));
+        assert_eq!((f[1].date.month(), f[1].fall()), (7, 20.0));
     }
 
     #[test]

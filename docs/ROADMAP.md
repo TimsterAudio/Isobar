@@ -46,8 +46,8 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 - [x] **F2** Day length through the year. *Build* — **Yes**, done 2026-10-18, with average sunshine against it
 
 ## G. Rain
-- [ ] **G1** Rain intensity: share of rain in heavy bursts against drizzle; wettest hour on record. *Stored*
-- [ ] **G2** Current dry spell against the longest on record for this time of year. *Stored*
+- [x] **G1** Rain intensity: share of rain in heavy bursts against drizzle; wettest hour on record. *Stored* — **Yes**, done 2026-10-19 on Insights, by the day's total (light, moderate, heavy, very heavy), with the wettest hours from the dayfile
+- [x] **G2** Current dry spell against the longest on record for this time of year. *Stored* — **Yes**, done 2026-10-19 on Insights
 
 ## H. Wind
 - [ ] **H1** Wind run per day and month. *Stored*
@@ -56,7 +56,7 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 
 ## I. Pressure
 - [x] **I1** Three-hour pressure tendency in standard words, with a marker for big drops. *Build* — **Yes**, done 2026-10-19
-- [ ] **I2** Biggest 24-hour pressure falls on record. *Stored*
+- [x] **I2** Biggest 24-hour pressure falls on record. *Stored* — **Yes**, done 2026-10-19 on Insights. The dayfile has only each day's high and low, so a fall is one day's high to the next day's low; one per storm
 
 ## J. Long-term climate
 - [ ] **J1** ★ Warming trend: each year's average against normal, one bar a year. *Stored*

@@ -36,7 +36,7 @@ GitHub Actions (`.github/workflows/build.yml`) runs the checks, builds both prog
 ## State
 
 Verified in a Linux cloud session (2026-10-17):
-- `cargo test --workspace`: 62 tests pass (dayfile parsing, live mapping, URL normalisation, store, analytics, seasons and sun geometry, health checks, tank model and import, demo, settings, alerts, chart ticks, formatting).
+- `cargo test --workspace`: 68 tests pass (dayfile parsing, live mapping, URL normalisation, store, analytics, seasons and sun geometry, health checks, tank model and import, demo, settings, alerts, chart ticks, formatting).
 - Every screen rendered with the demo station in light and dark (screenshots in `docs/`).
 - End to end against a fake MX server: 2,665 days synced in three pages, live reading mapped, graph-data backfill filled the thermograph, and an unreachable station shows a clear message.
 - The Windows `.exe` cross-compiles (12 MB, only system DLLs) and runs under Wine.
