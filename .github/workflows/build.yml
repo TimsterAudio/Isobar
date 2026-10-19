@@ -1,6 +1,7 @@
 # Builds Isobar for Windows and Linux on every push to main, and publishes
 # the programs on the Releases page: as "Latest build" for main, or as a named
-# release for a version tag such as v0.2.0.
+# release for a version tag such as v0.2.0. Running it by hand with a version
+# (Actions → Build → Run workflow) makes that named release and its tag.
 name: Build
 
 on:
@@ -9,6 +10,11 @@ on:
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      release:
+        description: "Make a named release with this tag, such as v0.3.0 (leave empty for a plain build)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -59,8 +65,11 @@ jobs:
 
   release:
     needs: build
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || inputs.release != ''
     runs-on: ubuntu-latest
+    env:
+      NAMED: ${{ inputs.release != '' || startsWith(github.ref, 'refs/tags/') }}
+      TAG: ${{ inputs.release || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || 'latest-build' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -72,16 +81,17 @@ jobs:
       - name: Write checksums
         run: cd dist && sha256sum isobar-* > SHA256SUMS.txt && cat SHA256SUMS.txt
       - name: Move the latest-build tag to this commit
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           git tag -f latest-build
           git push -f origin latest-build
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'latest-build' }}
-          name: ${{ startsWith(github.ref, 'refs/tags/') && format('Isobar {0}', github.ref_name) || 'Latest build' }}
-          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
-          make_latest: ${{ startsWith(github.ref, 'refs/tags/') }}
+          tag_name: ${{ env.TAG }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ env.NAMED == 'true' && format('Isobar {0}', env.TAG) || 'Latest build' }}
+          prerelease: ${{ env.NAMED != 'true' }}
+          make_latest: ${{ env.NAMED == 'true' }}
           body: |
             Download `isobar-windows-x64.exe` for Windows, or `isobar-linux-x64.tar.gz` for Linux. Each is the whole program.
 
