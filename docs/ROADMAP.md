@@ -80,6 +80,8 @@ Changes to the views and anything not listed, added as the owner sends them.
 
 - [x] **Z1** The side rail slides out of the way, or can be pinned open. — **Yes**, done 2026-10-18
 - [x] **Z2** Rain since midnight on the thermograph: a line with a fill underneath, on its own scale, starting again at midnight (not at the station's rain-day hour). — **Yes**, done 2026-10-18
+- [x] **Z3** Choose which cards show under the thermograph: tick boxes in Settings. — **Yes**, done 2026-10-19, with a Tanks card added
+- [x] **Z4** Drag a card by its name on Now to reorder; the order is remembered. — **Yes**, done 2026-10-19
 
 ## Notes for building
 - Most of D–J use dayfile fields already parsed into `DayRecord` but unused: `et`, `sunshine`, `hdd`, `cdd`, `wind_run`, `rain_hour_max`, `dew_*`, `hum_*`, `feels_*`, `apparent_*`. Check each against the station's real dayfile before relying on it; older lines leave the later fields empty.
