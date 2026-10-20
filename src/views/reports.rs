@@ -3,6 +3,7 @@
 //! print or share.
 
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 use chrono::Datelike;
 use eframe::egui::{self, Ui};
@@ -48,6 +49,9 @@ pub struct Reports {
     /// The text preview, for (report, year, month, days version).
     preview: Option<((u8, i32, u32, u64), String)>,
     outcome: Option<(bool, String)>,
+    /// What the last "Open in browser" came to, filled in by the thread
+    /// that asked the system to open it.
+    opened: Arc<Mutex<Option<(bool, String)>>>,
 }
 
 impl Default for Reports {
@@ -58,6 +62,7 @@ impl Default for Reports {
             month: 0,
             preview: None,
             outcome: None,
+            opened: Arc::default(),
         }
     }
 }
@@ -78,15 +83,72 @@ fn context(snap: &Snapshot, settings: &Settings) -> ReportContext {
     }
 }
 
-/// Opens a file with the system's usual program for it: a browser for HTML.
-fn open_file(path: &Path) -> std::io::Result<()> {
+/// Opens a file with the system's usual program for it, a browser for HTML.
+/// Blocks until the opener is done (on Linux it can run the browser itself),
+/// so it runs on its own thread.
+fn open_file(path: &Path) -> Result<(), String> {
     #[cfg(windows)]
-    let mut cmd = std::process::Command::new("explorer");
-    #[cfg(target_os = "macos")]
-    let mut cmd = std::process::Command::new("open");
-    #[cfg(all(unix, not(target_os = "macos")))]
-    let mut cmd = std::process::Command::new("xdg-open");
-    cmd.arg(path).spawn().map(|_| ())
+    {
+        // Explorer hands the file to the default browser; its exit code
+        // means nothing.
+        std::process::Command::new("explorer")
+            .arg(path)
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+    }
+    #[cfg(not(windows))]
+    {
+        use std::process::{Command, Stdio};
+        #[cfg(target_os = "macos")]
+        let openers: &[(&str, &[&str])] = &[("open", &[])];
+        // xdg-open first; then GLib's opener and Debian's default-browser
+        // links, for desktops where xdg-open isn't set up.
+        #[cfg(not(target_os = "macos"))]
+        let openers: &[(&str, &[&str])] = &[
+            ("xdg-open", &[]),
+            ("gio", &["open"]),
+            ("sensible-browser", &[]),
+            ("x-www-browser", &[]),
+        ];
+        let mut tried = Vec::new();
+        for (cmd, args) in openers {
+            match Command::new(cmd)
+                .args(*args)
+                .arg(path)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::piped())
+                .output()
+            {
+                Ok(out) if out.status.success() => return Ok(()),
+                Ok(out) => {
+                    // The first line says what went wrong; the rest is advice.
+                    let err = String::from_utf8_lossy(&out.stderr);
+                    let why: String = err
+                        .lines()
+                        .next()
+                        .unwrap_or("")
+                        .trim()
+                        .chars()
+                        .take(120)
+                        .collect();
+                    tried.push(if why.is_empty() {
+                        format!("{cmd} failed ({})", out.status)
+                    } else {
+                        format!("{cmd}: {why}")
+                    });
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => tried.push(format!("{cmd}: {e}")),
+            }
+        }
+        Err(if tried.is_empty() {
+            "this system has no xdg-open, gio or default browser to open it with".into()
+        } else {
+            tried.join("; ")
+        })
+    }
 }
 
 impl Reports {
@@ -214,19 +276,37 @@ impl Reports {
             let stem = self.file_stem();
             if ui::button(ui, "Open in browser", Kind::Primary).clicked() {
                 let path = reports_dir.join(format!("{stem}.html"));
-                let result = std::fs::create_dir_all(reports_dir)
-                    .and_then(|_| std::fs::write(&path, &html))
-                    .and_then(|_| open_file(&path));
-                self.outcome = Some(match result {
-                    Ok(()) => (true, format!("Opened {}", path.display())),
-                    Err(e) => (
-                        false,
-                        format!(
-                            "Couldn't start your browser ({e}). The report is saved at {}: open it from there.",
-                            path.display()
-                        ),
-                    ),
-                });
+                match std::fs::create_dir_all(reports_dir).and_then(|_| std::fs::write(&path, &html)) {
+                    Err(e) => {
+                        self.outcome = Some((
+                            false,
+                            format!("Couldn't write the report to {}: {e}.", reports_dir.display()),
+                        ))
+                    }
+                    Ok(()) => {
+                        self.outcome = Some((
+                            true,
+                            format!("Opening in your browser. Saved as {}", path.display()),
+                        ));
+                        *self.opened.lock().unwrap() = None;
+                        let (slot, ctx) = (self.opened.clone(), ui.ctx().clone());
+                        std::thread::spawn(move || {
+                            if let Err(e) = open_file(&path) {
+                                *slot.lock().unwrap() = Some((
+                                    false,
+                                    format!(
+                                        "Couldn't open your browser ({e}). The report is saved as {}: open it from there.",
+                                        path.display()
+                                    ),
+                                ));
+                                ctx.request_repaint();
+                            }
+                        });
+                    }
+                }
+            }
+            if let Some(o) = self.opened.lock().unwrap().take() {
+                self.outcome = Some(o);
             }
             if ui::button(ui, "Save as HTML…", Kind::Secondary).clicked() {
                 self.outcome = save(&stem, "html", "Web page", &html);
@@ -241,10 +321,16 @@ impl Reports {
                     self.outcome = save(&stem, "txt", "Text", t);
                 }
             }
-            if let Some((ok, msg)) = &self.outcome {
-                ui::small(ui, msg, if *ok { p.ok } else { p.heat });
-            }
         });
+        if let Some((ok, msg)) = &self.outcome {
+            ui::para(
+                ui,
+                msg,
+                theme::body(13.0),
+                if *ok { p.ok } else { p.heat },
+                1100.0,
+            );
+        }
 
         ui::panel(ui, |ui| match (self.report, text) {
             (Report::Review, _) => self.review_preview(ui, snap, &cx),
@@ -353,11 +439,13 @@ fn save(stem: &str, ext: &str, kind: &str, body: &str) -> Option<(bool, String)>
     })
 }
 
-/// Where "Open in browser" keeps its copies: beside the history, or in the
-/// temporary folder for the demo.
+/// Where "Open in browser" keeps its copies: "Isobar reports" in Documents
+/// (or the home folder). Not beside the history: that's a hidden folder on
+/// Linux, which sandboxed browsers (snap and Flatpak Firefox) can't read.
 pub fn folder(database: Option<&Path>) -> PathBuf {
-    database
-        .and_then(Path::parent)
-        .map(|d| d.join("reports"))
-        .unwrap_or_else(|| std::env::temp_dir().join("isobar-reports"))
+    dirs::document_dir()
+        .or_else(dirs::home_dir)
+        .map(|d| d.join("Isobar reports"))
+        .or_else(|| database.and_then(Path::parent).map(|d| d.join("reports")))
+        .unwrap_or_else(|| std::env::temp_dir().join("Isobar reports"))
 }

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.4.1 – 2026-10-20
+
+- **Open in browser on Linux:** reports now go to an `Isobar reports` folder in Documents, where sandboxed browsers (snap and Flatpak Firefox) are allowed to read them; before, they went to a hidden folder they can't see. Isobar tries `xdg-open`, then `gio open`, then the default browser, and if none opens the page it says why and where the report is saved. Before, it only checked that xdg-open started.
+
 ## 0.4.0 – 2026-10-20
 
 - **Reports (L1, L3):** a new Reports screen. *Monthly* and *yearly climate summaries* in the NOAA layout: each day's (or month's) mean, high and low with times, heating and cooling degree days, rain, average wind, peak gust and dominant direction, with totals, day counts and departures from the station's own normal. *Month in review*: one printable page with the headline figures against normal, charts of temperature and rain against each date's normal, the wind rose, records broken, notable days and a day-by-day table. Open any of them in the browser, or save as HTML (the summaries also as text, as Cumulus writes them).

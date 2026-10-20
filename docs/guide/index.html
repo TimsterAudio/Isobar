@@ -328,7 +328,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
     <div class="meta">
       <span>For <b>Windows and Linux</b></span>
       <span>Checked against <b>Cumulus MX 5.1.5</b></span>
-      <span>Guide covers <b>Isobar 0.4.0</b> (20 October 2026)</span>
+      <span>Guide covers <b>Isobar 0.4.1</b> (20 October 2026)</span>
     </div>
   </div>
 
@@ -832,7 +832,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   </table></div>
   <p>Size: the detailed logs are the big part, about 3 MB a year. If your MX logs every minute, Isobar combines each 10 minutes into one reading as it arrives (averages, with the highest gust and rain rate and the latest rain totals), which is a tenth of the size and loses nothing the charts or Insights use. A database from before 19 October 2026 is thinned this way once, the first time a newer Isobar starts.</p>
   <h3>Reports</h3>
-  <p><b>Open in browser</b> keeps its copy of each report in a <code>reports</code> folder beside <code>isobar.sqlite</code>, overwriting the same report each time you open it. They're throwaway: save one with <b>Save as HTML…</b> to keep it somewhere you'll find it. The demo station uses your system's temporary folder instead.</p>
+  <p><b>Open in browser</b> saves each report in an <code>Isobar reports</code> folder in your Documents folder (or your home folder if there's no Documents), overwriting the same report each time you open it. It's somewhere you can find it, and somewhere sandboxed browsers are allowed to look: on Linux, the snap and Flatpak versions of Firefox can't read hidden folders like the one the history lives in. To keep a report somewhere else, use <b>Save as HTML…</b>.</p>
   <p>While Isobar runs you may also see <code>isobar.sqlite-wal</code> and <code>isobar.sqlite-shm</code> beside it. They're SQLite's working files and part of the database; leave them be.</p>
 </section>
 
@@ -959,7 +959,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   </details>
   <details>
     <summary>Open in browser doesn't open anything</summary>
-    <p>Isobar asks the system to open the page with your usual browser. If that fails, it says where the file is saved: open it from there, or use <b>Save as HTML…</b> and double-click the saved file.</p>
+    <p>Isobar asks the system to open the page with your usual browser. On Linux it tries <code>xdg-open</code>, then <code>gio open</code>, then the system's default browser. If they all fail it says why, and where the report is saved (<code>Documents/Isobar reports</code>): open it from there. If xdg-open says it has no method for opening the file, your desktop has no default browser set. Choosing one in your desktop's settings usually fixes it, or run <code>xdg-settings set default-web-browser firefox.desktop</code>.</p>
   </details>
   <details>
     <summary>The Feels like card or cloud base is missing</summary>
@@ -988,6 +988,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <div class="tbl"><table>
     <thead><tr><th>Date</th><th>Change</th></tr></thead>
     <tbody>
+      <tr><td>20 Oct 2026</td><td>Open in browser now saves to Documents/Isobar reports and says why if a browser won't open (0.4.1).</td></tr>
       <tr><td>20 Oct 2026</td><td>Isobar 0.4.0 released, with everything below.</td></tr>
       <tr><td>20 Oct 2026</td><td>Kinder words about Cumulus MX and its forecast.</td></tr>
       <tr><td>20 Oct 2026</td><td>The Reports screen; the Feels like card, dew point range and cloud base on Now; the stopped-station warning and alert; wind roses by season and the gust factor on Insights; comfort days and Indoors on Seasons. New screenshots of Now.</td></tr>
