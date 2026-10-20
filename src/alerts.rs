@@ -16,6 +16,8 @@ pub struct AlertTracker {
     heat_day: Option<NaiveDate>,
     last_wet: Option<i64>,
     seen_dry_since: Option<i64>,
+    /// MX's "data stopped" flag was set at the last reading.
+    stopped: bool,
 }
 
 impl AlertTracker {
@@ -60,6 +62,16 @@ impl AlertTracker {
                 ));
             }
         }
+
+        // Once when MX's flag goes up, and again only after it has cleared.
+        let stopped = r.data_stopped == Some(true);
+        if cfg.stopped && stopped && !self.stopped {
+            out.push((
+                "Station has stopped sending".into(),
+                format!("{station}: Cumulus MX is running but isn't getting readings from the station. Check its console, cable or radio link."),
+            ));
+        }
+        self.stopped = stopped;
 
         if cfg.rain_start {
             let rate = r.rain_rate.unwrap_or(0.0);
@@ -139,5 +151,21 @@ mod tests {
         let later = DRY_SPELL_MS + 120_000;
         let got = t.check(&cfg, "Home", &reading(later, 20.0, 0.0, 2.0));
         assert_eq!(got[0].0, "Rain has started");
+    }
+
+    #[test]
+    fn data_stopped_alerts_once_until_it_clears() {
+        let cfg = Alerts::default();
+        let mut t = AlertTracker::default();
+        let at = |ms: i64, stopped: bool| LiveReading {
+            fetched_at: ms,
+            data_stopped: Some(stopped),
+            ..Default::default()
+        };
+        assert!(t.check(&cfg, "Home", &at(0, false)).is_empty());
+        assert_eq!(t.check(&cfg, "Home", &at(1, true)).len(), 1);
+        assert!(t.check(&cfg, "Home", &at(2, true)).is_empty());
+        assert!(t.check(&cfg, "Home", &at(3, false)).is_empty());
+        assert_eq!(t.check(&cfg, "Home", &at(4, true)).len(), 1);
     }
 }

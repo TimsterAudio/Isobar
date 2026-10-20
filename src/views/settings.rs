@@ -36,6 +36,7 @@ struct Draft {
     frost: String,
     heat: String,
     rain_start: bool,
+    stopped: bool,
     theme: ThemeChoice,
     clock_24h: bool,
     tanks: TankDraft,
@@ -196,6 +197,7 @@ impl Draft {
             frost: opt_num(s.alerts.frost_below),
             heat: opt_num(s.alerts.heat_above),
             rain_start: s.alerts.rain_start,
+            stopped: s.alerts.stopped,
             theme: s.theme,
             clock_24h: s.clock_24h,
             tanks: TankDraft::from(s.tanks.as_ref()),
@@ -261,6 +263,7 @@ impl Draft {
                 frost_below: alert("Temperature at or below", &self.frost)?,
                 heat_above: alert("Temperature at or above", &self.heat)?,
                 rain_start: self.rain_start,
+                stopped: self.stopped,
             },
         })
         .map(|mut s| {
@@ -830,6 +833,10 @@ impl SettingsView {
             ui.checkbox(
                 &mut self.draft.rain_start,
                 egui::RichText::new("Rain starting after three dry hours").font(theme::body(15.0)),
+            );
+            ui.checkbox(
+                &mut self.draft.stopped,
+                egui::RichText::new("The station stops sending data to MX").font(theme::body(15.0)),
             );
             ui.with_layout(Layout::top_down(Align::Min), |_| {});
         });

@@ -206,16 +206,24 @@ impl Now {
                     && match c {
                         NowCard::Indoor => r.indoor_temp.is_some(),
                         NowCard::Tanks => have_tanks,
+                        NowCard::Feels => r.feels_like.or(r.apparent).is_some(),
                         _ => true,
                     }
             })
             .map(|c| c.0)
             .collect();
-        // All in one row unless the window is narrow (text wraps in narrow
-        // cards); otherwise rows of three.
+        // All in one row while each card gets about 165 px (text wraps in
+        // narrower cards); otherwise two even rows, or rows of three in a
+        // narrow window.
         let n = cards.len().max(1);
-        let one_row = ui.available_width() >= 1100.0 && n <= 7;
-        let cols = if one_row { n } else { 3 };
+        let width = ui.available_width();
+        let cols = if width >= 1100.0 && width / n as f32 >= 165.0 {
+            n
+        } else if width >= 1100.0 {
+            n.div_ceil(2)
+        } else {
+            3
+        };
         let dragging = egui::DragAndDrop::has_payload_of_type::<NowCard>(ui.ctx());
         let mut dropped: Option<(NowCard, NowCard)> = None;
         for (k, row) in cards.chunks(cols).enumerate() {
@@ -275,6 +283,7 @@ impl Now {
                     NowCard::Pressure => self.pressure(ui, snap, r),
                     NowCard::Rain => self.rain(ui, snap, r),
                     NowCard::Humidity => self.humidity(ui, snap, r),
+                    NowCard::Feels => self.feels(ui, snap, r),
                     NowCard::Sun => self.sun(ui, snap, r),
                     NowCard::Indoor => self.indoor(ui, snap, r),
                     NowCard::Tanks => {
@@ -346,6 +355,15 @@ impl Now {
             (
                 p.heat,
                 format!("Offline: {}", s.last_error.as_deref().unwrap_or_default()),
+            )
+        } else if snap
+            .live
+            .as_ref()
+            .is_some_and(|r| r.data_stopped == Some(true))
+        {
+            (
+                p.warn,
+                "Station stopped sending: MX is running but has no new readings".to_string(),
             )
         } else if stale {
             (
@@ -631,6 +649,7 @@ impl Now {
             Some(NowCard::Humidity) => &["hum"],
             Some(NowCard::Sun) => &["solar", "solar_max"],
             Some(NowCard::Indoor) => &["intemp", "temp"],
+            Some(NowCard::Feels) => &["feels", "temp"],
             _ => &[],
         };
         let mut data: Option<&crate::worker::Samples> = None;
@@ -859,6 +878,15 @@ impl Now {
                         " W/m²".into(),
                         true,
                     ),
+                    Some(NowCard::Feels) => (
+                        "Feels like".into(),
+                        p.trace,
+                        u.temp.clone(),
+                        "Temperature".into(),
+                        p.ink2,
+                        u.temp.clone(),
+                        true,
+                    ),
                     _ => (
                         "Inside".into(),
                         p.trace,
@@ -885,6 +913,9 @@ impl Now {
                             Some((|d| d.hum_max, |d| d.hum_min, "Daily high and low"))
                         }
                         Some(NowCard::Sun) => Some((|d| d.solar_max, |_| None, "Daily peak")),
+                        Some(NowCard::Feels) => {
+                            Some((|d| d.feels_max, |d| d.feels_min, "Daily high and low"))
+                        }
                         _ => None,
                     };
                     if let Some((hi, lo, what)) = pair {
@@ -1276,7 +1307,110 @@ impl Now {
             theme::body(DETAIL),
             p.ink2,
         );
+        if let (Some(lo), Some(hi)) = (r.dew_low, r.dew_high) {
+            let at = |t: &Option<String>| {
+                t.as_deref()
+                    .map_or(String::new(), |t| format!(" at {}", format::clock(t)))
+            };
+            ui::text(
+                ui,
+                format!("Dew today {} to {}{}", num(Some(lo), 1), num(Some(hi), 1), r.units.temp),
+                theme::body(DETAIL),
+                p.ink2,
+            )
+            .on_hover_text(format!(
+                "Lowest{}, highest{}. Dew point is the honest measure of mugginess: under about 10° feels dry, over 16° sticky, over 20° oppressive.",
+                at(&r.dew_low_time),
+                at(&r.dew_high_time)
+            ));
+        }
+        if let Some(cb) = r.cloud_base {
+            let unit = r.cloud_base_unit.as_deref().unwrap_or("m");
+            ui::text(
+                ui,
+                format!("Cloud base about {} {unit}", tanks::litres(cb)),
+                theme::body(DETAIL),
+                p.ink2,
+            )
+            .on_hover_text("Where cumulus cloud would form, worked out by MX from the gap between temperature and dew point: about 125 m (400 ft) for each degree.");
+        }
         bottom(ui, |ui| Self::spark(ui, snap, "hum", p.ink2, false));
+    }
+
+    /// Feels like: apparent temperature, wind chill, heat index and humidex,
+    /// with today's extremes.
+    fn feels(&self, ui: &mut Ui, snap: &Snapshot, r: &LiveReading) {
+        let p = Palette::of(ui.ctx());
+        let u = &r.units.temp;
+        ui::reading(ui, &num(r.feels_like.or(r.apparent), 1), u, READING, p.ink).on_hover_text(
+            "MX's feels-like temperature: wind chill when it's cool, heat index when it's warm.",
+        );
+        let at = |t: &Option<String>| {
+            t.as_deref()
+                .map_or(String::new(), |t| format!(" at {}", format::clock(t)))
+        };
+        // One line each: now, then today's extreme; the times on hover.
+        let lines = [
+            (
+                "Apparent",
+                r.apparent,
+                match (r.apparent_low, r.apparent_high) {
+                    (Some(lo), Some(hi)) => Some(format!("{} to {}", num(Some(lo), 1), num(Some(hi), 1))),
+                    _ => None,
+                },
+                format!(
+                    "The Australian apparent temperature: the air adjusted for humidity and wind. Today's lowest{}, highest{}.",
+                    at(&r.apparent_low_time),
+                    at(&r.apparent_high_time)
+                ),
+                true,
+            ),
+            (
+                "Wind chill",
+                r.wind_chill,
+                r.chill_low.map(|v| format!("low {}", num(Some(v), 1))),
+                format!("How cold the wind makes it feel on bare skin. Today's lowest{}.", at(&r.chill_low_time)),
+                true,
+            ),
+            (
+                "Heat index",
+                r.heat_index,
+                r.heat_index_high.map(|v| format!("high {}", num(Some(v), 1))),
+                format!(
+                    "How hot humid air feels, the US way. It only parts from the temperature from about 27°C (80°F). Today's highest{}.",
+                    at(&r.heat_index_high_time)
+                ),
+                true,
+            ),
+            (
+                "Humidex",
+                r.humidex,
+                r.humidex_high.map(|v| format!("high {}", num(Some(v), 1))),
+                format!(
+                    "The Canadian measure of humid heat: over 30 some discomfort, over 40 great discomfort, over 45 dangerous. Today's highest{}.",
+                    at(&r.humidex_high_time)
+                ),
+                false,
+            ),
+        ];
+        for (k, (label, now, today, hover, degrees)) in lines.into_iter().enumerate() {
+            if now.is_none() && today.is_none() {
+                continue;
+            }
+            let unit = if degrees { u.as_str() } else { "" };
+            let mut line = format!("{label} {}{unit}", num(now, 1));
+            if let Some(t) = today {
+                line.push_str(&format!(" · {t}"));
+            }
+            ui::text(
+                ui,
+                line,
+                theme::body(DETAIL),
+                if k == 0 { p.ink } else { p.ink2 },
+            )
+            .on_hover_text(hover);
+        }
+        bottom(ui, |ui| Self::spark(ui, snap, "feels", p.heat, false));
     }
 
     fn sun(&self, ui: &mut Ui, snap: &Snapshot, r: &LiveReading) {

@@ -292,6 +292,13 @@ impl IsobarApp {
                 _ => "Syncing history".into(),
             };
             (p.warn, label)
+        } else if s.connected
+            && snap
+                .live
+                .as_ref()
+                .is_some_and(|r| r.data_stopped == Some(true))
+        {
+            (p.warn, "Station stopped sending".into())
         } else if s.connected {
             (
                 p.ok,

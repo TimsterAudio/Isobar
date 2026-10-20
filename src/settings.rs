@@ -14,6 +14,8 @@ pub struct Alerts {
     pub heat_above: Option<f64>,
     /// Notify when rain starts after a dry spell of at least three hours.
     pub rain_start: bool,
+    /// Notify when MX says the station has stopped sending data.
+    pub stopped: bool,
 }
 
 impl Default for Alerts {
@@ -24,6 +26,7 @@ impl Default for Alerts {
             frost_below: Some(2.0),
             heat_above: Some(35.0),
             rain_start: true,
+            stopped: true,
         }
     }
 }
@@ -56,6 +59,7 @@ pub enum NowCard {
     Pressure,
     Rain,
     Humidity,
+    Feels,
     Sun,
     Indoor,
     Tanks,
@@ -63,11 +67,12 @@ pub enum NowCard {
 
 impl NowCard {
     /// The usual order.
-    pub const ALL: [NowCard; 7] = [
+    pub const ALL: [NowCard; 8] = [
         NowCard::Wind,
         NowCard::Pressure,
         NowCard::Rain,
         NowCard::Humidity,
+        NowCard::Feels,
         NowCard::Sun,
         NowCard::Indoor,
         NowCard::Tanks,
@@ -79,6 +84,7 @@ impl NowCard {
             NowCard::Pressure => "Pressure",
             NowCard::Rain => "Rain",
             NowCard::Humidity => "Humidity",
+            NowCard::Feels => "Feels like",
             NowCard::Sun => "Sun",
             NowCard::Indoor => "Indoor",
             NowCard::Tanks => "Tanks",
@@ -92,6 +98,7 @@ impl NowCard {
             NowCard::Pressure => "pressure",
             NowCard::Rain => "rain",
             NowCard::Humidity => "humidity",
+            NowCard::Feels => "feels",
             NowCard::Sun => "sun",
             NowCard::Indoor => "indoor",
             NowCard::Tanks => "tanks",

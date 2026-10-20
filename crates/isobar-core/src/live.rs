@@ -105,6 +105,29 @@ pub struct LiveReading {
     pub indoor_temp: Option<f64>,
     pub indoor_hum: Option<f64>,
 
+    /// Today's dew point extremes and lowest wind chill, with times as sent.
+    pub dew_high: Option<f64>,
+    pub dew_high_time: Option<String>,
+    pub dew_low: Option<f64>,
+    pub dew_low_time: Option<String>,
+    pub chill_low: Option<f64>,
+    pub chill_low_time: Option<String>,
+    /// Heat index and humidex now, and today's highest of each.
+    pub heat_index: Option<f64>,
+    pub heat_index_high: Option<f64>,
+    pub heat_index_high_time: Option<String>,
+    pub humidex: Option<f64>,
+    pub humidex_high: Option<f64>,
+    pub humidex_high_time: Option<String>,
+    /// Today's apparent temperature extremes.
+    pub apparent_high: Option<f64>,
+    pub apparent_high_time: Option<String>,
+    pub apparent_low: Option<f64>,
+    pub apparent_low_time: Option<String>,
+    /// The height of the cloud base MX works out, and its unit ("ft" or "m").
+    pub cloud_base: Option<f64>,
+    pub cloud_base_unit: Option<String>,
+
     /// MX has stopped getting data from the station, though it still answers.
     pub data_stopped: Option<bool>,
     /// MX's alarms and whether each is set off.
@@ -348,6 +371,25 @@ impl LiveReading {
             indoor_temp: num(v, &["IndoorTemp", "intemp"]),
             indoor_hum: num(v, &["IndoorHum", "inhum"]),
 
+            dew_high: num(v, &["HighDewpointToday", "dewpointTH"]),
+            dew_high_time: text(v, &["HighDewpointTodayTime", "TdewpointTH"]),
+            dew_low: num(v, &["LowDewpointToday", "dewpointTL"]),
+            dew_low_time: text(v, &["LowDewpointTodayTime", "TdewpointTL"]),
+            chill_low: num(v, &["LowWindChillToday", "wchillTL"]),
+            chill_low_time: text(v, &["LowWindChillTodayTime", "TwchillTL"]),
+            heat_index: num(v, &["HeatIndex", "heatindex"]),
+            heat_index_high: num(v, &["HighHeatIndexToday", "heatindexTH"]),
+            heat_index_high_time: text(v, &["HighHeatIndexTodayTime", "TheatindexTH"]),
+            humidex: num(v, &["Humidex", "humidex"]),
+            humidex_high: num(v, &["HighHumidexToday", "humidexTH"]),
+            humidex_high_time: text(v, &["HighHumidexTodayTime", "ThumidexTH"]),
+            apparent_high: num(v, &["HighAppTempToday", "apptempTH"]),
+            apparent_high_time: text(v, &["HighAppTempTodayTime", "TapptempTH"]),
+            apparent_low: num(v, &["LowAppTempToday", "apptempTL"]),
+            apparent_low_time: text(v, &["LowAppTempTodayTime", "TapptempTL"]),
+            cloud_base: num(v, &["Cloudbase", "cloudbasevalue"]),
+            cloud_base_unit: text(v, &["CloudbaseUnit", "cloudbaseunit"]),
+
             data_stopped: flag(v, &["DataStopped", "DataStoppedAlarm"]),
             alarms: alarms(v),
             mx_version: text(v, &["Version", "version"]),
@@ -468,6 +510,17 @@ mod tests {
         assert_eq!(r.temp_low_time.as_deref(), Some("4:52 AM"));
         assert_eq!(r.temp_trend, Some(0.8));
         assert_eq!(r.feels_like, Some(9.9));
+        assert_eq!(r.dew_high, Some(8.0));
+        assert_eq!(r.dew_low, Some(6.1));
+        assert_eq!(r.dew_low_time.as_deref(), Some("4:52 AM"));
+        assert_eq!(r.chill_low, Some(6.7));
+        assert_eq!(r.heat_index, Some(9.9));
+        assert_eq!(r.heat_index_high, Some(10.1));
+        assert_eq!(r.humidex_high, Some(10.5));
+        assert_eq!(r.apparent_high, Some(9.6));
+        assert_eq!(r.apparent_low, Some(5.8));
+        assert_eq!(r.cloud_base, Some(1198.0));
+        assert_eq!(r.cloud_base_unit.as_deref(), Some("ft"));
         assert_eq!(r.apparent, Some(9.2));
         assert_eq!(r.wind_chill, Some(9.9));
         assert_eq!(r.dew_point, Some(7.0));
