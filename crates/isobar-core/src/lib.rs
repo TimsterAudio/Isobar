@@ -20,6 +20,7 @@ pub mod indoor;
 pub mod live;
 pub mod logfile;
 pub mod mx;
+pub mod reports;
 pub mod seasons;
 pub mod store;
 pub mod tanks;

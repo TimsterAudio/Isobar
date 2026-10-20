@@ -3,6 +3,7 @@ pub mod health;
 pub mod history;
 pub mod insights;
 pub mod now;
+pub mod reports;
 pub mod seasons;
 pub mod settings;
 pub mod tanks;

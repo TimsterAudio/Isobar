@@ -28,6 +28,7 @@ pub enum Route {
     Insights,
     Seasons,
     Tanks,
+    Reports,
     Health,
     Settings,
     /// Not a screen: switch to the demo station.
@@ -35,13 +36,14 @@ pub enum Route {
 }
 
 impl Route {
-    const ALL: [Route; 8] = [
+    const ALL: [Route; 9] = [
         Route::Now,
         Route::History,
         Route::Compare,
         Route::Insights,
         Route::Seasons,
         Route::Tanks,
+        Route::Reports,
         Route::Health,
         Route::Settings,
     ];
@@ -54,6 +56,7 @@ impl Route {
             Route::Insights => "Insights",
             Route::Seasons => "Seasons",
             Route::Tanks => "Tanks",
+            Route::Reports => "Reports",
             Route::Health => "Health",
             Route::Settings => "Settings",
             Route::Demo => "Demo",
@@ -104,6 +107,7 @@ pub struct IsobarApp {
     insights: views::insights::Insights,
     seasons: views::seasons::Seasons,
     tanks: views::tanks::TanksView,
+    reports: views::reports::Reports,
     health: views::health::Health,
     settings_view: views::settings::SettingsView,
 }
@@ -141,6 +145,7 @@ impl IsobarApp {
             insights: Default::default(),
             seasons: Default::default(),
             tanks: Default::default(),
+            reports: Default::default(),
             health: Default::default(),
         }
     }
@@ -507,6 +512,12 @@ impl eframe::App for IsobarApp {
                                     }
                                     Route::Tanks => {
                                         self.tanks.ui(ui, &snap, &self.settings, &mut go)
+                                    }
+                                    Route::Reports => {
+                                        let dir = views::reports::folder(
+                                            self.paths.as_ref().map(|p| p.database.as_path()),
+                                        );
+                                        self.reports.ui(ui, &snap, &self.settings, &dir, &mut go)
                                     }
                                     Route::Health => {
                                         self.health.ui(ui, &snap, &self.settings, &self.worker)
