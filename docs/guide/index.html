@@ -804,7 +804,28 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
     <li><b>Tanks, wind and humidity</b> in a smaller row along the bottom; choose which show in Settings.</li>
   </ul>
   <h3>Putting it on a tablet</h3>
-  <p>Copy <code>isobar-panel.html</code> into the <code>interface</code> folder inside your Cumulus MX folder, then open <code>http://&lt;your MX address&gt;:8998/isobar-panel.html</code> on the tablet. Served by MX itself, the page can ask MX for readings with no setup at all. A kiosk browser (Fully Kiosk Browser on Android, or Guided Access on an iPad) keeps it full screen with the screen on.</p>
+  <p>Copy <code>isobar-panel.html</code> into the <code>interface</code> folder inside your Cumulus MX folder, then open <code>http://&lt;your MX address&gt;:8998/isobar-panel.html</code> on the tablet. Served by MX itself, the page can ask MX for readings with no setup at all. Then make it a fixture: full screen, screen always on, and nobody wandering off to play games on it.</p>
+  <h3>iPad (or iPhone)</h3>
+  <ol>
+    <li>Open the page in <b>Safari</b> (not Chrome: only Safari can add a full-screen app).</li>
+    <li>Share → <b>Add to Home Screen</b>. It gets the Isobar icon and opens full screen, with no address bar.</li>
+    <li>Open it from the Home Screen and fill in <b>Settings</b> there. A home-screen app keeps its own settings, separate from Safari's, so anything set in Safari doesn't come along. (A name and theme can ride in the address instead: add <code>?name=Home</code> before adding it to the Home Screen.)</li>
+    <li>Settings → Display &amp; Brightness → <b>Auto-Lock: Never</b>, and keep it on its charger.</li>
+    <li>Settings → Accessibility → <b>Guided Access</b>: turn it on, set a passcode, and set <b>Display Auto-Lock</b> to Never.</li>
+    <li>Open the panel and triple-click the side button (or the Home button) to start Guided Access. The tablet now shows only the panel until someone triple-clicks and enters the passcode.</li>
+  </ol>
+  <h3>Android</h3>
+  <p>The tidiest way is a kiosk browser. <b>Fully Kiosk Browser</b> (free from the Play Store) is the usual choice:</p>
+  <ol>
+    <li>Install it and set the <b>Start URL</b> to the panel's address. To bring settings along, use a link from <b>Copy a link with these settings</b> as the Start URL the first time.</li>
+    <li>Turn on <b>Keep screen on</b> and full-screen mode (hide the status and navigation bars).</li>
+    <li>Turn on reloading when the network comes back, so a Wi-Fi drop sorts itself out.</li>
+    <li>Optional: <b>Kiosk mode</b> locks the tablet to the panel behind a PIN, and a screen-off schedule darkens it overnight. Fully keeps a few of these for its paid PLUS licence; the free version still does the job.</li>
+  </ol>
+  <p>Or with nothing extra installed: open the page in <b>Chrome</b>, press <b>Full screen</b> in the header, then pin the screen (Settings → Security → <b>App pinning</b>, then pin Chrome from the recent-apps view). For the screen, turn on Developer options → <b>Stay awake</b> (it stays on while charging), or set Display → Screen timeout to its longest. After a restart you'll need to press Full screen again.</p>
+  <div class="tip"><b>Left on the wall for weeks</b>
+    <p>The panel reloads itself once a night between 3 and 4 am, catches up by itself after a Wi-Fi drop, and turns dark from sunset to sunrise. Taps don't zoom or select text, so little fingers can't knock it sideways.</p>
+  </div>
   <p>Opened from anywhere else, set the MX address in Settings. Browsers only let a page read another address when that server allows it, so if <b>Test connection</b> can't reach MX from there, use MX's own folder instead.</p>
   <p>Settings are kept in the tablet's browser. To set a tablet up from another device, fill in Settings there and use <b>Copy a link with these settings</b>, then open that link on the tablet. Adding <code>?demo</code> to the address shows made-up weather, for trying it out.</p>
   <div class="tip"><b>Tanks on the panel</b>
@@ -1013,6 +1034,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <div class="tbl"><table>
     <thead><tr><th>Date</th><th>Change</th></tr></thead>
     <tbody>
+      <tr><td>20 Oct 2026</td><td>Wall panel: setting it up on an iPad and on Android, full screen with the screen on.</td></tr>
       <tr><td>20 Oct 2026</td><td>The wall panel: a one-page display for a tablet, with screenshots.</td></tr>
       <tr><td>20 Oct 2026</td><td>Open in browser now saves to Documents/Isobar reports and says why if a browser won't open (0.4.1).</td></tr>
       <tr><td>20 Oct 2026</td><td>Isobar 0.4.0 released, with everything below.</td></tr>

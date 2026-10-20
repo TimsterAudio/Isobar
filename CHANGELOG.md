@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **Wall panel (Z8):** `web/isobar-panel.html`, a single web page for a tablet on the wall, cut down from Now. It reads MX directly (no Isobar needed) and has two views. *Now* shows the temperature with today's high and low, the last 24 hours of temperature and dew point, rain today with the rate or how long it's been dry, this week's highs, lows and rain from the dayfile, and smaller tanks, wind and humidity cards. *Settings* covers the MX address, name, theme (dark from sunset to sunrise by default), 24-hour times, which small cards show, and the tanks, counted on from a known level. Fonts are built in, so it needs no internet. Serve it from MX's `interface` folder; `?demo` shows made-up weather.
+- **Wall panel on a tablet:** adds to an iPad's Home Screen as a full-screen app with the Isobar icon; a Full screen button for Chrome on Android; taps don't zoom, select text or pull to refresh; it reloads itself once a night; and it avoids JavaScript too new for older iPads' Safari (untested on one). The guide has the iPad (Guided Access) and Android (Fully Kiosk Browser, or Chrome with app pinning) steps.
 
 ## 0.4.1 – 2026-10-20
 
