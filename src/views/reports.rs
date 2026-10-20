@@ -222,7 +222,7 @@ impl Reports {
                     Err(e) => (
                         false,
                         format!(
-                            "Couldn't open the report: {e}. It's saved at {}.",
+                            "Couldn't start your browser ({e}). The report is saved at {}: open it from there.",
                             path.display()
                         ),
                     ),

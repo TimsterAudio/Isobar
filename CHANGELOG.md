@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **Reports (L1, L3):** a new Reports screen. *Monthly* and *yearly climate summaries* in the NOAA layout: each day's (or month's) mean, high and low with times, heating and cooling degree days, rain, average wind, peak gust and dominant direction, with totals, day counts and departures from the station's own normal. *Month in review*: one printable page with the headline figures against normal, charts of temperature and rain against each date's normal, the wind rose, records broken, notable days and a day-by-day table. Open any of them in the browser, or save as HTML (the summaries also as text, as Cumulus writes them).
+- **Feels like card (B8, B3):** apparent temperature with today's range, wind chill with today's low, heat index and humidex with today's highs; times on hover. Its big chart shows feels like against the temperature.
+- **Humidity card (B3, B7):** today's dew point range, and MX's cloud base.
+- **Station stopped sending (A3):** when MX says the station has stopped sending data, Now and the side rail say so in amber, and a desktop alert goes off once (Settings → Alerts).
+- **Now with eight cards:** one row while each card has room, otherwise two even rows.
+- **Wind roses by season (H2):** Insights → Prevailing wind → By season, named for the station's hemisphere.
+- **Gust factor (H3):** the day's peak gust over its highest average, by month, with the gustiest days on record.
+- **Comfort (E2):** Seasons counts days as dry, comfortable, sticky or oppressive by their highest dew point, this year against normal by now, and the average days a month in each.
+- **Indoors (E3):** Seasons shows how the house holds its heat, from MX's logs or Isobar's own readings: its daily swing against the outside's, how many hours its warmest comes after the outside's, and its overnight half-life (how long from 22:00 to 05:00 it takes to lose half its lead over the outside), by month.
+
 ## 0.3.0 – 2026-10-19
 
 - **User guide:** `docs/guide/index.html`, also attached to each release as `isobar-user-guide.zip`. Every screen, what each figure means and how it's worked out, where Isobar keeps things, backups and troubleshooting, with screenshots.

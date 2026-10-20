@@ -2,11 +2,10 @@
 
 Everything that could be added, from the data the owner's Cumulus MX 5.1.5 station sends. Added in full on 2026-10-18 so the owner can trim it. The owner reviews it on a printable checklist page with the same IDs, and marks each item **Yes** (build it), *Later* (keep, not now) or no (drop it). Items with no mark are still undecided; don't build them.
 
-## Decisions so far (2026-10-19)
+## Decisions so far (2026-10-20)
 
-- **Yes:** A1, A2, B1, B2, B4, B6, C1, D1, D2, D3, D4, F1, F2, G1, G2, I1, I2, K4, Z1, Z2, Z3, Z4, Z6
-- **Later:** A3, B5, B7, B8, Z7
-- **Undecided:** B3, E1, E2, E3, H1, H2, H3, J1, J2, J3, K1, K3, L1, L2, L3, L4, L5, Z5
+- **Yes:** A1, A2, A3, B1, B2, B3, B4, B6, B7, B8, C1, D1, D2, D3, D4, E2, E3, F1, F2, G1, G2, H2, H3, I1, I2, K4, L1, L3, Z1, Z2, Z3, Z4, Z6
+- **Undecided:** B5, E1, H1, J1, J2, J3, K1, K3, L2, L4, L5, Z5, Z7
 
 Tags: **Stored** is already in the local history (no new downloading), **Live** is sent by MX in `currentdata` but not read yet (add it to `LiveReading` in `crates/isobar-core/src/live.rs` and check it against the fixture), **Build** is worked out by Isobar. ★ marks a suggested starting point.
 
@@ -15,17 +14,17 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 ## A. Quick fixes
 - [x] **A1** Wind dial uses the 10-minute average bearing when it's calm. *Live* — **Yes**, done 2026-10-18
 - [x] **A2** 24-hour times, or a setting for it (MX 5 sends "4:52 AM"). *Build* — **Yes**, done 2026-10-18
-- [~] **A3** Warn when MX's `DataStopped` flag is set, even while MX still answers. *Live* — *Later*
+- [x] **A3** Warn when MX's `DataStopped` flag is set, even while MX still answers. *Live* — **Yes**, done 2026-10-20: amber on Now and in the rail, and a desktop alert (Settings → Alerts)
 
 ## B. More on Now
 - [x] **B1** Sunrise, sunset and day length; moonrise and moonset. *Live* — **Yes**, done 2026-10-18
 - [x] **B2** Sunshine hours today, and a cloudiness gauge from `SolarRad` against `CurrentSolarMax`. *Live* — **Yes**, done 2026-10-18
-- [ ] **B3** Today's dew point and wind chill highs and lows with times. *Live*
+- [x] **B3** Today's dew point and wind chill highs and lows with times. *Live* — **Yes**, done 2026-10-20: dew point range on the Humidity card, lowest wind chill on the new Feels like card, times on hover
 - [x] **B4** Rain yesterday, this week, last 24 hours, storm total and start, last bucket tip. *Live* — **Yes**, done 2026-10-18. Owner's note: also the live rain rate, in mm/h or a unit chosen in Settings. The rate always shows, in mm/h (the station's unit per hour), which the owner confirmed is what they want.
-- [~] **B5** Wind run today and Beaufort force with description. *Live* — *Later*
+- [ ] **B5** Wind run today and Beaufort force with description. *Live* (was *Later*; undecided again 2026-10-20)
 - [x] **B6** Indoor temperature and humidity, with a 24-hour line against outside. *Live* — **Yes**, done 2026-10-18
-- [~] **B7** Cloud base. *Live* — *Later*
-- [~] **B8** Heat index, humidex and apparent temperature, with today's extremes. *Live* — *Later*
+- [x] **B7** Cloud base. *Live* — **Yes**, done 2026-10-20 on the Humidity card
+- [x] **B8** Heat index, humidex and apparent temperature, with today's extremes. *Live* — **Yes**, done 2026-10-20 as a Feels like card (with wind chill), whose big chart shows feels like against the temperature
 
 ## C. Station health
 - [x] **C1** ★ Data health panel: dayfile gaps, `DataStopped`, triggered MX alarms, last bucket tip, MX version. *Build* — **Yes**, done 2026-10-18 as the Health page (also gaps in the last 24 hours of readings and the gap-filling status)
@@ -38,8 +37,8 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 
 ## E. Energy and comfort
 - [ ] **E1** ★ Heating and cooling degree days by month and season, against normal and last year. *Stored*
-- [ ] **E2** Comfort days by dew point band, counted by month. *Stored*
-- [ ] **E3** Indoor against outdoor: how the house holds its heat. *Live*
+- [x] **E2** Comfort days by dew point band, counted by month. *Stored* — **Yes**, done 2026-10-20 on Seasons: dry, comfortable, sticky and oppressive by the day's highest dew point (10, 16 and 20°C), this year against normal by now
+- [x] **E3** Indoor against outdoor: how the house holds its heat. *Live* — **Yes**, done 2026-10-20 on Seasons, from MX's logs (or Isobar's own readings): daily swing inside against outside, lag of the warmest inside, overnight half-life (22:00 to 05:00), by month
 
 ## F. Sun
 - [x] **F1** ★ Sunshine hours per month against normal, sunniest and dullest months on record. *Stored* — **Yes**, done 2026-10-18
@@ -51,8 +50,8 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 
 ## H. Wind
 - [ ] **H1** Wind run per day and month. *Stored*
-- [ ] **H2** Seasonal wind roses. *Stored*
-- [ ] **H3** Gust factor: peak gust against average speed. *Stored*
+- [x] **H2** Seasonal wind roses. *Stored* — **Yes**, done 2026-10-20 on Insights (Prevailing wind → By season)
+- [x] **H3** Gust factor: peak gust against average speed. *Stored* — **Yes**, done 2026-10-20 on Insights: the day's peak gust over its highest average, by month, with the gustiest days
 
 ## I. Pressure
 - [x] **I1** Three-hour pressure tendency in standard words, with a marker for big drops. *Build* — **Yes**, done 2026-10-19
@@ -70,9 +69,9 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 
 ## L. Reports
 Added 2026-10-19 at the owner's request. Each report is a page Isobar writes as a single HTML file (opens in any browser, prints well, and the browser's Print → Save as PDF makes a PDF), with a straight-to-PDF option as a later step.
-- [ ] **L1** ★ NOAA-style climate summaries, monthly and yearly: the familiar table of each day's mean, high, low, degree days, rain and wind, with totals and departures from normal. *Stored*
+- [x] **L1** ★ NOAA-style climate summaries, monthly and yearly: the familiar table of each day's mean, high, low, degree days, rain and wind, with totals and departures from normal. *Stored* — **Yes**, done 2026-10-20 on the new Reports screen: monthly and yearly, previewed as the classic text, saved as HTML or text
 - [ ] **L2** Weather almanac for a year: the year in review, month by month against normal, records set, firsts and lasts (first frost, last 30° day), wettest and driest spells, and the tank year. *Stored*
-- [ ] **L3** Monthly summary page: a one-page review of a month with its charts, ready to print or share. *Stored*
+- [x] **L3** Monthly summary page: a one-page review of a month with its charts, ready to print or share. *Stored* — **Yes**, done 2026-10-20 as "Month in review" on the Reports screen
 - [ ] **L4** Save straight to PDF from Isobar, without going through a browser. *Build*
 - [ ] **L5** Export the daily history to CSV, for any range, to open in a spreadsheet (moved from K2 on 2026-10-19). *Build*
 
@@ -85,7 +84,7 @@ Changes to the views and anything not listed, added as the owner sends them.
 - [x] **Z4** Drag a card by its name on Now to reorder; the order is remembered. — **Yes**, done 2026-10-19
 - [x] **Z6** Click a card on Now to show it in the big chart, over a span that suits it (pressure 3 days, rain 7 days of daily totals, tanks 3 months; others 24 hours), with span chips. — **Yes**, done 2026-10-19
 - [ ] **Z5** Units of your choice (metric, imperial, or one by one: °C/°F, mm/in, km/h, m/s, mph, knots, hPa/inHg), as a setting that overrides the station's. By default Isobar keeps following the units MX reports. *Build*
-- [~] **Z7** More colour themes beyond chart-paper light and dark (for example a warmer paper, a high-contrast theme, or ones matched to other instruments). *Build* — *Later*, parked 2026-10-19
+- [ ] **Z7** More colour themes beyond chart-paper light and dark (for example a warmer paper, a high-contrast theme, or ones matched to other instruments). *Build* (parked 2026-10-19; undecided again 2026-10-20)
 
 ## Notes for building
 - Most of D–J use dayfile fields already parsed into `DayRecord` but unused: `et`, `sunshine`, `hdd`, `cdd`, `wind_run`, `rain_hour_max`, `dew_*`, `hum_*`, `feels_*`, `apparent_*`. Check each against the station's real dayfile before relying on it; older lines leave the later fields empty.

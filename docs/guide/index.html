@@ -298,6 +298,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
     <li><a href="#insights">Insights</a></li>
     <li><a href="#seasons">Seasons</a></li>
     <li><a href="#tanks">Tanks</a></li>
+    <li><a href="#reports">Reports</a></li>
     <li><a href="#health">Health</a></li>
     <li><a href="#settings">Settings</a></li>
     <li><a href="#alerts">Alerts</a></li>
@@ -327,7 +328,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
     <div class="meta">
       <span>For <b>Windows and Linux</b></span>
       <span>Checked against <b>Cumulus MX 5.1.5</b></span>
-      <span>Guide covers <b>Isobar 0.3.0</b> (19 October 2026)</span>
+      <span>Guide covers <b>Isobar 0.3.0 and the builds since</b> (20 October 2026)</span>
     </div>
   </div>
 
@@ -340,6 +341,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
     <a href="#insights"><b>Insights</b><span>Odd days, records, storms and dry spells.</span></a>
     <a href="#seasons"><b>Seasons</b><span>Water balance, frost, growing warmth and sun.</span></a>
     <a href="#tanks"><b>Tanks</b><span>For houses on rainwater: how long it lasts.</span></a>
+    <a href="#reports"><b>Reports</b><span>NOAA summaries and a month in review, to print.</span></a>
     <a href="#health"><b>Health</b><span>Is it the weather, or is it the station?</span></a>
     <a href="#settings"><b>Settings</b><span>Your station, tanks, alerts and looks.</span></a>
   </div>
@@ -411,6 +413,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
     <tbody>
       <tr><td><span style="color:var(--ok)">●</span> Live, 5 s ago</td><td>All good. The number is the age of the last reading.</td></tr>
       <tr><td><span style="color:var(--warn)">●</span> Syncing 1,200 of 3,151 days</td><td>Daily history is downloading.</td></tr>
+      <tr><td><span style="color:var(--warn)">●</span> Station stopped sending</td><td>MX is answering, but says it isn't getting readings from the station.</td></tr>
       <tr><td><span style="color:var(--ink2)">●</span> Reading a dayfile</td><td>No station address, working from a local <code>dayfile.txt</code>.</td></tr>
       <tr><td><span style="color:var(--heat)">●</span> Can't reach station</td><td>MX isn't answering. Now says why.</td></tr>
     </tbody>
@@ -454,14 +457,15 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <p>Isobar records one reading a minute. A stretch of over 20 minutes with nothing (Isobar closed, laptop asleep, station offline) shows as a gap rather than a misleading straight line. When Isobar starts, and after any gap over 15 minutes, it asks MX for its recent detail and fills the hole.</p>
 
   <h3>The cards</h3>
-  <p>Under the thermograph sits a row of instrument cards, each with a 24-hour sparkline along the bottom.</p>
+  <p>Under the thermograph sits a row of instrument cards, each with a 24-hour sparkline along the bottom. With all eight on, they share one row on a wide window and split into two rows of four on a narrower one.</p>
   <div class="tbl"><table>
     <thead><tr><th>Card</th><th>Shows</th></tr></thead>
     <tbody>
       <tr><td>Wind</td><td>A dial with the speed and the direction it's coming from, the latest gust and today's peak gust with its time. In light air (under about 3 km/h) the dial uses MX's 10-minute average direction, because the latest one swings about like a weathervane in a teacup. The text then says "Calm" or "Light".</td></tr>
       <tr><td>Pressure</td><td>The reading, the <b>three-hour tendency</b> in forecasters' words ("Falling slowly, −0.5 hPa in 3 h") and today's range. A fall of 3.6 hPa or more in three hours turns amber: often wind and rain on the way. See <a href="#maths">the maths</a> for the words.</td></tr>
       <tr><td>Rain</td><td>Today's total and the rate ("Raining, 4.2 mm/h", or "Not raining"). Then the current storm and when it started, yesterday, the last 24 hours, week, month and year, and when it last rained.</td></tr>
-      <tr><td>Humidity</td><td>Relative humidity, dew point and today's range.</td></tr>
+      <tr><td>Humidity</td><td>Relative humidity and dew point, today's humidity range and today's dew point range (hover for the times), and MX's <b>cloud base</b>: roughly where cumulus would form, worked out from the gap between temperature and dew point (about 125 m for each degree).</td></tr>
+      <tr><td>Feels like</td><td>MX's feels-like temperature, then a line each for the <b>apparent temperature</b> (the Australian measure, with today's range), <b>wind chill</b> (with today's low), <b>heat index</b> and <b>humidex</b> (each with today's high). Hover a line for what it means and when the extreme happened. Heat index and humidex only part company with the thermometer once it's warm and humid, so on a cool day they sit quietly at the temperature.</td></tr>
       <tr><td>Sun</td><td>Solar radiation in W/m², plus a cloudiness gauge: sunshine now against what a clear sky would give at this time of day (Clear 85%+, Hazy 60%+, Cloudy 30%+, otherwise Overcast). UV with its band, sunshine hours today, sunrise, sunset and day length. Hover the sunrise line for moonrise and moonset.</td></tr>
       <tr><td>Indoor</td><td>Inside temperature and humidity, how much warmer or cooler it is than outside, and a sparkline of inside against outside (violet). Only appears if your station reports indoor readings.</td></tr>
       <tr><td>Tanks</td><td>Litres in the tanks, how full, how many days the water lasts with no rain, and the last 30 days caught and overflowed. Appears once tanks are set up.</td></tr>
@@ -478,7 +482,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
       <tr><td>Pressure</td><td>3 days</td><td>24 h, 3, 7, 30 days</td><td>Pressure (a front shows up as a long slope)</td></tr>
       <tr><td>Rain</td><td>7 days</td><td>24 h, 7, 30 days, 3 months</td><td>Bars of daily totals; 24 h shows the running total and the rate</td></tr>
       <tr><td>Tanks</td><td>3 months</td><td>30 days, 3 months, 1 year</td><td>Tank level against capacity</td></tr>
-      <tr><td>Wind, Humidity, Sun, Indoor</td><td>24 hours</td><td>24 h, 3, 7 days</td><td>Average and gust; humidity; solar against clear-sky; inside against outside</td></tr>
+      <tr><td>Wind, Humidity, Feels like, Sun, Indoor</td><td>24 hours</td><td>24 h, 3, 7 days</td><td>Average and gust; humidity; feels like against the temperature; solar against clear-sky; inside against outside</td></tr>
     </tbody>
   </table></div>
   <div class="pair">
@@ -488,7 +492,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <p>Longer spans come from MX's detailed logs. Until Isobar has fetched those, it shows daily highs and lows from the dayfile instead and says so under the chart.</p>
 
   <h3>When things go quiet</h3>
-  <p>Top right says "Updated 5 s ago" in green. If no reading has arrived for two minutes it turns amber; if MX stops answering it turns red with "Offline" and the reason. If MX can't be reached at all, Now tells you what went wrong and offers to open Settings. Usually the address is wrong, MX isn't running, or the computer running MX has gone to sleep.</p>
+  <p>Top right says "Updated 5 s ago" in green. If no reading has arrived for two minutes it turns amber; if MX stops answering it turns red with "Offline" and the reason. If MX is still answering but says the station itself has gone quiet (its "data stopped" flag), it says <b>Station stopped sending</b> in amber, and a desktop alert goes off once. That one usually means the console, its cable or its radio link wants a look, or a fresh set of batteries. If MX can't be reached at all, Now tells you what went wrong and offers to open Settings. Usually the address is wrong, MX isn't running, or the computer running MX has gone to sleep.</p>
 </section>
 
 <!-- ============================================================ history -->
@@ -556,7 +560,13 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <h3>Your station's climate</h3>
   <p>A month-by-month table: average max and min, highest, lowest, rain, rain days, and how many years each figure comes from. Rain only counts months with at least 25 days of data, so a month with a dead gauge doesn't drag the average down.</p>
   <h3>Prevailing wind</h3>
-  <p>Two wind roses, all time and this year, showing the share of days by the day's dominant wind direction.</p>
+  <p>Wind roses showing the share of days by the day's dominant wind direction. <b>By year</b> gives all time and this year side by side; <b>By season</b> gives four roses, summer first, named for your hemisphere, across every year on record. Seasonal roses are where the interesting stuff hides: the wind that brings your winter rain is rarely the one that brings summer's hot days.</p>
+  <figure class="shot"><img src="img/insights-5.webp" alt="Seasonal wind roses and the gust factor panel" loading="lazy"><figcaption>The roses by season, and the gust factor below.</figcaption></figure>
+  <h3>Gust factor</h3>
+  <p>Each day's peak gust divided by its highest average speed. It says how lumpy the wind is: around 1.4 is usual in open country, and trees, buildings, hills and squally storms push it higher. The panel gives the typical day (the median), the gustiest and steadiest months, a bar for each month and the five gustiest days on record. Days whose highest average stayed under about 10 km/h are left out: in light air a gust of 6 against an average of 2 is a factor of 3 and means nothing.</p>
+  <div class="idea"><b>The idea</b>
+    <p>Wind loads on roofs, fences and tall plants come from the gusts, not the average. A site with a high gust factor gets more damage from a given wind than the forecast speed suggests. If yours creeps up over the years, the trees are probably growing.</p>
+  </div>
 </section>
 
 <!-- ============================================================ seasons -->
@@ -584,6 +594,24 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <p>Hours from sunrise to sunset through the year at your latitude, with the longest and shortest days and today's change from yesterday. Average sunshine sits against it, which gives the <b>sunny share of daylight</b>: how much of the time the sun's up, it's actually out.</p>
   <div class="tip"><b>Latitude</b>
     <p>Set it in Settings → Station (south is negative: −33.9 or 33.9 S). Leave it empty and Isobar works it out from the day's sunrise and sunset, which is surprisingly accurate except near the equinoxes, when everywhere gets about twelve hours.</p>
+  </div>
+  <figure class="shot"><img src="img/seasons-7.webp" alt="The comfort table and the Indoors panel" loading="lazy"><figcaption>Comfort days by month, then how the house holds its heat.</figcaption></figure>
+  <h3>Comfort</h3>
+  <p>Days sorted by how muggy they got, from the day's highest dew point: under 10° <b>dry</b>, 10 to 16° <b>comfortable</b>, 16 to 20° <b>sticky</b>, and 20° or more <b>oppressive</b> (50, 61 and 68° on a Fahrenheit station). The top row counts this year's days in each band against the normal by this date; the table gives the average days a month in each band.</p>
+  <div class="idea"><b>The idea</b>
+    <p>Humidity goes up every night simply because the air cools, so "90% humidity" at dawn says very little. Dew point is the amount of water actually in the air, and it's what your skin notices. A 30° day with a dew point of 8 is dry heat; a 26° day with a dew point of 22 is the one where nobody sleeps.</p>
+  </div>
+  <h3>Indoors</h3>
+  <p>How your house holds its heat, from inside and outside temperatures recorded together. It uses MX's detailed logs (so years of it) once they're in, and Isobar's own readings until then. It needs an indoor sensor, which most console stations have.</p>
+  <ul>
+    <li><b>Swing inside</b>: how far the inside temperature moves on a typical day, against the outside's swing.</li>
+    <li><b>Steadied by</b>: how much of the outside's daily swing the house soaks up. 70% means the outside swings ten degrees and the inside three.</li>
+    <li><b>Warmest inside</b>: how many hours after the warmest outside the inside peaks. Heavy brick and concrete lag more than weatherboard.</li>
+    <li><b>Overnight half-life</b>: from 22:00 to 05:00, how long the house takes to lose half its lead over the outside. Longer means better insulation or more thermal mass. Nights when the heater ran, or the house was barely warmer than outside, are left out.</li>
+  </ul>
+  <p>The table gives each figure by calendar month, so you can see the winter half-life against the summer one, for instance.</p>
+  <div class="warn"><b>It's your house, as you live in it</b>
+    <p>Heating, cooling, open windows, the oven and where the indoor sensor sits all show up in these numbers. A console on a sunny windowsill will tell some tall tales. For the fairest half-life, look at months when you don't run the heater overnight.</p>
   </div>
 </section>
 
@@ -629,6 +657,52 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   </ul>
   <div class="warn"><b>Excel, let go</b>
     <p>If the import says it can't open the file, it's probably still open in Excel, which locks it. Close it there and try again.</p>
+  </div>
+</section>
+
+<!-- ============================================================ reports -->
+<section class="s" id="reports">
+  <h2>Reports <span class="tag">Screen</span></h2>
+  <p class="lead">Paperwork, but the good kind: climate summaries and a month in review, to keep, print or send to the neighbour who insists their gauge got more.</p>
+  <figure class="shot"><img src="img/reports-1.webp" alt="The Reports screen with a monthly climate summary previewed as text" loading="lazy"><figcaption>A monthly climate summary, previewed in the classic layout.</figcaption></figure>
+  <p>Pick a report, then the month and year. Then:</p>
+  <ul>
+    <li><b>Open in browser</b> writes the report as a web page and opens it. From there, print it, or choose <b>Save as PDF</b> in the print dialog. The pages have print styles for A4.</li>
+    <li><b>Save as HTML…</b> puts the page wherever you like. It's one self-contained file: the charts are drawn inside it, so it opens anywhere, offline, years from now.</li>
+    <li><b>Save as text…</b> (the two climate summaries) gives the classic fixed-width layout, as Cumulus writes its own NOAA reports, for pasting into a forum post or your website.</li>
+  </ul>
+  <h3>Monthly climate summary</h3>
+  <p>The NOAA-style table, a line a day: mean temperature, high and low with their times, heating and cooling degree days, rain, average wind speed, peak gust with its time, and the dominant direction. Under it are the month's totals, then counts of days against the usual thresholds:</p>
+  <ul>
+    <li>highs of 30° or more, and highs at or below 0°</li>
+    <li>lows at or below 0°, and at or below −18°</li>
+    <li>days of rain of 0.2, 2 and 20 mm or more</li>
+  </ul>
+  <p>On a Fahrenheit or inch station the thresholds are 90°, 32°, 0° and 0.01, 0.1, 1 in. Last come the month's departures from your station's own normal.</p>
+  <figure class="shot half"><img src="img/report-noaa.webp" alt="A monthly climate summary as an HTML page" loading="lazy"><figcaption>The same summary as a web page.</figcaption></figure>
+  <h3>Yearly climate summary</h3>
+  <p>A line a month in three tables:</p>
+  <ul>
+    <li><b>Temperature</b>: mean max, min and mean, the departure from normal, degree days, the extremes with their dates, and the day counts.</li>
+    <li><b>Rain</b>: the total, its departure from normal, the wettest day, and the days of rain.</li>
+    <li><b>Wind</b>: the average, the peak gust and the dominant direction.</li>
+  </ul>
+  <p>The year's totals sit at the bottom of each table.</p>
+  <h3>Month in review</h3>
+  <p>One page for the month, made for the fridge door or the family group chat:</p>
+  <ul>
+    <li>the headline figures against normal</li>
+    <li>a temperature chart against each date's normal, and rain against its normal running total</li>
+    <li>the month's wind rose</li>
+    <li>any station records it set for that month, and the notable days</li>
+    <li>a day-by-day table</li>
+  </ul>
+  <div class="pair">
+    <figure class="shot"><img src="img/reports-2.webp" alt="The month in review previewed in Isobar" loading="lazy"><figcaption>In Isobar: the headline figures.</figcaption></figure>
+    <figure class="shot"><img src="img/report-review.webp" alt="The month in review page in a browser, with charts" loading="lazy"><figcaption>In the browser: the full page.</figcaption></figure>
+  </div>
+  <div class="idea"><b>The idea</b>
+    <p>Every comparison is with your own station's other years, not a bureau station 30 km away with a different hill in the way. The current month works too: it says "so far", and its normals are scaled to the days it has.</p>
   </div>
 </section>
 
@@ -707,6 +781,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
       <tr><td>Frost</td><td>Temperature at or below your limit</td><td>Once a day</td></tr>
       <tr><td>Heat</td><td>Temperature at or above your limit</td><td>Once a day</td></tr>
       <tr><td>Rain starting</td><td>Rain after three dry hours</td><td>Each time it starts again</td></tr>
+      <tr><td>Station stopped</td><td>MX says the station has stopped sending it data</td><td>Once, and again only after it has started again</td></tr>
     </tbody>
   </table></div>
   <p>Limits are in your station's units. Leave a box empty to turn that alert off, or untick <b>Show desktop notifications</b> to silence the lot.</p>
@@ -756,6 +831,8 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
     </tbody>
   </table></div>
   <p>Size: the detailed logs are the big part, about 3 MB a year. If your MX logs every minute, Isobar combines each 10 minutes into one reading as it arrives (averages, with the highest gust and rain rate and the latest rain totals), which is a tenth of the size and loses nothing the charts or Insights use. A database from before 19 October 2026 is thinned this way once, the first time a newer Isobar starts.</p>
+  <h3>Reports</h3>
+  <p><b>Open in browser</b> keeps its copy of each report in a <code>reports</code> folder beside <code>isobar.sqlite</code>, overwriting the same report each time you open it. They're throwaway: save one with <b>Save as HTML…</b> to keep it somewhere you'll find it. The demo station uses your system's temporary folder instead.</p>
   <p>While Isobar runs you may also see <code>isobar.sqlite-wal</code> and <code>isobar.sqlite-shm</code> beside it. They're SQLite's working files and part of the database; leave them be.</p>
 </section>
 
@@ -823,6 +900,24 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <h3>Tank outlook</h3>
   <p>The model runs forward a year from today's level, once with no rain and once for each past year's rain on the same calendar dates. The shaded band is the spread of those runs; "Low in 1 of 8" counts the runs that went below keep-above.</p>
 
+  <h3>Comfort bands</h3>
+  <p>Each day goes into one band by its highest dew point: below 10° dry, 10 to 16° comfortable, 16 to 20° sticky, 20° and up oppressive. Normal for a month is the average count in months with at least 25 days of dew points, leaving out the current month. "Normal by now" adds up the months so far this year and a share of the current one.</p>
+
+  <h3>Gust factor</h3>
+  <p>The day's peak gust divided by its highest average speed (MX's highest 10-minute average), for days whose highest average reached about 10 km/h (3 m/s, 6 mph, 5 knots). The typical day and each month's bar are medians, so one wild afternoon doesn't skew them.</p>
+
+  <h3>Indoors</h3>
+  <p>Inside readings are paired with the outside reading nearest in time (within 15 minutes). A day counts when it has pairs in at least 20 of its hours. The swing is the day's highest less its lowest; the lag is the hours from the outside's warmest reading to the inside's, where that's under 12 hours. The overnight half-life treats the cooling as exponential (Newton's law of cooling): with the inside's lead over the night's average outside temperature d₀ at 22:00 and d₁ at 05:00, over t hours, half-life = t × ln 2 ÷ ln(d₀ ÷ d₁). Nights count only when the house started at least 2° warmer than outside and lost at least 5% of its lead. Monthly figures are medians.</p>
+
+  <h3>Climate summaries</h3>
+  <ul>
+    <li>A day's mean is the dayfile's average temperature, or the mean of its high and low.</li>
+    <li>Degree days come from the dayfile when Cumulus records them (at its own base). Otherwise Isobar works them out from each day's mean against 18.3°C (65°F), the usual NOAA base. The report says which.</li>
+    <li>Average wind speed is the day's wind run divided by 24 hours.</li>
+    <li>The dominant direction for a month or year is the most common of the days' dominant directions.</li>
+    <li>Departures are from the station's other years: the mean temperature of the same month in all of them, and the average rain of those with 25 or more days.</li>
+  </ul>
+
   <h3>Ten-minute storage</h3>
   <p>Detailed log readings are grouped into 10-minute steps on the clock. Within a step, readings are averaged, except gust and rain rate (the highest is kept) and bearing and the rain totals (the latest is kept). The step is timed at its last reading.</p>
 </section>
@@ -863,6 +958,18 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
     <p>See <a href="#install">Windows being suspicious</a>. Check the checksum, then restore the file from Defender's Protection history and allow it.</p>
   </details>
   <details>
+    <summary>Open in browser doesn't open anything</summary>
+    <p>Isobar asks the system to open the page with your usual browser. If that fails, it says where the file is saved: open it from there, or use <b>Save as HTML…</b> and double-click the saved file.</p>
+  </details>
+  <details>
+    <summary>The Feels like card or cloud base is missing</summary>
+    <p>The Feels like card appears when MX sends a feels-like or apparent temperature, and cloud base when it sends <code>Cloudbase</code>. MX 5 sends both. Older versions may not.</p>
+  </details>
+  <details>
+    <summary>Indoors doesn't show on Seasons</summary>
+    <p>It needs indoor and outdoor temperatures recorded together for at least one full day, from MX's detailed logs or Isobar's own readings, and a station with an indoor sensor. Give it a day, or wait for the detailed history (Health shows its progress).</p>
+  </details>
+  <details>
     <summary>I want to start completely fresh</summary>
     <p>Close Isobar and delete the <code>app.isobar.desktop</code> folder (or folders, on Linux). Isobar starts as if new. Your Cumulus data isn't touched.</p>
   </details>
@@ -871,7 +978,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
 <!-- ============================================================ next -->
 <section class="s" id="next">
   <h2>What's coming</h2>
-  <p>The roadmap lives in <code>docs/ROADMAP.md</code> in the repository, with a printable checklist for deciding what gets built. Still on the table, among others: reports (NOAA-style summaries, a yearly almanac, CSV export), units of your choice, heating and cooling degree days, wind run and gust factor, a warming-trend chart, more colour themes, and a readout in the system tray.</p>
+  <p>The roadmap lives in <code>docs/ROADMAP.md</code> in the repository, with a printable checklist for deciding what gets built. Still on the table, among others: more reports (a yearly almanac, saving straight to PDF, CSV export), units of your choice, heating and cooling degree days by month, wind run and Beaufort force, a warming-trend chart, more colour themes, and a readout in the system tray.</p>
 </section>
 
 <!-- ============================================================ changes -->
@@ -881,6 +988,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <div class="tbl"><table>
     <thead><tr><th>Date</th><th>Change</th></tr></thead>
     <tbody>
+      <tr><td>20 Oct 2026</td><td>The Reports screen; the Feels like card, dew point range and cloud base on Now; the stopped-station warning and alert; wind roses by season and the gust factor on Insights; comfort days and Indoors on Seasons. New screenshots of Now.</td></tr>
       <tr><td>19 Oct 2026</td><td>First edition, for Isobar 0.3.0: every screen, the data and storage, backups, and the maths behind each figure. Also attached to each release as <code>isobar-user-guide.zip</code>.</td></tr>
     </tbody>
   </table></div>
@@ -947,19 +1055,20 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
 
   // Annotated Now screenshot
   const pins = [
-    [20, 24.7, "The temperature", "Big enough to read from across the room."],
+    [18.8, 24.7, "The temperature", "Big enough to read from across the room."],
     [17.5, 37.1, "Trend", "Change per hour: red rising, blue falling, grey steady."],
     [18.8, 45.2, "High and low", "Since the station's day began, with times."],
     [19.4, 54.4, "Feels like, dew point, forecast", "MX's own forecast in italics."],
     [67.5, 27.4, "The thermograph", "24 hours of temperature (violet), dew point (dashed) and rain since midnight (blue, right scale)."],
     [87.5, 48.2, "Span chips", "Look further back: 3, 7 or 30 days."],
     [16.4, 69.6, "Wind dial", "Speed, direction and gusts. Drag a card's name to move it."],
-    [30.9, 71.1, "Pressure tendency", "Three hours' change in forecasters' words. Amber for a big fall."],
-    [43.1, 74.9, "Storm total", "Rain in the current storm, and when it began."],
-    [63.8, 72.3, "Cloudiness gauge", "Sunshine now against a clear sky at this hour."],
-    [92.5, 93.2, "Sparklines", "Every card has 24 hours along its foot. Click a card to put it in the big chart."],
-    [94.4, 5.9, "Last update", "Green when live, amber after two quiet minutes, red when MX stops answering."],
-    [4.75, 54.4, "Health dot", "Something on Health wants a look."],
+    [28.8, 71.1, "Pressure tendency", "Three hours' change in forecasters' words. Amber for a big fall."],
+    [39.1, 74.9, "Storm total", "Rain in the current storm, and when it began."],
+    [50.0, 79.3, "Dew point range and cloud base", "Today's lowest and highest dew point, and where cumulus would form."],
+    [60.6, 71.1, "Feels like card", "Apparent temperature, wind chill, heat index and humidex, with today's extremes."],
+    [93.1, 93.2, "Sparklines", "Every card has 24 hours along its foot. Click a card to put it in the big chart."],
+    [94.4, 5.9, "Last update", "Green when live, amber after two quiet minutes or when the station stops sending, red when MX stops answering."],
+    [4.75, 61.0, "Health dot", "Something on Health wants a look."],
     [10.1, 5.8, "Fold the rail", "Gives the charts the whole window."]
   ];
   const annot = $("#annot"), legend = $("#legend");
