@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.4.0 – 2026-10-20
+
 - **Reports (L1, L3):** a new Reports screen. *Monthly* and *yearly climate summaries* in the NOAA layout: each day's (or month's) mean, high and low with times, heating and cooling degree days, rain, average wind, peak gust and dominant direction, with totals, day counts and departures from the station's own normal. *Month in review*: one printable page with the headline figures against normal, charts of temperature and rain against each date's normal, the wind rose, records broken, notable days and a day-by-day table. Open any of them in the browser, or save as HTML (the summaries also as text, as Cumulus writes them).
 - **Feels like card (B8, B3):** apparent temperature with today's range, wind chill with today's low, heat index and humidex with today's highs; times on hover. Its big chart shows feels like against the temperature.
 - **Humidity card (B3, B7):** today's dew point range, and MX's cloud base.
