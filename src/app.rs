@@ -499,7 +499,9 @@ impl eframe::App for IsobarApp {
                                     Route::Now => self.now.ui(ui, &snap, &self.settings, &mut go),
                                     Route::History => self.history.ui(ui, &snap, &mut go),
                                     Route::Compare => self.compare.ui(ui, &snap, &mut go),
-                                    Route::Insights => self.insights.ui(ui, &snap, &mut go),
+                                    Route::Insights => {
+                                        self.insights.ui(ui, &snap, &self.settings, &mut go)
+                                    }
                                     Route::Seasons => {
                                         self.seasons.ui(ui, &snap, &self.settings, &mut go)
                                     }

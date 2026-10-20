@@ -7,9 +7,13 @@ use isobar_core::analytics::{
     self as an, Anomaly, Field, MonthClimate, RecordRow, RecordUnit, RecordWhen, Tone, COMPASS16,
 };
 
+use isobar_core::seasons::{self as se, Hemisphere};
+
 use crate::app::{Route, Snapshot};
+use crate::chart::{Chart, Series, XAxis};
 use crate::dial;
 use crate::format::{self, nice_date, num, signed, MONTHS};
+use crate::settings::Settings;
 use crate::theme::{self, Palette};
 use crate::ui::{self, cell, col};
 
@@ -26,11 +30,17 @@ struct Cache {
     dry_now: Option<an::DrySpell>,
     last_rain: Option<(NaiveDate, f64)>,
     falls: Vec<an::PressureFall>,
+    rose_seasons: [([usize; 16], usize); 4],
+    gusts: Vec<an::GustDay>,
+    gust_months: ([Option<f64>; 12], Option<f64>),
+    hemisphere: Hemisphere,
 }
 
 pub struct Insights {
     window: usize,
     this_year: bool,
+    /// The wind roses by season rather than by year.
+    by_season: bool,
     cache: Option<Cache>,
 }
 
@@ -39,13 +49,20 @@ impl Default for Insights {
         Insights {
             window: 90,
             this_year: false,
+            by_season: false,
             cache: None,
         }
     }
 }
 
 impl Insights {
-    pub fn ui(&mut self, ui: &mut Ui, snap: &Snapshot, go: &mut Option<Route>) {
+    pub fn ui(
+        &mut self,
+        ui: &mut Ui,
+        snap: &Snapshot,
+        settings: &Settings,
+        go: &mut Option<Route>,
+    ) {
         ui::h1(ui, "Insights");
         let days = snap.days.as_slice();
         let Some(last) = days.last().map(|d| d.date) else {
@@ -65,6 +82,7 @@ impl Insights {
         let key = (snap.days_version, self.window, self.this_year);
         if self.cache.as_ref().is_none_or(|c| c.key != key) {
             let year_days = an::in_range(days, year_start, last);
+            let gusts = an::gust_days(days, min_average(&snap.units().wind));
             self.cache = Some(Cache {
                 key,
                 anomalies: (an::years_covered(days) >= 2.0).then(|| {
@@ -98,6 +116,10 @@ impl Insights {
                     .find(|d| an::is_rain_day(d))
                     .map(|d| (d.date, d.rain.unwrap_or(0.0))),
                 falls: an::biggest_pressure_falls(days, 10),
+                rose_seasons: an::seasonal_wind_roses(days),
+                gust_months: an::gust_factor_by_month(&gusts),
+                gusts,
+                hemisphere: se::hemisphere(days, settings.latitude),
             });
         }
 
@@ -131,6 +153,7 @@ impl Insights {
         self.pressure_falls(ui, snap);
         self.climate(ui, snap, days[0].date, last);
         self.wind(ui, last);
+        self.gust_factor(ui, snap);
     }
 
     fn unusual(&mut self, ui: &mut Ui, snap: &Snapshot) {
@@ -727,13 +750,23 @@ impl Insights {
         });
     }
 
-    fn wind(&self, ui: &mut Ui, last: NaiveDate) {
+    fn wind(&mut self, ui: &mut Ui, last: NaiveDate) {
         let p = Palette::of(ui.ctx());
         let Some(c) = self.cache.as_ref() else { return };
+        let mut by_season = self.by_season;
         ui::panel(ui, |ui| {
-            ui::h2(ui, "Prevailing wind");
-            ui::muted(ui, "Share of days by dominant wind direction.");
-            let max = dial::shared_max(&[&c.rose_all, &c.rose_year]);
+            ui.horizontal(|ui| {
+                ui::h2(ui, "Prevailing wind");
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    ui.spacing_mut().item_spacing.x = 6.0;
+                    if ui::chip(ui, "By season", by_season).clicked() {
+                        by_season = true;
+                    }
+                    if ui::chip(ui, "By year", !by_season).clicked() {
+                        by_season = false;
+                    }
+                });
+            });
             let top = |r: &([usize; 16], usize)| {
                 if r.1 == 0 {
                     "–"
@@ -741,6 +774,32 @@ impl Insights {
                     COMPASS16[(0..16).max_by_key(|i| r.0[*i]).unwrap_or(0)]
                 }
             };
+            if by_season {
+                ui::muted(
+                    ui,
+                    "Share of days by dominant wind direction in each season, across every year on record.",
+                );
+                let roses: Vec<&([usize; 16], usize)> = c.rose_seasons.iter().collect();
+                let max = dial::shared_max(&roses);
+                // Start the row with summer.
+                let first = if c.hemisphere == Hemisphere::South {
+                    0
+                } else {
+                    2
+                };
+                ui::columns(ui, 4, 18.0, false, |i, ui| {
+                    let k = (first + i) % 4;
+                    let rose = &c.rose_seasons[k];
+                    let name = se::season_name([12, 3, 6, 9][k], c.hemisphere);
+                    ui.vertical_centered(|ui| {
+                        dial::wind_rose(ui, 200.0, &rose.0, rose.1, max);
+                        ui::small(ui, format!("{name}, mostly {}", top(rose)), p.ink2);
+                    });
+                });
+                return;
+            }
+            ui::muted(ui, "Share of days by dominant wind direction.");
+            let max = dial::shared_max(&[&c.rose_all, &c.rose_year]);
             ui::columns(ui, 2, 24.0, false, |i, ui| {
                 ui.vertical_centered(|ui| {
                     let (rose, label) = if i == 0 {
@@ -759,5 +818,112 @@ impl Insights {
                 });
             });
         });
+        self.by_season = by_season;
+    }
+
+    fn gust_factor(&self, ui: &mut Ui, snap: &Snapshot) {
+        let p = Palette::of(ui.ctx());
+        let Some(c) = self.cache.as_ref() else { return };
+        let u = snap.units();
+        ui::panel(ui, |ui| {
+            ui::h2(ui, "Gust factor");
+            ui::muted(
+                ui,
+                format!(
+                    "Each day's peak gust over its highest average speed. Around 1.4 is usual in open country; trees, buildings, hills and squally storms push it higher. Days with an average under {} {} are left out, as light air makes the ratio meaningless.",
+                    num(Some(min_average(&u.wind)), 0),
+                    u.wind
+                ),
+            );
+            let (months, all) = &c.gust_months;
+            if all.is_none() {
+                ui::text(
+                    ui,
+                    "Not enough windy days on record yet.",
+                    theme::body(15.0),
+                    p.ink,
+                );
+                return;
+            }
+            let ranked: Vec<(usize, f64)> = months
+                .iter()
+                .enumerate()
+                .filter_map(|(m, v)| v.map(|v| (m, v)))
+                .collect();
+            let gustiest = ranked.iter().copied().max_by(|a, b| a.1.total_cmp(&b.1));
+            let steadiest = ranked.iter().copied().min_by(|a, b| a.1.total_cmp(&b.1));
+            let name = |m: Option<(usize, f64)>| {
+                m.map_or("–".to_string(), |m| {
+                    crate::format::MONTHS_LONG[m.0].to_string()
+                })
+            };
+            let factor =
+                |m: Option<(usize, f64)>| m.map_or("–".to_string(), |m| format!("{:.2}", m.1));
+            ui::stats(
+                ui,
+                &[
+                    ui::Stat::new("Typical day", format!("{:.2}", all.unwrap_or(0.0)), p.ink)
+                        .detail(format!("Median of {} windy days", c.gusts.len()), p.ink2),
+                    ui::Stat::new("Gustiest month", name(gustiest), p.wind)
+                        .detail(format!("Median {}", factor(gustiest)), p.ink2),
+                    ui::Stat::new("Steadiest month", name(steadiest), p.ink)
+                        .detail(format!("Median {}", factor(steadiest)), p.ink2),
+                ],
+            );
+            let xs: Vec<f64> = (0..12).map(|i| i as f64).collect();
+            Chart::new(
+                "gust-months",
+                200.0,
+                xs,
+                XAxis::Index {
+                    splits: None,
+                    label: Box::new(|i| MONTHS[(i.round() as usize).min(11)].to_string()),
+                },
+            )
+            .title(|i| crate::format::MONTHS_LONG[(i.round() as usize).min(11)].to_string())
+            .series(
+                Series::line("Median gust factor", months.to_vec(), p.wind)
+                    .bars()
+                    .unit("", 2),
+            )
+            .series(
+                Series::line("All months", vec![*all; 12], p.ink2)
+                    .dashed()
+                    .no_points()
+                    .width(1.5)
+                    .unit("", 2),
+            )
+            .show(ui);
+            let mut top: Vec<an::GustDay> = c.gusts.clone();
+            top.sort_by(|a, b| b.factor.total_cmp(&a.factor));
+            top.truncate(5);
+            if !top.is_empty() {
+                let list: Vec<String> = top
+                    .iter()
+                    .map(|g| {
+                        format!(
+                            "{} ({:.2}: {} gusting {} {})",
+                            nice_date(g.date),
+                            g.factor,
+                            num(Some(g.average), 0),
+                            num(Some(g.gust), 0),
+                            u.wind
+                        )
+                    })
+                    .collect();
+                ui::small(ui, format!("Gustiest days: {}.", list.join("; ")), p.ink2);
+            }
+        });
+    }
+}
+
+/// The lightest highest-average that counts for the gust factor: about
+/// 10 km/h in the station's units.
+fn min_average(wind_unit: &str) -> f64 {
+    match wind_unit.trim().to_ascii_lowercase().as_str() {
+        "m/s" => 3.0,
+        "mph" => 6.0,
+        "kts" | "kt" | "knots" => 5.0,
+        _ => 10.0,
     }
 }

@@ -126,7 +126,12 @@ pub fn days() -> Vec<DayRecord> {
             gust_max: Some(gust.max(5.0)),
             gust_bearing: Some(dir),
             gust_time: Some(format!("13:{}", minute(&mut r))),
-            wind_avg_max: Some(round1(gust * 0.45)),
+            // Steadier wind in the wet westerlies, gustier on hot northerly
+            // days, so the gust factor has some character.
+            wind_avg_max: Some(round1(
+                gust * (0.55 + 0.05 * wetness - if hot > 0.0 { 0.07 } else { 0.0 }
+                    + 0.04 * (d.ordinal() as f64 * 2.3).sin()),
+            )),
             wind_run: Some(round1(gust * 6.0 + r.next() * 60.0)),
             wind_dir_dominant: Some(dir.round()),
             press_min: Some(round1(p_base - 2.0 - r.next() * 5.0)),

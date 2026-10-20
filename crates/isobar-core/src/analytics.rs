@@ -1022,6 +1022,74 @@ pub fn wind_rose(days: &[DayRecord]) -> ([usize; 16], usize) {
     (counts, n)
 }
 
+/// Wind roses for each season of the year, all years together: December
+/// to February, March to May, June to August and September to November.
+pub fn seasonal_wind_roses(days: &[DayRecord]) -> [([usize; 16], usize); 4] {
+    let mut out = [([0usize; 16], 0usize); 4];
+    for (k, rose) in out.iter_mut().enumerate() {
+        let months = [[12, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]][k];
+        let in_season: Vec<DayRecord> = days
+            .iter()
+            .filter(|d| months.contains(&d.date.month()))
+            .cloned()
+            .collect();
+        *rose = wind_rose(&in_season);
+    }
+    out
+}
+
+/// A day's gust factor: its peak gust over its highest average speed.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct GustDay {
+    pub date: NaiveDate,
+    pub factor: f64,
+    pub gust: f64,
+    pub average: f64,
+}
+
+/// Gust factors for days whose highest average reached `min_average`
+/// (station units); in lighter air the ratio is mostly noise.
+pub fn gust_days(days: &[DayRecord], min_average: f64) -> Vec<GustDay> {
+    days.iter()
+        .filter_map(|d| {
+            let (gust, average) = (d.gust_max?, d.wind_avg_max?);
+            (average >= min_average && average > 0.0 && gust >= average).then_some(GustDay {
+                date: d.date,
+                factor: gust / average,
+                gust,
+                average,
+            })
+        })
+        .collect()
+}
+
+/// The median gust factor for each calendar month (January first), and for
+/// all days together.
+pub fn gust_factor_by_month(g: &[GustDay]) -> ([Option<f64>; 12], Option<f64>) {
+    fn median(mut v: Vec<f64>) -> Option<f64> {
+        if v.is_empty() {
+            return None;
+        }
+        v.sort_by(f64::total_cmp);
+        let n = v.len();
+        Some(if n % 2 == 1 {
+            v[n / 2]
+        } else {
+            (v[n / 2 - 1] + v[n / 2]) / 2.0
+        })
+    }
+    let mut months: [Option<f64>; 12] = [None; 12];
+    for (m, slot) in months.iter_mut().enumerate() {
+        *slot = median(
+            g.iter()
+                .filter(|d| d.date.month0() as usize == m)
+                .map(|d| d.factor)
+                .collect(),
+        );
+    }
+    (months, median(g.iter().map(|d| d.factor).collect()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1330,5 +1398,32 @@ mod tests {
         let (counts, n) = wind_rose(&[d, calm]);
         assert_eq!(n, 1);
         assert_eq!(counts[10], 1);
+    }
+
+    #[test]
+    fn seasonal_roses_and_gust_factor() {
+        let day = |m: u32, dir: f64, gust: f64, avg: f64| DayRecord {
+            date: date(2025, m, 10),
+            wind_dir_dominant: Some(dir),
+            gust_max: Some(gust),
+            wind_avg_max: Some(avg),
+            ..Default::default()
+        };
+        let days = [
+            day(1, 180.0, 40.0, 20.0),
+            day(7, 270.0, 30.0, 20.0),
+            day(7, 270.0, 60.0, 30.0),
+            day(10, 90.0, 9.0, 4.0),
+        ];
+        let roses = seasonal_wind_roses(&days);
+        assert_eq!(roses[0].1, 1, "January is in December to February");
+        assert_eq!(roses[2].0[12], 2, "two July days from the west");
+        let g = gust_days(&days, 10.0);
+        assert_eq!(g.len(), 3, "the 4 km/h day is too light to count");
+        assert_eq!(g[0].factor, 2.0);
+        let (months, all) = gust_factor_by_month(&g);
+        assert_eq!(months[6], Some(1.75));
+        assert_eq!(months[0], Some(2.0));
+        assert_eq!(all, Some(2.0));
     }
 }
