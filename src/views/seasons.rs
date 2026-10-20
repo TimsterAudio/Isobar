@@ -154,6 +154,7 @@ struct Cache {
     frost: Frost,
     growing: Growing,
     sun: Option<Sun>,
+    comfort: Option<se::Comfort>,
 }
 
 pub struct Seasons {
@@ -334,6 +335,7 @@ impl Seasons {
                     upto: last,
                 },
                 sun: sun(days),
+                comfort: se::comfort(days, &se::comfort_edges(se::is_fahrenheit(&u))),
             });
         }
 
@@ -362,6 +364,78 @@ impl Seasons {
         self.growing_panel(ui, &u);
         self.sun_panel(ui, last);
         self.day_length_panel(ui, lat, go);
+        self.comfort_panel(ui, &u, last);
+        indoor_panel(ui, snap, &u);
+    }
+
+    fn comfort_panel(&self, ui: &mut Ui, u: &Units, last: NaiveDate) {
+        let p = Palette::of(ui.ctx());
+        let Some(c) = self.cache.as_ref().and_then(|c| c.comfort.as_ref()) else {
+            return;
+        };
+        let e = se::comfort_edges(se::is_fahrenheit(u));
+        let tones = [p.cold, p.ok, p.warn, p.heat];
+        ui::panel(ui, |ui| {
+            ui::h2(ui, "Comfort");
+            ui::para(
+                ui,
+                format!(
+                    "Days by how muggy they got, from the day's highest dew point: under {a}° dry, {a} to {b}° comfortable, {b} to {c}° sticky, and {c}° or more oppressive. Dew point measures the moisture in the air itself, so unlike humidity it doesn't rise just because the night is cooler.",
+                    a = e[0],
+                    b = e[1],
+                    c = e[2]
+                ),
+                theme::body(14.0),
+                p.ink2,
+                900.0,
+            );
+            let stats: Vec<Stat> = (0..4)
+                .map(|b| {
+                    Stat::new(
+                        format!("{} days in {}", se::COMFORT_NAMES[b], last.year()),
+                        c.this_year[b].to_string(),
+                        tones[b],
+                    )
+                    .detail(
+                        format!("Normal by now {}", num(Some(c.normal_to_date[b]), 0)),
+                        p.ink2,
+                    )
+                })
+                .collect();
+            ui::stats(ui, &stats);
+            let mut cols = vec![col("Month", 110.0, false)];
+            cols.extend(se::COMFORT_NAMES.iter().map(|n| col(n, 0.0, true)));
+            cols.push(col("Years", 60.0, true));
+            let rows: Vec<Vec<ui::Cell>> = (0..12)
+                .filter_map(|m| {
+                    let avg = c.by_month[m]?;
+                    let mut r = vec![cell(MONTHS_LONG[m]).strong().color(p.ink)];
+                    for b in 0..4 {
+                        r.push(cell(num(Some(avg[b]), 1)).color(if avg[b] >= 0.5 {
+                            tones[b]
+                        } else {
+                            p.ink2
+                        }));
+                    }
+                    r.push(cell(c.months_counted[m].to_string()).color(p.ink2));
+                    Some(r)
+                })
+                .collect();
+            if rows.is_empty() {
+                ui::small(
+                    ui,
+                    "The monthly averages need a full month of dew points first.",
+                    p.ink2,
+                );
+            } else {
+                ui::table(ui, &cols, &rows, 13.0);
+                ui::small(
+                    ui,
+                    "Average days a month. Months count once they have 25 days of records.",
+                    p.ink2,
+                );
+            }
+        });
     }
 
     fn water_panel(&mut self, ui: &mut Ui, u: &Units, go: &mut Option<Route>) {
@@ -1241,5 +1315,106 @@ fn frost_calendar(
             KeyMark::Square,
         );
         ui::key(ui, "Today", p.ink2, KeyMark::Square);
+    });
+}
+
+/// Inside against outside: how the house holds its heat.
+fn indoor_panel(ui: &mut Ui, snap: &Snapshot, u: &Units) {
+    let p = Palette::of(ui.ctx());
+    let Some(s) = snap.log_summary.indoor.as_ref() else {
+        return;
+    };
+    let t = &u.temp;
+    let hours = |h: Option<f64>| match h {
+        Some(h) if h < 1.0 => format!("{} min", (h * 60.0).round()),
+        Some(h) => format!("{} h", num(Some(h), 1)),
+        None => "–".into(),
+    };
+    ui::panel(ui, |ui| {
+        ui::h2(ui, "Indoors");
+        ui::para(
+            ui,
+            format!(
+                "How your house holds its heat, from the inside and outside temperatures recorded together on {} days ({} to {}). Heating, cooling, open windows and where the indoor sensor sits all show up here too, so treat it as how the house behaves as you live in it.",
+                s.days,
+                nice_date(s.first),
+                nice_date(s.last)
+            ),
+            theme::body(14.0),
+            p.ink2,
+            900.0,
+        );
+        let damped = if s.out_range > 0.0 {
+            (1.0 - s.in_range / s.out_range) * 100.0
+        } else {
+            0.0
+        };
+        ui::stats(
+            ui,
+            &[
+                Stat::new(
+                    "Swing inside",
+                    format!("{}{t}", num(Some(s.in_range), 1)),
+                    p.trace,
+                )
+                .detail(
+                    format!(
+                        "Outside swings {}{t} on a typical day",
+                        num(Some(s.out_range), 1)
+                    ),
+                    p.ink2,
+                ),
+                Stat::new(
+                    "Steadied by",
+                    format!("{}%", num(Some(damped.max(0.0)), 0)),
+                    p.ink,
+                )
+                .detail("Of the outside's daily swing", p.ink2),
+                Stat::new("Warmest inside", hours(s.lag), p.ink)
+                    .detail("After the warmest outside", p.ink2),
+                Stat::new("Overnight half-life", hours(s.half_life), p.cold).detail(
+                    if s.nights > 0 {
+                        format!("From {} nights the house cooled freely", s.nights)
+                    } else {
+                        "No nights where the house cooled freely".into()
+                    },
+                    p.ink2,
+                ),
+            ],
+        );
+        ui::small(
+            ui,
+            "Overnight half-life: from 22:00 to 05:00, how long the house takes to lose half its lead over the outside. Longer is better insulated (or more thermal mass). Nights when it was heated or barely warmer than outside are left out.",
+            p.ink2,
+        );
+        let cols = [
+            col("Month", 110.0, false),
+            col("Inside", 0.0, true),
+            col("Outside", 0.0, true),
+            col("Swing inside", 0.0, true),
+            col("Swing outside", 0.0, true),
+            col("Lag", 0.0, true),
+            col("Half-life", 0.0, true),
+            col("Days", 0.0, true),
+        ];
+        let rows: Vec<Vec<ui::Cell>> = s
+            .months
+            .iter()
+            .map(|m| {
+                vec![
+                    cell(MONTHS_LONG[m.month as usize - 1])
+                        .strong()
+                        .color(p.ink),
+                    cell(format!("{}{t}", num(Some(m.in_mean), 1))).color(p.trace),
+                    cell(format!("{}{t}", num(Some(m.out_mean), 1))).color(p.ink),
+                    cell(num(Some(m.in_range), 1)).color(p.ink),
+                    cell(num(Some(m.out_range), 1)).color(p.ink),
+                    cell(hours(m.lag)).color(p.ink2),
+                    cell(hours(m.half_life)).color(p.ink2),
+                    cell(m.days.to_string()).color(p.ink2),
+                ]
+            })
+            .collect();
+        ui::table(ui, &cols, &rows, 13.0);
     });
 }

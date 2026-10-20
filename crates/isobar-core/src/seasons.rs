@@ -5,6 +5,7 @@
 //! known and otherwise from which half of the year is warmer. Every function
 //! takes the days sorted oldest first.
 
+use std::collections::BTreeMap;
 use std::f64::consts::PI;
 
 use chrono::{Datelike, Duration, Months, NaiveDate};
@@ -540,6 +541,107 @@ pub fn doy_mean(
         .collect()
 }
 
+// ---------------------------------------------------------------- comfort
+
+/// Comfort bands by the day's highest dew point: dry, comfortable, sticky
+/// and oppressive.
+pub const COMFORT_NAMES: [&str; 4] = ["Dry", "Comfortable", "Sticky", "Oppressive"];
+
+/// The lower edges of the comfortable, sticky and oppressive bands: 10, 16
+/// and 20°C, or 50, 61 and 68°F.
+pub fn comfort_edges(fahrenheit: bool) -> [f64; 3] {
+    if fahrenheit {
+        [50.0, 61.0, 68.0]
+    } else {
+        [10.0, 16.0, 20.0]
+    }
+}
+
+/// The comfort band of a day, from its highest dew point.
+pub fn comfort_band(dew_max: f64, edges: &[f64; 3]) -> usize {
+    edges.iter().filter(|e| dew_max >= **e).count()
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Comfort {
+    /// For each calendar month, the average days in each band, from months
+    /// with at least [`FULL_MONTH`] days of dew points.
+    pub by_month: [Option<[f64; 4]>; 12],
+    /// How many such months each average comes from.
+    pub months_counted: [usize; 12],
+    /// Days in each band so far in the year of the last day on record.
+    pub this_year: [usize; 4],
+    /// The normal for the same stretch of the year: the averages for the
+    /// months before, plus a share of the current one.
+    pub normal_to_date: [f64; 4],
+}
+
+pub fn comfort(days: &[DayRecord], edges: &[f64; 3]) -> Option<Comfort> {
+    let last = days.last()?.date;
+    let mut tally: BTreeMap<(i32, u32), [usize; 4]> = BTreeMap::new();
+    for d in days {
+        if let Some(dew) = d.dew_max {
+            tally.entry((d.date.year(), d.date.month())).or_default()[comfort_band(dew, edges)] +=
+                1;
+        }
+    }
+    if tally.is_empty() {
+        return None;
+    }
+    let mut sums = [[0.0f64; 4]; 12];
+    let mut counted = [0usize; 12];
+    for ((y, m), t) in &tally {
+        if (*y, *m) == (last.year(), last.month()) || t.iter().sum::<usize>() < FULL_MONTH {
+            continue;
+        }
+        let k = *m as usize - 1;
+        counted[k] += 1;
+        for b in 0..4 {
+            sums[k][b] += t[b] as f64;
+        }
+    }
+    let mut by_month: [Option<[f64; 4]>; 12] = [None; 12];
+    for k in 0..12 {
+        if counted[k] > 0 {
+            by_month[k] = Some(sums[k].map(|v| v / counted[k] as f64));
+        }
+    }
+    let mut this_year = [0usize; 4];
+    for ((y, _), t) in &tally {
+        if *y == last.year() {
+            for b in 0..4 {
+                this_year[b] += t[b];
+            }
+        }
+    }
+    let mut normal_to_date = [0.0f64; 4];
+    for m in 1..=last.month() {
+        let Some(avg) = by_month[m as usize - 1] else {
+            continue;
+        };
+        let share = if m == last.month() {
+            last.day() as f64 / days_in_month(last.year(), m) as f64
+        } else {
+            1.0
+        };
+        for b in 0..4 {
+            normal_to_date[b] += avg[b] * share;
+        }
+    }
+    Some(Comfort {
+        by_month,
+        months_counted: counted,
+        this_year,
+        normal_to_date,
+    })
+}
+
+fn days_in_month(y: i32, m: u32) -> u32 {
+    let first = NaiveDate::from_ymd_opt(y, m, 1).unwrap();
+    let next = first.checked_add_months(Months::new(1)).unwrap();
+    (next - first).num_days() as u32
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -726,5 +828,35 @@ mod tests {
         let f = day(d.date, 86.0, 60.8, 0.0);
         let inches = day_et(&f, Some(-34.0), &us).unwrap();
         assert!((inches * 25.4 - est).abs() < 1e-6);
+    }
+
+    #[test]
+    fn counts_comfort_days() {
+        let edges = comfort_edges(false);
+        assert_eq!(comfort_band(9.9, &edges), 0);
+        assert_eq!(comfort_band(16.0, &edges), 2);
+        assert_eq!(comfort_band(23.0, &edges), 3);
+        // A full January in 2025 (25 sticky days, 6 oppressive), a partial
+        // one in 2026 so far.
+        let mut days: Vec<DayRecord> = (1..=31)
+            .map(|k| DayRecord {
+                date: date(2025, 1, k),
+                dew_max: Some(if k <= 25 { 17.0 } else { 21.0 }),
+                ..Default::default()
+            })
+            .collect();
+        days.extend((1..=10).map(|k| DayRecord {
+            date: date(2026, 1, k),
+            dew_max: Some(12.0),
+            ..Default::default()
+        }));
+        let c = comfort(&days, &edges).unwrap();
+        assert_eq!(c.by_month[0], Some([0.0, 0.0, 25.0, 6.0]));
+        assert_eq!(
+            c.months_counted[0], 1,
+            "the current month isn't a normal yet"
+        );
+        assert_eq!(c.this_year, [0, 10, 0, 0]);
+        assert!((c.normal_to_date[2] - 25.0 * 10.0 / 31.0).abs() < 1e-9);
     }
 }

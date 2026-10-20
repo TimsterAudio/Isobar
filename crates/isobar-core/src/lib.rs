@@ -16,6 +16,7 @@ pub mod dayfile;
 pub mod demo;
 pub mod error;
 pub mod health;
+pub mod indoor;
 pub mod live;
 pub mod logfile;
 pub mod mx;

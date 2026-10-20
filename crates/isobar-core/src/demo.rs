@@ -205,9 +205,19 @@ pub fn samples_for(now_ms: i64, days: i64) -> BTreeMap<String, Vec<(i64, f64)>> 
         push("solar", t, (sun * 780.0 * (0.8 + r.next() * 0.2)).round());
         push("solar_max", t, clear_sky(t));
         push("bearing", t, (200.0 + (tf / 4e6).sin() * 25.0).round());
-        // Indoors lags the outside and swings less.
+        // Indoors swings less and lags the outside: heated from 07:00 to
+        // 22:00, then cooling towards the night outside with a half-life of
+        // about ten hours.
         let lag = -(((h - 6.0) / 24.0) * TAU).cos();
-        push("intemp", t, round1(19.5 + 1.6 * lag));
+        let outside = 15.0 + 5.0 * diurnal;
+        let inside = if (7.0..22.0).contains(&h) {
+            19.8 + 0.8 * lag
+        } else {
+            let since = if h >= 22.0 { h - 22.0 } else { h + 2.0 };
+            let night = outside.min(13.0);
+            night + (20.4 - night) * 0.5f64.powf(since / 10.0)
+        };
+        push("intemp", t, round1(inside));
         push("inhum", t, (54.0 + 4.0 * lag).round());
         t += 5 * 60_000;
     }

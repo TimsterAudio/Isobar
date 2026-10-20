@@ -58,6 +58,9 @@ pub struct LogStatus {
 pub struct LogSummary {
     pub falls: Vec<Fall24>,
     pub bursts: Vec<BurstYear>,
+    /// Inside against outside, from the logs, or Isobar's own readings until
+    /// the logs have indoor temperatures.
+    pub indoor: Option<isobar_core::indoor::IndoorSummary>,
 }
 
 /// Readings for a stretch of time, asked for by a view (the chart on Now).
@@ -358,7 +361,10 @@ impl Worker {
     fn refresh_log_summary(&mut self) {
         self.log_summary_at = Some(Instant::now());
         self.log_summary_dirty = false;
-        let Ok(all) = self.store.log_series(&["press", "rain_today"], 0, i64::MAX) else {
+        let Ok(all) =
+            self.store
+                .log_series(&["press", "rain_today", "intemp", "temp"], 0, i64::MAX)
+        else {
             return;
         };
         let inches = self
@@ -374,6 +380,16 @@ impl Worker {
             bursts: all.get("rain_today").map_or_else(Vec::new, |r| {
                 logfile::rain_by_rate(r, if inches { 25.4 } else { 1.0 })
             }),
+            indoor: match (all.get("intemp"), all.get("temp")) {
+                (Some(i), Some(o)) if i.len() > 144 => isobar_core::indoor::indoor_summary(i, o),
+                _ => {
+                    let samples = self.h.lock().samples.clone();
+                    match (samples.get("intemp"), samples.get("temp")) {
+                        (Some(i), Some(o)) => isobar_core::indoor::indoor_summary(i, o),
+                        _ => None,
+                    }
+                }
+            },
         };
         self.update(|s| s.log_summary = Arc::new(summary));
     }
@@ -828,6 +844,13 @@ fn run_demo(h: Handle, ctx: egui::Context, rx: Receiver<Cmd>) {
         s.days = Arc::new(days);
         s.days_version += 1;
         s.samples = Arc::new(samples.clone());
+        s.log_summary = Arc::new(LogSummary {
+            indoor: match (month.get("intemp"), month.get("temp")) {
+                (Some(i), Some(o)) => isobar_core::indoor::indoor_summary(i, o),
+                _ => None,
+            },
+            ..Default::default()
+        });
     }
     let mut n = 0u32;
     loop {
