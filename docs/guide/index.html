@@ -302,6 +302,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
     <li><a href="#health">Health</a></li>
     <li><a href="#settings">Settings</a></li>
     <li><a href="#alerts">Alerts</a></li>
+    <li><a href="#panel">Wall panel</a></li>
     <li class="grp">Under the bonnet</li>
     <li><a href="#data">Where the data comes from</a></li>
     <li><a href="#storage">Where Isobar keeps things</a></li>
@@ -787,6 +788,30 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <p>Limits are in your station's units. Leave a box empty to turn that alert off, or untick <b>Show desktop notifications</b> to silence the lot.</p>
 </section>
 
+<!-- ============================================================ panel -->
+<section class="s" id="panel">
+  <h2>Wall panel <span class="tag">Web page</span></h2>
+  <p>For a tablet on the kitchen wall: <code>web/isobar-panel.html</code> is a single web page that shows what the household wants at a glance and nothing else. It reads Cumulus MX directly, so Isobar doesn't need to be running. There are two views, <b>Now</b> and <b>Settings</b>.</p>
+  <div class="pair">
+    <figure class="shot"><img src="img/panel-light.webp" alt="The wall panel by day: temperature, the last 24 hours, rain today, this week, tanks, wind and humidity" loading="lazy"><figcaption>By day.</figcaption></figure>
+    <figure class="shot"><img src="img/panel-dark.webp" alt="The same panel in its dark theme" loading="lazy"><figcaption>From sunset to sunrise it turns dark by itself.</figcaption></figure>
+  </div>
+  <ul>
+    <li><b>Temperature:</b> now, its trend, today's high and low with times, feels like, dew point, pressure and MX's forecast.</li>
+    <li><b>The last 24 hours:</b> temperature and dew point on chart paper, with the warmest and coolest moments marked.</li>
+    <li><b>Rain today:</b> the rate while it's raining, or how long it's been dry; then the last hour, yesterday, this week, the month and the year.</li>
+    <li><b>This week:</b> each of the last six days' high, low and rain from MX's dayfile, and today so far.</li>
+    <li><b>Tanks, wind and humidity</b> in a smaller row along the bottom; choose which show in Settings.</li>
+  </ul>
+  <h3>Putting it on a tablet</h3>
+  <p>Copy <code>isobar-panel.html</code> into the <code>interface</code> folder inside your Cumulus MX folder, then open <code>http://&lt;your MX address&gt;:8998/isobar-panel.html</code> on the tablet. Served by MX itself, the page can ask MX for readings with no setup at all. A kiosk browser (Fully Kiosk Browser on Android, or Guided Access on an iPad) keeps it full screen with the screen on.</p>
+  <p>Opened from anywhere else, set the MX address in Settings. Browsers only let a page read another address when that server allows it, so if <b>Test connection</b> can't reach MX from there, use MX's own folder instead.</p>
+  <p>Settings are kept in the tablet's browser. To set a tablet up from another device, fill in Settings there and use <b>Copy a link with these settings</b>, then open that link on the tablet. Adding <code>?demo</code> to the address shows made-up weather, for trying it out.</p>
+  <div class="tip"><b>Tanks on the panel</b>
+    <p>The same model as the Tanks screen: rain times roof area in, the day's use out, overflow above capacity, nothing caught from 0.1 mm or less. The panel doesn't have Isobar's history or your spreadsheet, so give it a <b>known level</b> (a day you checked, or <b>They're full today</b>) and it counts on from there with MX's daily rain. Without one it starts full a year back.</p>
+  </div>
+</section>
+
 <!-- ============================================================ data -->
 <section class="s" id="data">
   <h2>Where the data comes from</h2>
@@ -988,6 +1013,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <div class="tbl"><table>
     <thead><tr><th>Date</th><th>Change</th></tr></thead>
     <tbody>
+      <tr><td>20 Oct 2026</td><td>The wall panel: a one-page display for a tablet, with screenshots.</td></tr>
       <tr><td>20 Oct 2026</td><td>Open in browser now saves to Documents/Isobar reports and says why if a browser won't open (0.4.1).</td></tr>
       <tr><td>20 Oct 2026</td><td>Isobar 0.4.0 released, with everything below.</td></tr>
       <tr><td>20 Oct 2026</td><td>Kinder words about Cumulus MX and its forecast.</td></tr>

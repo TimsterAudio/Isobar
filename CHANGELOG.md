@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Wall panel (Z8):** `web/isobar-panel.html`, a single web page for a tablet on the wall, cut down from Now. It reads MX directly (no Isobar needed) and has two views. *Now* shows the temperature with today's high and low, the last 24 hours of temperature and dew point, rain today with the rate or how long it's been dry, this week's highs, lows and rain from the dayfile, and smaller tanks, wind and humidity cards. *Settings* covers the MX address, name, theme (dark from sunset to sunrise by default), 24-hour times, which small cards show, and the tanks, counted on from a known level. Fonts are built in, so it needs no internet. Serve it from MX's `interface` folder; `?demo` shows made-up weather.
+
 ## 0.4.1 – 2026-10-20
 
 - **Open in browser on Linux:** reports now go to an `Isobar reports` folder in Documents, where sandboxed browsers (snap and Flatpak Firefox) are allowed to read them; before, they went to a hidden folder they can't see. Isobar tries `xdg-open`, then `gio open`, then the default browser, and if none opens the page it says why and where the report is saved. Before, it only checked that xdg-open started.
