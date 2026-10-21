@@ -15,6 +15,9 @@
   from Isobar's Now screen. It reads Cumulus MX directly and keeps nothing
   but its settings (in the browser's local storage).
 
+  The week strip's forecast comes from Open-Meteo (open-meteo.com) over the
+  internet; everything else comes from MX.
+
   Best served by MX itself: copy this file into MX's `interface` folder and
   open http://<mx-address>:8998/isobar-panel.html. Anywhere else, set the MX
   address in Settings (the browser must be allowed to call it).
@@ -23,6 +26,7 @@
     ?mx=http://192.168.1.20:8998   the MX address
     ?name=Home                     the station name in the header
     ?theme=auto|light|dark         auto is dark from sunset to sunrise
+    ?lat=-38.6&lon=145.6           the station's location, for the forecast
     ?demo                          made-up weather, for trying it out
     #s=...                         a whole settings link from Settings
 
@@ -214,6 +218,21 @@ main { flex: 1; min-height: 0; }
 .rbar i { position: absolute; left: 22%; right: 22%; bottom: 0; background: var(--rain); opacity: .85; border-radius: 3px 3px 0 0; }
 .rmm { text-align: center; color: var(--rain); font-weight: 500; margin-top: .2em; font-size: .95em; }
 .rmm.dry { color: var(--ink2); }
+.rmm small { display: block; color: var(--ink2); font-weight: 400; font-size: .85em; }
+/* Forecast: a faint, wider bar behind what's been measured. */
+.track i.f { width: clamp(14px, 2.5vmin, 28px); opacity: .3; }
+.track i.f.solo { width: clamp(8px, 1.4vmin, 16px); opacity: .55; }
+.rbar i.f { opacity: .32; left: 16%; right: 16%; }
+.rbar i.f.solo { opacity: .5; left: 22%; right: 22%; }
+.rbar i.o { left: 30%; right: 30%; }
+.wx { display: flex; flex-direction: column; align-items: center; color: var(--ink2); margin-top: .25em; min-width: 0; }
+.wx svg { width: 2em; height: 2em; }
+.wx small { font-size: .82em; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wx .cl { fill: var(--paper); }
+.day.today .wx .cl { fill: var(--sheet); }
+.cardgrid { display: grid; grid-template-columns: 1fr auto auto; gap: .45em 1.6em; align-items: center; margin-top: .45em; }
+.cardgrid b { font-weight: 500; color: var(--ink2); font-size: .9em; }
+.cardgrid input { width: 1.15em; height: 1.15em; accent-color: var(--trace); justify-self: center; }
 
 .more-row {
   grid-area: more;
@@ -257,6 +276,49 @@ main { flex: 1; min-height: 0; }
   .trend, .rainnow { margin: .45em 0 .35em; }
   .temp .more p:last-child { display: none; }
   .facts { gap: 0 1em; }
+  .wx small { display: none; }
+}
+/* landscape tablets with no cards along the bottom */
+@media (min-aspect-ratio: 1/1) and (min-height: 501px) {
+  .now.no-more { grid-template-rows: minmax(0, 1.3fr) minmax(0, 1.2fr) 0; }
+}
+/* phones: the page scrolls, the header takes two lines, cards stack */
+@media (max-width: 600px), (max-height: 500px) {
+  body { overflow: auto; font-size: 13px; }
+  header { flex-wrap: wrap; gap: .45em 1em; padding: 10px 12px 4px; }
+  header::before { content: ""; order: 3; flex-basis: 100%; }
+  .brand { order: 1; flex: 1; }
+  .clock { order: 2; }
+  .status { order: 4; flex: 1; min-width: 0; }
+  .status span { overflow: hidden; text-overflow: ellipsis; }
+  nav { order: 5; }
+  nav button { padding: .3em .7em; }
+  .now {
+    height: auto; min-height: 0;
+    gap: 14px; padding: 6px 12px 18px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto 240px 290px auto;
+    grid-template-areas: "temp rain" "thermo thermo" "week week" "more more";
+  }
+  .days { gap: 3px; }
+  .day { padding: .2em .1em .3em; }
+  .wx small { display: none; }
+  .track span { font-size: 1.05em; }
+  .small + .small { border-left: 1px solid var(--grid); border-top: 0; padding-top: 0; padding-left: 12px; }
+  .dial, .tankfig { height: 4.6em; max-height: none; }
+  .facts { margin-top: .6em; }
+}
+/* phones held upright: the cards keep to words */
+@media (max-width: 600px) and (max-aspect-ratio: 1/1) {
+  .dial, .tankfig { display: none; }
+}
+@media (max-height: 500px) and (min-aspect-ratio: 1/1) {
+  .now {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr);
+    grid-template-rows: auto 290px auto;
+    grid-template-areas: "temp thermo rain" "week week week" "more more more";
+  }
+  .small { flex-direction: row; }
 }
 
 /* ------------------------------------------------------------ settings */
@@ -339,7 +401,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
     </div>
 
     <div class="card week">
-      <h2 class="label">This week <span class="dim" id="w-sum"></span></h2>
+      <h2 class="label"><span id="w-title">This week</span> <span class="dim" id="w-sum"></span></h2>
       <div class="days" id="days"></div>
     </div>
 
@@ -384,6 +446,11 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
           <input type="text" name="mx" placeholder="Leave blank when MX serves this page" inputmode="url">
           <small>For example http://192.168.1.20:8998, the address of the MX admin pages.</small>
         </label>
+        <div class="pair">
+          <label class="field"><span>Latitude</span><input type="text" name="lat" inputmode="decimal" placeholder="-38.60"></label>
+          <label class="field"><span>Longitude</span><input type="text" name="lon" inputmode="decimal" placeholder="145.60"></label>
+        </div>
+        <small class="note">Where the station is, for the forecast; south and west are negative. Long-press your house in Google Maps or Apple Maps to see them.</small>
         <label class="field"><span>Check for new readings every</span>
           <select name="refresh">
             <option value="5">5 seconds</option><option value="10">10 seconds</option>
@@ -405,10 +472,20 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
           </select>
         </label>
         <label class="check"><input type="checkbox" name="clock24"> 24-hour times</label>
+        <label class="field"><span>The week strip shows</span>
+          <select name="week">
+            <option value="forecast">Yesterday, today and the next five days</option>
+            <option value="history">The last seven days</option>
+          </select>
+          <small>The forecast comes from Open-Meteo over the internet, for the latitude and longitude above. Without them, or without the internet, the strip shows the last seven days.</small>
+        </label>
         <div class="field"><span>Cards along the bottom</span>
-          <label class="check"><input type="checkbox" name="showTanks"> Tanks</label>
-          <label class="check"><input type="checkbox" name="showWind"> Wind</label>
-          <label class="check"><input type="checkbox" name="showHum"> Humidity</label>
+          <div class="cardgrid">
+            <span></span><b>Tablet</b><b>Phone</b>
+            <span>Tanks</span><input type="checkbox" name="showTanks" aria-label="Tanks on a tablet"><input type="checkbox" name="phoneTanks" aria-label="Tanks on a phone">
+            <span>Wind</span><input type="checkbox" name="showWind" aria-label="Wind on a tablet"><input type="checkbox" name="phoneWind" aria-label="Wind on a phone">
+            <span>Humidity</span><input type="checkbox" name="showHum" aria-label="Humidity on a tablet"><input type="checkbox" name="phoneHum" aria-label="Humidity on a phone">
+          </div>
         </div>
       </fieldset>
 
@@ -446,9 +523,11 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 
 const STORE = 'isobar-panel';
 const DEFAULTS = {
-  name: '', mx: '', refresh: 10, demo: false,
-  theme: 'auto', clock24: true,
+  name: '', mx: '', lat: '', lon: '', refresh: 10, demo: false,
+  theme: 'auto', clock24: true, week: 'forecast',
   show: { tanks: true, wind: true, hum: true },
+  // A phone has room for two cards.
+  showPhone: { tanks: false, wind: true, hum: true },
   tanks: { roof: 0, capacity: 0, use: 0, keep: 0, knownDate: '', knownLitres: 0 },
 };
 // The demo station's tanks, used when none are set.
@@ -488,6 +567,8 @@ function loadSettings() {
   if (q.has('name')) s.name = q.get('name');
   if (q.has('theme')) s.theme = q.get('theme');
   if (q.has('demo')) s.demo = q.get('demo') !== '0';
+  if (q.has('lat')) s.lat = q.get('lat');
+  if (q.has('lon')) s.lon = q.get('lon');
   return s;
 }
 
@@ -777,7 +858,123 @@ const Demo = {
     }
     return out.map(parseDay);
   },
+  // Yesterday to five days ahead, as Open-Meteo sends it.
+  forecast() {
+    const daily = { time: [], weather_code: [], temperature_2m_max: [], temperature_2m_min: [], precipitation_sum: [], precipitation_probability_max: [] };
+    const today = startOfDay(new Date());
+    for (let i = -1; i <= 5; i++) {
+      const d = new Date(today); d.setDate(d.getDate() + i);
+      const k = Math.floor(d.getTime() / 864e5);
+      const hi = this.temp(d.getTime() + 15 * 3600e3) + (this.rnd(k) - .5) * 6;
+      const r = this.rnd(k + 2);
+      const mm = r < 0.62 ? 0 : Math.round(-Math.log(1 - (r - 0.62) / 0.38 * 0.97) * 7 * 10) / 10;
+      daily.time.push(ymd(d));
+      daily.weather_code.push(mm >= 15 ? 95 : mm >= 6 ? 63 : mm > 0 ? 80 : r < .2 ? 0 : r < .35 ? 1 : r < .5 ? 2 : 3);
+      daily.temperature_2m_max.push(Math.round(hi * 10) / 10);
+      daily.temperature_2m_min.push(Math.round((hi - 7 - this.rnd(k + 1) * 5) * 10) / 10);
+      daily.precipitation_sum.push(mm);
+      daily.precipitation_probability_max.push(mm > 0 ? Math.round(45 + r * 50) : Math.round(r * 30));
+    }
+    return { daily };
+  },
 };
+
+// ================================================================ forecast
+
+// Open-Meteo: free, no key, and it answers browsers. It picks the best
+// models for the location (ECMWF, GFS, ACCESS-G and others). CC BY 4.0, so
+// the strip credits it.
+const OPEN_METEO = 'https://api.open-meteo.com/v1/forecast';
+
+const hasLocation = () => S.lat !== '' && S.lon !== '' && isFinite(parseFloat(S.lat)) && isFinite(parseFloat(S.lon));
+const forecastWanted = () => S.week === 'forecast' && (S.demo || hasLocation());
+
+async function getForecast(units) {
+  const q = new URLSearchParams({
+    latitude: String(parseFloat(S.lat)), longitude: String(parseFloat(S.lon)),
+    daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max',
+    timezone: 'auto', past_days: '1', forecast_days: '6',
+  });
+  if (/f/i.test(units.temp)) q.set('temperature_unit', 'fahrenheit');
+  if (/in/i.test(units.rain)) q.set('precipitation_unit', 'inch');
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 15000);
+  try {
+    const res = await fetch(OPEN_METEO + '?' + q, { cache: 'no-store', signal: ctl.signal });
+    if (!res.ok) {
+      let reason = '';
+      try { reason = (await res.json()).reason || ''; } catch { /* no reason given */ }
+      throw new Error(reason ? `Open-Meteo: ${reason}` : `Open-Meteo answered ${res.status}`);
+    }
+    return await res.json();
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('Open-Meteo took too long to answer');
+    if (e instanceof TypeError) throw new Error("Can't reach Open-Meteo; is the tablet on the internet?");
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function parseForecast(v) {
+  const d = v && v.daily;
+  if (!d || !Array.isArray(d.time)) throw new Error('Open-Meteo sent no daily forecast');
+  const at = (k, i) => (Array.isArray(d[k]) ? toNum(d[k][i]) : null);
+  return d.time.map((t, i) => ({
+    date: parseDate(t),
+    code: at('weather_code', i),
+    tmax: at('temperature_2m_max', i),
+    tmin: at('temperature_2m_min', i),
+    rain: at('precipitation_sum', i),
+    prob: at('precipitation_probability_max', i),
+  })).filter(x => x.date && !isNaN(x.date));
+}
+
+// WMO weather codes, as Open-Meteo sends them, in plain words.
+function wxWord(c) {
+  if (c == null) return '';
+  if (c === 0) return 'Sunny';
+  if (c === 1) return 'Mostly sunny';
+  if (c === 2) return 'Partly cloudy';
+  if (c === 3) return 'Cloudy';
+  if (c === 45 || c === 48) return 'Fog';
+  if (c >= 51 && c <= 55) return 'Drizzle';
+  if (c >= 56 && c <= 57) return 'Freezing drizzle';
+  if (c === 61) return 'Light rain';
+  if (c === 63) return 'Rain';
+  if (c === 65) return 'Heavy rain';
+  if (c >= 66 && c <= 67) return 'Freezing rain';
+  if (c >= 71 && c <= 77) return 'Snow';
+  if (c === 80 || c === 81) return 'Showers';
+  if (c === 82) return 'Heavy showers';
+  if (c === 85 || c === 86) return 'Snow showers';
+  if (c === 95) return 'Thunderstorms';
+  if (c >= 96) return 'Storms with hail';
+  return '';
+}
+
+// A small line drawing for a weather code: sun in amber, rain in blue.
+function wxIcon(c) {
+  if (c == null) return '';
+  const sun = '<g style="stroke:var(--warn)"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/></g>';
+  const peek = '<g style="stroke:var(--warn)"><circle cx="8.5" cy="7.5" r="3"/><path d="M8.5 2v1.3M3 7.5h1.3M4.6 3.6l.9.9M12.4 3.6l-.9.9"/></g>';
+  const cloud = y => `<path class="cl" transform="translate(0 ${y})" d="M7.5 19h9.5a3.5 3.5 0 0 0 .4-7 5 5 0 0 0-9.7-.9A4 4 0 0 0 7.5 19z"/>`;
+  const drops = '<path style="stroke:var(--rain)" d="M9 18.5 8 21M12.5 18.5l-1 2.5M16 18.5l-1 2.5"/>';
+  const dots = '<path style="stroke:var(--rain)" stroke-width="2.2" d="M9 19.5h.01M12.5 21h.01M16 19.5h.01"/>';
+  const flakes = '<path stroke-width="2.4" d="M9 19.5h.01M12.5 21.5h.01M16 19.5h.01"/>';
+  const bolt = '<path style="stroke:var(--warn)" d="M12.5 17.5 10.5 20.5h3l-2 3"/>';
+  let s;
+  if (c <= 1) s = sun;
+  else if (c === 2) s = peek + cloud(0);
+  else if (c === 3) s = cloud(-1);
+  else if (c === 45 || c === 48) s = cloud(-4) + '<path d="M5 19h14M7 22h10"/>';
+  else if (c >= 51 && c <= 57) s = cloud(-4) + dots;
+  else if ((c >= 71 && c <= 77) || c === 85 || c === 86) s = cloud(-4) + flakes;
+  else if (c >= 80 && c <= 82) s = peek + cloud(-3) + drops;
+  else if (c >= 95) s = cloud(-4) + bolt;
+  else s = cloud(-4) + drops;
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${s}</svg>`;
+}
 
 // ================================================================ state and polling
 
@@ -793,6 +990,10 @@ const state = {
   days: [],
   daysError: null,
   daysFor: '',           // the date the days were fetched on
+  forecast: null,        // Open-Meteo's days, yesterday to five ahead
+  forecastAt: 0,
+  forecastError: null,
+  forecastFor: '',       // the date it was last asked for
 };
 const timers = {};
 
@@ -807,6 +1008,8 @@ async function pollLive() {
     state.live = r;
     state.liveAt = now;
     state.error = null;
+    // The forecast waits for the first reading, for the station's units.
+    if (forecastWanted() && !state.forecastFor) pollForecast();
     // Keep a sample a minute in case the graph data isn't available.
     for (const k of ['temp', 'dew']) {
       const arr = state.samples[k], v = r[k];
@@ -854,13 +1057,32 @@ async function pollDays() {
   timers.days = setTimeout(pollDays, 30 * 60e3);
 }
 
+// The forecast, hourly. It waits for the first reading so it can ask in the
+// station's units.
+async function pollForecast() {
+  clearTimeout(timers.forecast);
+  if (!forecastWanted()) { state.forecast = null; state.forecastError = null; renderWeek(); return; }
+  if (!state.live && !S.demo) return;
+  state.forecastFor = ymd(new Date());
+  try {
+    state.forecast = parseForecast(S.demo ? Demo.forecast() : await getForecast(state.live.units));
+    state.forecastAt = Date.now();
+    state.forecastError = null;
+  } catch (e) {
+    state.forecastError = e.message;
+  }
+  renderWeek();
+  timers.forecast = setTimeout(pollForecast, (state.forecastError ? 10 : 60) * 60e3);
+}
+
 function restart() {
   Object.values(timers).forEach(clearTimeout);
   state.live = null; state.error = null; state.stationRead = null;
   state.graph = { temp: [], dew: [] }; state.graphOk = null; state.samples = { temp: [], dew: [] };
   state.days = []; state.daysError = null;
+  state.forecast = null; state.forecastAt = 0; state.forecastError = null; state.forecastFor = '';
   render();
-  pollLive(); pollGraph(); pollDays();
+  pollLive(); pollGraph(); pollDays(); pollForecast();
 }
 
 // ================================================================ rendering
@@ -1018,49 +1240,120 @@ function dryFor(r) {
 
 // ---------------------------------------------------------------- the week
 
+// Columns for the last seven days, from MX's dayfile and today's reading.
+function historyCols(r, today) {
+  const cols = state.days.filter(d => d.date < today).slice(-6).map(d => ({ date: d.date, obs: d }));
+  cols.push({ date: today, today: true, obs: r && { tmin: r.tempLow, tmax: r.tempHigh, rain: r.rainToday } });
+  return cols;
+}
+
+// Yesterday as measured, today as measured so far against its forecast, and
+// five days of forecast.
+function forecastCols(fc, r, today) {
+  const on = d => fc.find(x => +x.date === +d);
+  const yest = new Date(today); yest.setDate(yest.getDate() - 1);
+  const y = state.days.find(d => +d.date === +yest);
+  const yObs = y ? { tmin: y.tmin, tmax: y.tmax, rain: y.rain } : r && r.rainYest != null ? { rain: r.rainYest } : null;
+  const cols = [
+    { date: yest, label: 'Yesterday', obs: yObs, fc: on(yest), past: true },
+    { date: today, today: true, obs: r && { tmin: r.tempLow, tmax: r.tempHigh, rain: r.rainToday }, fc: on(today) },
+  ];
+  for (let i = 1; i <= 5; i++) {
+    const d = new Date(today); d.setDate(d.getDate() + i);
+    cols.push({ date: d, fc: on(d) });
+  }
+  return cols;
+}
+
+const sentence = s => (/[.?!]$/.test(s) ? s : s + '.');
+
 function renderWeek() {
   const el = $('days');
   const r = state.live;
   const today = startOfDay(new Date());
-  const past = state.days.filter(d => d.date < today).slice(-6);
-  const cols = past.map(d => ({ ...d, today: false }));
-  cols.push({ date: today, tmin: r && r.tempLow, tmax: r && r.tempHigh, rain: r && r.rainToday, today: true });
+  const fc = forecastWanted() && state.forecast && state.forecast.length ? state.forecast : null;
+  const cols = fc ? forecastCols(fc, r, today) : historyCols(r, today);
 
-  const temps = cols.flatMap(c => [c.tmin, c.tmax]).filter(v => v != null);
-  let lo = Math.min(...temps), hi = Math.max(...temps);
-  if (!temps.length) { lo = 0; hi = 1; }
+  const has = v => v != null && isFinite(v);
+  const temps = [];
+  for (const c of cols) for (const x of [c.obs, c.fc]) if (x) temps.push(x.tmin, x.tmax);
+  const tv = temps.filter(has);
+  let lo = tv.length ? Math.min(...tv) : 0, hi = tv.length ? Math.max(...tv) : 1;
   if (hi - lo < 4) { const m = (hi + lo) / 2; lo = m - 2; hi = m + 2; }
-  const inches = r && /in/i.test(r.units.rain);
-  const rd = inches ? 2 : 1;
-  const rains = cols.map(c => c.rain || 0);
-  const rmax = Math.max(inches ? 0.4 : 10, ...rains);
   const pos = v => (v - lo) / (hi - lo) * 100;
+  const inches = r && /in/i.test(r.units.rain);
+  const rd = inches ? 2 : 1, ru = r ? r.units.rain : 'mm';
+  const trace = inches ? 0.01 : 0.2;
+  const rains = [];
+  for (const c of cols) for (const x of [c.obs, c.fc]) if (x && has(x.rain)) rains.push(x.rain);
+  const rmax = Math.max(inches ? 0.4 : 10, ...rains);
+  const rh = v => (v > 0 ? Math.max(v / rmax * 100, 3) : 0);
+  const bar = (x, cls) => {
+    if (!x || !has(x.tmin) || !has(x.tmax)) return '';
+    const b = pos(x.tmin), t = pos(x.tmax);
+    return `<i class="${cls}" style="bottom:${b}%;height:${Math.max(t - b, 1.5)}%"></i>`;
+  };
 
   el.innerHTML = '';
   for (const c of cols) {
     const d = document.createElement('div');
     d.className = 'day' + (c.today ? ' today' : '');
-    const name = c.today ? 'Today' : DAYS[c.date.getDay()].slice(0, 3);
-    const sub = c.today ? 'so far' : `${c.date.getDate()} ${MONTHS[c.date.getMonth()].slice(0, 3)}`;
-    let track = '';
-    if (c.tmax != null && c.tmin != null) {
-      const b = pos(c.tmin), t = pos(c.tmax);
-      track = `<i style="bottom:${b}%;height:${Math.max(t - b, 1.5)}%"></i>` +
-        `<span class="h" style="bottom:calc(${t}% + 2px)">${fmt(c.tmax, 0)}°</span>` +
-        `<span class="l" style="top:calc(${100 - b}% + 2px)">${fmt(c.tmin, 0)}°</span>`;
+    const name = c.today ? 'Today' : c.label || DAYS[c.date.getDay()].slice(0, 3);
+    const sub = c.today && !fc ? 'so far' : `${c.date.getDate()} ${MONTHS[c.date.getMonth()].slice(0, 3)}`;
+
+    // The labels give the day's whole range: measured, or forecast, or both.
+    const highs = [c.obs && c.obs.tmax, c.fc && c.fc.tmax].filter(has);
+    const lows = [c.obs && c.obs.tmin, c.fc && c.fc.tmin].filter(has);
+    // Yesterday is measured; the forecast stands in only when the station has no line for it.
+    const showFc = c.fc && !(c.past && c.obs && has(c.obs.tmax));
+    const solo = !c.obs;
+    let track = (showFc ? bar(c.fc, solo ? 'f solo' : 'f') : '') + bar(c.obs, 'o');
+    if (highs.length && lows.length) {
+      const t = pos(Math.max(...highs)), b = pos(Math.min(...lows));
+      track += `<span class="h" style="bottom:calc(${t}% + 2px)">${fmt(Math.max(...highs), 0)}°</span>` +
+        `<span class="l" style="top:calc(${100 - b}% + 2px)">${fmt(Math.min(...lows), 0)}°</span>`;
     }
-    const rain = c.rain || 0;
+
+    // Rain: what fell (solid), and what's forecast (faint).
+    const obsRain = c.obs && has(c.obs.rain) ? c.obs.rain : null;
+    const fcRain = c.fc && !c.past && has(c.fc.rain) ? c.fc.rain : null;
+    const prob = c.fc && !c.past && has(c.fc.prob) ? c.fc.prob : null;
+    let label, cls = '';
+    if (obsRain != null) {
+      label = obsRain > 0 ? `${fmt(obsRain, rd)} ${ru}` : c.today && fcRain != null ? 'Dry so far' : 'Dry';
+      if (!(obsRain > 0)) cls = ' dry';
+    } else if (fcRain != null) {
+      const wet = fcRain >= trace || (prob != null && prob >= 30);
+      label = wet ? `${fmt(fcRain, rd)} ${ru}` : 'Dry';
+      if (!wet) cls = ' dry';
+    } else label = '–';
+    const chance = prob != null && (fcRain >= trace || prob >= 30) ? `<small>${Math.round(prob)}% chance</small>` : '';
+
+    const code = c.fc ? c.fc.code : null;
     d.innerHTML =
       `<div class="dn">${name}<small>${sub}</small></div>` +
+      (fc ? `<div class="wx" title="${esc(wxWord(code))}">${wxIcon(code) || '<svg viewBox="0 0 24 24"></svg>'}<small>${esc(wxWord(code)) || '&nbsp;'}</small></div>` : '') +
       `<div class="track">${track}</div>` +
-      `<div class="rbar"><i style="height:${rain > 0 ? Math.max(rain / rmax * 100, 3) : 0}%"></i></div>` +
-      `<div class="rmm${rain > 0 ? '' : ' dry'}">${c.rain == null ? '–' : rain > 0 ? fmt(rain, rd) + ' ' + (r ? r.units.rain : 'mm') : 'Dry'}</div>`;
+      `<div class="rbar">${fcRain != null ? `<i class="f${solo ? ' solo' : ''}" style="height:${rh(fcRain)}%"></i>` : ''}` +
+      `${obsRain != null ? `<i class="o" style="height:${rh(obsRain)}%"></i>` : ''}</div>` +
+      `<div class="rmm${cls}">${label}${chance}</div>`;
     el.append(d);
   }
-  const total = rains.reduce((a, b) => a + b, 0);
-  let sum = '';
-  if (state.daysError && !state.days.length) sum = `Daily history unavailable: ${state.daysError}`;
-  else if (r) sum = `${fmt(total, rd)} ${r.units.rain} of rain over these 7 days`;
+
+  let title = 'This week', sum = '';
+  const at = state.forecastAt ? new Date(state.forecastAt) : null;
+  if (fc) {
+    title = 'The week ahead';
+    sum = `Faint: forecast from ${S.demo ? 'the demo station' : 'Open-Meteo.com'}, ${hm(at.getHours(), at.getMinutes())}`;
+    if (state.forecastError) sum = `${sentence(state.forecastError)} ${sum}`;
+  } else {
+    const total = cols.reduce((a, c) => a + (c.obs && has(c.obs.rain) ? c.obs.rain : 0), 0);
+    if (state.daysError && !state.days.length) sum = `Daily history unavailable: ${state.daysError}`;
+    else if (r) sum = `${fmt(total, rd)} ${ru} of rain over these 7 days`;
+    if (S.week === 'forecast' && !S.demo && !hasLocation()) sum += (sum ? '. ' : '') + 'Set your location in Settings for a forecast';
+    else if (forecastWanted() && state.forecastError) sum = `${sentence(state.forecastError)} ${sum}`;
+  }
+  set('w-title', title);
   set('w-sum', sum);
 }
 
@@ -1248,15 +1541,18 @@ function drawTank(pct = (tankModel() || {}).pct) {
   $('tank-fig').innerHTML = s;
 }
 
+// Phones get their own choice of cards: a phone has room for two.
+const PHONE = matchMedia('(max-width: 600px), (max-height: 500px)');
+
 function layoutCards() {
-  const show = { 'c-tanks': S.show.tanks, 'c-wind': S.show.wind, 'c-hum': S.show.hum };
+  const pick = PHONE.matches ? S.showPhone : S.show;
+  const show = { 'c-tanks': pick.tanks, 'c-wind': pick.wind, 'c-hum': pick.hum };
   let n = 0;
   for (const [id, on] of Object.entries(show)) { $(id).hidden = !on; if (on) n++; }
   const more = $('more');
   more.hidden = n === 0;
   more.style.setProperty('--n', Math.max(n, 1));
-  const now = $('view-now');
-  now.style.gridTemplateRows = n === 0 ? 'minmax(0,1.3fr) minmax(0,1fr) 0' : '';
+  $('view-now').classList.toggle('no-more', n === 0);
 }
 
 // ================================================================ views and settings form
@@ -1273,8 +1569,10 @@ function showView(name) {
 function fillForm(s) {
   const f = $('form').elements;
   f.name.value = s.name; f.mx.value = s.mx; f.refresh.value = String(s.refresh); f.demo.checked = s.demo;
-  f.theme.value = s.theme; f.clock24.checked = s.clock24;
+  f.lat.value = s.lat; f.lon.value = s.lon;
+  f.theme.value = s.theme; f.clock24.checked = s.clock24; f.week.value = s.week;
   f.showTanks.checked = s.show.tanks; f.showWind.checked = s.show.wind; f.showHum.checked = s.show.hum;
+  f.phoneTanks.checked = s.showPhone.tanks; f.phoneWind.checked = s.showPhone.wind; f.phoneHum.checked = s.showPhone.hum;
   const t = s.tanks;
   f.roof.value = t.roof || ''; f.capacity.value = t.capacity || ''; f.use.value = t.use || ''; f.keep.value = t.keep || '';
   f.knownDate.value = t.knownDate; f.knownLitres.value = t.knownDate ? t.knownLitres : '';
@@ -1284,10 +1582,19 @@ function fillForm(s) {
 function readForm() {
   const f = $('form').elements;
   const n = el => Math.max(0, parseFloat(el.value) || 0);
+  // "38.6 S" or "-38,6" to -38.6; anything else is left empty.
+  const coord = (el, neg) => {
+    const s = el.value.trim().replace(',', '.');
+    const v = parseFloat(s);
+    if (!isFinite(v)) return '';
+    return neg.test(s) && v > 0 ? -v : v;
+  };
   return {
     name: f.name.value.trim(), mx: f.mx.value.trim(), refresh: +f.refresh.value || 10, demo: f.demo.checked,
-    theme: f.theme.value, clock24: f.clock24.checked,
+    lat: coord(f.lat, /s\s*$/i), lon: coord(f.lon, /w\s*$/i),
+    theme: f.theme.value, clock24: f.clock24.checked, week: f.week.value,
     show: { tanks: f.showTanks.checked, wind: f.showWind.checked, hum: f.showHum.checked },
+    showPhone: { tanks: f.phoneTanks.checked, wind: f.phoneWind.checked, hum: f.phoneHum.checked },
     tanks: { roof: n(f.roof), capacity: n(f.capacity), use: n(f.use), keep: n(f.keep), knownDate: f.knownDate.value, knownLitres: n(f.knownLitres) },
   };
 }
@@ -1301,12 +1608,14 @@ $('form').onsubmit = e => {
   const next = readForm();
   const reconnect = next.mx !== S.mx || next.demo !== S.demo || next.refresh !== S.refresh ||
     JSON.stringify(next.tanks) !== JSON.stringify(S.tanks);
+  const reforecast = next.lat !== S.lat || next.lon !== S.lon || next.week !== S.week;
   storeSet(next);
   // Address options still win over what's saved.
   S = loadSettings();
   layoutCards();
   showView('now');
-  if (reconnect) restart(); else render();
+  if (reconnect) restart();
+  else { render(); if (reforecast) { state.forecast = null; state.forecastAt = 0; state.forecastFor = ''; pollForecast(); } }
 };
 
 $('full-today').onclick = () => {
@@ -1386,7 +1695,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 let resizeTimer;
-addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { drawThermo(); renderWeek(); }, 150); });
+addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { layoutCards(); drawThermo(); renderWeek(); }, 150); });
 
 setInterval(() => {
   renderClock();
@@ -1394,6 +1703,8 @@ setInterval(() => {
   applyTheme();
   // A new day: fetch yesterday's line once MX has written it.
   if (state.daysFor && state.daysFor !== ymd(new Date()) && new Date().getMinutes() % 5 === 0) pollDays();
+  // A new day: move the forecast along.
+  if (state.forecastFor && state.forecastFor !== ymd(new Date())) pollForecast();
   nightlyReload();
 }, 5000);
 

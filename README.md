@@ -48,7 +48,7 @@ Desktop notifications cover strong gusts, frost, heat, and rain starting after t
 
 ## Wall panel
 
-`web/isobar-panel.html` is a cut-down Now screen as one web page, for a tablet on the wall: temperature and the last 24 hours, rain today, this week's highs, lows and rain, and smaller tanks, wind and humidity cards, with a Settings view. It reads MX directly and needs no internet. Copy it into the `interface` folder of your Cumulus MX folder and open `http://<mx-address>:8998/isobar-panel.html` on the tablet. Add `?demo` to try it with made-up weather. The [user guide](docs/guide/index.html#panel) has the details.
+`web/isobar-panel.html` is a cut-down Now screen as one web page, for a tablet on the wall: temperature and the last 24 hours, rain today, the week ahead (yesterday, today and a five-day forecast), and smaller tanks, wind and humidity cards, with a Settings view. It reads MX directly; only the forecast needs the internet (from [Open-Meteo](https://open-meteo.com), for the location set in Settings). It works on phones too. Copy it into the `interface` folder of your Cumulus MX folder and open `http://<mx-address>:8998/isobar-panel.html` on the tablet. Add `?demo` to try it with made-up weather. The [user guide](docs/guide/index.html#panel) has the details.
 
 ## How it talks to Cumulus MX
 

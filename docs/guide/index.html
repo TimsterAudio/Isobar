@@ -793,16 +793,22 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <h2>Wall panel <span class="tag">Web page</span></h2>
   <p>For a tablet on the kitchen wall: <code>web/isobar-panel.html</code> is a single web page that shows what the household wants at a glance and nothing else. It reads Cumulus MX directly, so Isobar doesn't need to be running. There are two views, <b>Now</b> and <b>Settings</b>.</p>
   <div class="pair">
-    <figure class="shot"><img src="img/panel-light.webp" alt="The wall panel by day: temperature, the last 24 hours, rain today, this week, tanks, wind and humidity" loading="lazy"><figcaption>By day.</figcaption></figure>
+    <figure class="shot"><img src="img/panel-light.webp" alt="The wall panel by day: temperature, the last 24 hours, rain today, the week ahead, tanks, wind and humidity" loading="lazy"><figcaption>By day.</figcaption></figure>
     <figure class="shot"><img src="img/panel-dark.webp" alt="The same panel in its dark theme" loading="lazy"><figcaption>From sunset to sunrise it turns dark by itself.</figcaption></figure>
   </div>
   <ul>
     <li><b>Temperature:</b> now, its trend, today's high and low with times, feels like, dew point, pressure and MX's forecast.</li>
     <li><b>The last 24 hours:</b> temperature and dew point on chart paper, with the warmest and coolest moments marked.</li>
     <li><b>Rain today:</b> the rate while it's raining, or how long it's been dry; then the last hour, yesterday, this week, the month and the year.</li>
-    <li><b>This week:</b> each of the last six days' high, low and rain from MX's dayfile, and today so far.</li>
+    <li><b>The week ahead:</b> yesterday as your station measured it, today so far against its forecast, and five days of forecast: the weather in a picture and a word, the high and low, and the rain with its chance. What's been measured is solid; what's forecast is faint.</li>
     <li><b>Tanks, wind and humidity</b> in a smaller row along the bottom; choose which show in Settings.</li>
   </ul>
+  <h3>The forecast</h3>
+  <p>A station can tell you a great deal about the weather it has had, and MX's own forecast does a fair job of the next twelve hours from the barometer, but five days ahead takes a weather model run on a very large computer. The panel asks <a href="https://open-meteo.com">Open-Meteo</a>, a free service that blends the best models for your spot (including the Bureau of Meteorology's ACCESS-G in Australia), for your latitude and longitude. Set them in Settings → Station; long-press your house in Google Maps or Apple Maps to read them off (south and west are negative, or type "38.6 S").</p>
+  <p>The forecast is the one thing that needs the internet; it's fetched every hour, in your station's units. Without a location, or with the internet down, the strip shows the last seven days from MX instead, and says why. Prefer the history anyway? Settings → Display → <b>The week strip shows</b>.</p>
+  <h3>On a phone</h3>
+  <figure class="shot" style="max-width:300px"><img src="img/panel-phone.webp" alt="The panel on a phone: the header on two lines, temperature and rain side by side, the trace, and the week ahead" loading="lazy"><figcaption>On a phone it scrolls.</figcaption></figure>
+  <p>On a phone the header takes two lines, the page scrolls, and the cards along the bottom keep to words. A phone has room for two cards, so it shows wind and humidity unless you choose otherwise: Settings → Display → <b>Cards along the bottom</b> has a tick box for tablets and another for phones.</p>
   <h3>Putting it on a tablet</h3>
   <p>Copy <code>isobar-panel.html</code> into the <code>interface</code> folder inside your Cumulus MX folder, then open <code>http://&lt;your MX address&gt;:8998/isobar-panel.html</code> on the tablet. Served by MX itself, the page can ask MX for readings with no setup at all. Then make it a fixture: full screen, screen always on, and nobody wandering off to play games on it.</p>
   <h3>iPad (or iPhone)</h3>
@@ -1034,6 +1040,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <div class="tbl"><table>
     <thead><tr><th>Date</th><th>Change</th></tr></thead>
     <tbody>
+      <tr><td>21 Oct 2026</td><td>Wall panel: the week ahead with a forecast from Open-Meteo, and a layout for phones. New screenshots.</td></tr>
       <tr><td>20 Oct 2026</td><td>Wall panel: setting it up on an iPad and on Android, full screen with the screen on.</td></tr>
       <tr><td>20 Oct 2026</td><td>The wall panel: a one-page display for a tablet, with screenshots.</td></tr>
       <tr><td>20 Oct 2026</td><td>Open in browser now saves to Documents/Isobar reports and says why if a browser won't open (0.4.1).</td></tr>
