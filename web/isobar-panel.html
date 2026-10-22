@@ -1041,7 +1041,7 @@ function daysWanted() {
   const t = tanks();
   if (!t) return 7;
   const known = t.knownDate ? new Date(t.knownDate + 'T00:00') : null;
-  return known && !isNaN(known) ? Math.min(800, Math.max(7, dayDiff(known, new Date()) + 1)) : 366;
+  return known && !isNaN(known) ? Math.min(800, Math.max(7, dayDiff(known, new Date()) + 3)) : 366;
 }
 
 async function pollDays() {
@@ -1365,52 +1365,81 @@ function tanks() {
   return S.demo ? DEMO_TANKS : null;
 }
 
-// Isobar's tank model: each day level + caught − used, capped at capacity,
-// with 0.1 mm days catching nothing. Starts at the known level, or full a
-// year back. Today counts the rain so far and the use so far.
+// Isobar's tank model (tanks.rs). Every day from the first finished day on
+// record to the last: level + caught − used, capped at capacity, with 0.1 mm
+// days catching nothing and a day missing from the record counted as dry.
+// It starts full (a guess that settles at the first overflow) and a known
+// level resets it at the end of its day.
+//
+// Then today so far, as Isobar's tanks::today: the day after the last on
+// record, with the rain since the station's day began and the day's use in
+// proportion to the time gone. A station whose day starts at 9am is still on
+// yesterday's date until then, so that day is used in full. Nothing is added
+// if the record is more than a day behind, or a known level is set for that
+// day or later; a known level after the record stands as the level.
 function tankModel() {
   const t = tanks(), r = state.live;
-  if (!t || !r) return null;
-  const toMm = /in/i.test(r.units.rain) ? 25.4 : 1;
-  const caught = mm => (mm * toMm <= 0.1 + 1e-9 ? 0 : mm * toMm * t.roof);
-  const today = startOfDay(new Date());
-  const known = t.knownDate ? new Date(t.knownDate + 'T00:00') : null;
-  const hasKnown = known && !isNaN(known) && known <= today;
-  let level = t.capacity, weekCaught = 0;
-  const weekFrom = new Date(today); weekFrom.setDate(weekFrom.getDate() - 6);
-  for (const d of state.days) {
-    if (d.date >= today) continue;
-    if (hasKnown && d.date < known) continue;
-    if (hasKnown && +d.date === +known) { level = Math.min(t.knownLitres, t.capacity); continue; }
-    const c = caught(d.rain || 0);
-    if (d.date >= weekFrom) weekCaught += c;
-    level = Math.max(0, Math.min(t.capacity, level + c - t.use));
+  if (!t || !state.days.length) return null;
+  const toMm = r && /in/i.test(r.units.rain) ? 25.4 : 1;
+  const caught = mm => (mm <= 0.1 + 1e-9 ? 0 : mm * t.roof);
+  const clamp = v => Math.max(0, Math.min(t.capacity, v));
+  const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  const kd = t.knownDate ? new Date(t.knownDate + 'T00:00') : null;
+  const known = kd && !isNaN(kd) ? { date: kd, litres: t.knownLitres } : null;
+
+  const rainOn = new Map(state.days.map(d => [ymd(d.date), d.rain]));
+  const first = state.days[0].date, last = state.days[state.days.length - 1].date;
+  const sim = [];
+  let level = t.capacity;
+  for (let d = startOfDay(first); d <= last; d = addDays(d, 1)) {
+    const c = caught(Math.max(0, rainOn.get(ymd(d)) || 0) * toMm);
+    level = clamp(level + c - t.use);
+    if (known && +known.date === +d) level = clamp(known.litres);
+    sim.push({ date: d, caught: c, level });
   }
-  if (hasKnown && +known === +today) level = Math.min(t.knownLitres, t.capacity);
-  else {
-    const c = caught(r.rainToday || 0);
-    weekCaught += c;
-    const sofar = (Date.now() - today.getTime()) / 864e5;
-    level = Math.max(0, Math.min(t.capacity, level + c - t.use * sofar));
+
+  let partial = false;
+  const end = sim[sim.length - 1];
+  const date = addDays(end.date, 1), now = new Date();
+  const behind = dayDiff(date, now);
+  if (r && behind >= 0 && behind <= 1 && !(known && known.date >= date)) {
+    const gone = Math.max(0, Math.min(1, (now - date) / 864e5));
+    const c = caught(Math.max(0, r.rainToday || 0) * toMm);
+    sim.push({ date, caught: c, level: clamp(end.level + c - t.use * gone) });
+    partial = true;
   }
-  const left = t.use > 0 ? Math.max(0, (level - (t.keep || 0)) / t.use) : null;
-  return { level, pct: level / t.capacity * 100, left, weekCaught, t, hasKnown };
+
+  const lastDay = sim[sim.length - 1];
+  let at = lastDay.date;
+  level = lastDay.level;
+  if (known && known.date > lastDay.date) { level = clamp(known.litres); at = known.date; partial = false; }
+  // The day the level reaches the keep-above level with no rain.
+  const keep = t.keep || 0;
+  const dryLow = level <= keep ? at : t.use > 0 ? addDays(at, Math.ceil((level - keep) / t.use)) : null;
+  const weekFrom = addDays(startOfDay(now), -6);
+  const weekCaught = sim.filter(d => d.date >= weekFrom).reduce((a, d) => a + d.caught, 0);
+  return { level, pct: level / t.capacity * 100, at, partial, dryLow, weekCaught, t };
 }
 
 function renderTanks() {
   const m = tankModel();
   if (!m) {
     set('k-pct', '–');
-    set('k-litres', state.live ? 'Set up your tanks in Settings' : '');
+    set('k-litres', !tanks() ? (state.live ? 'Set up your tanks in Settings' : '')
+      : state.daysError ? `Needs MX's daily history: ${state.daysError}` : 'Waiting for MX’s daily history…');
     set('k-days', '');
     drawTank(null);
     return;
   }
   set('k-pct', Math.round(m.pct) + '%');
-  set('k-litres', `About ${thousands(m.level)} L of ${thousands(m.t.capacity)} L`);
+  const when = m.partial || +m.at === +startOfDay(new Date()) ? 'now'
+    : `at the end of ${m.at.getDate()} ${MONTHS[m.at.getMonth()].slice(0, 3)}`;
+  set('k-litres', `About ${thousands(m.level)} L of ${thousands(m.t.capacity)} L ${when}`);
   const p = $('k-days');
-  p.className = m.left != null && m.left < 30 ? 'warn' : '';
-  const days = m.left == null ? '' : m.left < 1 ? 'At the keep-above level' : `${thousands(m.left)} days of water with no rain`;
+  const left = m.dryLow ? Math.max(0, dayDiff(new Date(), m.dryLow)) : null;
+  p.className = left != null && left < 30 ? 'warn' : '';
+  const days = !m.dryLow ? '' : left === 0 ? 'No rain: at the keep-above level'
+    : `No rain: ${thousands(left)} days, to ${m.dryLow.getDate()} ${MONTHS[m.dryLow.getMonth()].slice(0, 3)}`;
   p.textContent = days + (m.weekCaught > 0 ? `${days ? '; ' : ''}${thousands(m.weekCaught)} L caught this week` : '');
   drawTank(m.pct);
 }
