@@ -2,10 +2,10 @@
 
 Everything that could be added, from the data the owner's Cumulus MX 5.1.5 station sends. Added in full on 2026-10-18 so the owner can trim it. The owner reviews it on a printable checklist page with the same IDs, and marks each item **Yes** (build it), *Later* (keep, not now) or no (drop it). Items with no mark are still undecided; don't build them.
 
-## Decisions so far (2026-10-20)
+## Decisions so far (2026-10-22)
 
-- **Yes:** A1, A2, A3, B1, B2, B3, B4, B6, B7, B8, C1, D1, D2, D3, D4, E2, E3, F1, F2, G1, G2, H2, H3, I1, I2, K4, L1, L3, Z1, Z2, Z3, Z4, Z6
-- **Undecided:** B5, E1, H1, J1, J2, J3, K1, K3, L2, L4, L5, Z5, Z7
+- **Yes:** A1, A2, A3, B1, B2, B3, B4, B6, B7, B8, C1, D1, D2, D3, D4, E2, E3, F1, F2, G1, G2, H2, H3, I1, I2, K4, L1, L3, Z1, Z2, Z3, Z4, Z6, Z8
+- **Undecided:** B5, E1, H1, J1, J2, J3, K1, K3, K5, L2, L4, L5, Z5, Z7, Z9
 
 Tags: **Stored** is already in the local history (no new downloading), **Live** is sent by MX in `currentdata` but not read yet (add it to `LiveReading` in `crates/isobar-core/src/live.rs` and check it against the fixture), **Build** is worked out by Isobar. ★ marks a suggested starting point.
 
@@ -65,6 +65,7 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 ## K. Bigger features
 - [ ] **K1** Readout in the system tray. *Build*
 - [ ] **K3** MX password in the system keychain instead of `settings.json`. *Build*
+- [ ] **K5** Settings and the tank record kept in a folder you choose (a network share, say), so a second computer running Isobar picks them up. The history stays local on each, rebuilt from MX. *Build* (added 2026-10-22, from the backup and second-computer discussion on 2026-10-19)
 - [x] **K4** Detailed history from MX's monthly log files (a reading every few minutes, back as far as MX has them), synced like the dayfile. Gives true 24-hour pressure falls, hour-by-hour rain intensity and the thermograph for any past day. *Build* — **Yes**, done 2026-10-19. `/api/data/logfile?from=YYYY-MM-DD&to=YYYY-MM-DD`, a month at a time in the background, newest first; the current month tops up every 10 minutes; stored at most one reading per 10 minutes (one-minute logs combined, 2026-10-19)
 
 ## L. Reports
@@ -84,6 +85,8 @@ Changes to the views and anything not listed, added as the owner sends them.
 - [x] **Z4** Drag a card by its name on Now to reorder; the order is remembered. — **Yes**, done 2026-10-19
 - [x] **Z6** Click a card on Now to show it in the big chart, over a span that suits it (pressure 3 days, rain 7 days of daily totals, tanks 3 months; others 24 hours), with span chips. — **Yes**, done 2026-10-19
 - [ ] **Z5** Units of your choice (metric, imperial, or one by one: °C/°F, mm/in, km/h, m/s, mph, knots, hPa/inHg), as a setting that overrides the station's. By default Isobar keeps following the units MX reports. *Build*
+- [x] **Z8** Tanks count today so far: today's rain from the live reading and the day's use to this time, not just up to yesterday. — **Yes**, done 2026-10-22 (the owner's request)
+- [ ] **Z9** A new name: "Isobar" is used by several other apps. Ideas so far: Atmospherix, AClimatEyes. Means renaming the program, window, files and repository; settings and history can move with a one-time copy. *Build* (added 2026-10-22)
 - [ ] **Z7** More colour themes beyond chart-paper light and dark (for example a warmer paper, a high-contrast theme, or ones matched to other instruments). *Build* (parked 2026-10-19; undecided again 2026-10-20)
 
 ## Notes for building
