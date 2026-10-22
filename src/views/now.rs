@@ -186,10 +186,11 @@ impl Now {
         ui.spacing_mut().item_spacing.y = 24.0;
         if let Some(t) = settings.tanks.as_ref().filter(|t| t.is_set_up()) {
             let key = format!(
-                "{}/{}/{}",
+                "{}/{}/{}/{:?}",
                 snap.days_version,
                 snap.tank_version,
-                serde_json::to_string(t).unwrap_or_default()
+                serde_json::to_string(t).unwrap_or_default(),
+                tanks::today_key(snap)
             );
             if self.tanks.as_ref().is_none_or(|c| c.0 != key) {
                 self.tanks = Some((key, tanks::glance(snap, t)));

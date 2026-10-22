@@ -622,7 +622,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <figure class="shot"><img src="img/tanks-1.webp" alt="Tanks page: two tank drawings, level, outlook, and the level chart" loading="lazy"><figcaption>Two tanks drawn to scale, the headline figures, and the level chart with a year's outlook.</figcaption></figure>
   <h3>The headline figures</h3>
   <ul>
-    <li><b>In the tanks</b>: litres now and how full.</li>
+    <li><b>In the tanks</b>: litres now and how full. "Now" really is now: the station's daily history stops at yesterday, so Isobar adds today so far, with the rain since the station's day began and the day's use to this time of day (by 6 pm, three quarters of it).</li>
     <li><b>With no rain</b>: how many days until the level reaches your keep-above level, and the date.</li>
     <li><b>With rain like past years</b>: replays the rain of every past year from today's date. "Low in 1 of 8" means one of eight past years' weather would take you below keep-above within a year.</li>
     <li><b>Last 30 days</b>: litres in, used and overflowed.</li>
@@ -647,6 +647,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
     <div class="out" id="roof-out" aria-live="polite"></div>
     <p class="note" id="roof-note"></p>
   </div>
+  <p>Today is counted as it goes: the rain so far today, from the live reading, and the daily use in proportion to the time of day. Tomorrow, when the station closes the day and adds it to its history, today's line is replaced by the full day's figures.</p>
   <p>Without a starting point, Isobar assumes the tanks were full on the first day on record and works forward. That's a guess, so give it a <b>known level</b> in Settings: "full" on a day they overflowed, a number of litres, or a depth you measured with a stick (like "1350 mm", which needs the tank diameters). From then on the model starts from what you told it.</p>
   <h3>Importing a tank spreadsheet</h3>
   <p>If you've kept a spreadsheet (Excel, LibreOffice or CSV), Settings → Rainwater tanks → <b>Import a tank record</b> reads it. It needs a <b>Date</b> column and an <b>mm</b> column; <b>Use</b> (litres that day) and <b>Adjust</b> (litres added or taken out, such as a water delivery) are optional. Isobar finds the header row itself.</p>
@@ -988,6 +989,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <div class="tbl"><table>
     <thead><tr><th>Date</th><th>Change</th></tr></thead>
     <tbody>
+      <tr><td>22 Oct 2026</td><td>Tanks count today so far: today's rain and the day's use to this time.</td></tr>
       <tr><td>20 Oct 2026</td><td>Open in browser now saves to Documents/Isobar reports and says why if a browser won't open (0.4.1).</td></tr>
       <tr><td>20 Oct 2026</td><td>Isobar 0.4.0 released, with everything below.</td></tr>
       <tr><td>20 Oct 2026</td><td>Kinder words about Cumulus MX and its forecast.</td></tr>

@@ -48,10 +48,47 @@ pub struct Glance {
     pub year: Vec<(NaiveDate, f64)>,
 }
 
+/// Add today so far to the model's days: the station's rain since its day
+/// began and the day's use to this time. Only with a live reading, as
+/// today's rain comes from it. True if a day was added.
+fn add_today(sim: &mut Vec<TankDay>, snap: &Snapshot, t: &Setup, inches: bool) -> bool {
+    let (Some(last), Some(live)) = (sim.last(), snap.live.as_ref()) else {
+        return false;
+    };
+    let rain = live.rain_today.map(|r| if inches { r * 25.4 } else { r });
+    let date = last.date + Duration::days(1);
+    let used = snap
+        .tank_log
+        .iter()
+        .find(|l| l.date == date)
+        .and_then(|l| l.used);
+    match tk::today(last, Local::now().naive_local(), rain, used, t) {
+        Some(d) => {
+            sim.push(d);
+            true
+        }
+        None => false,
+    }
+}
+
+/// What today so far depends on, for knowing when to work the model out
+/// again: the rain so far, and the time to ten minutes.
+pub fn today_key(snap: &Snapshot) -> (i64, i64) {
+    (
+        snap.live
+            .as_ref()
+            .and_then(|r| r.rain_today)
+            .map_or(-1, |r| (r * 100.0).round() as i64),
+        snap.now_ms / 600_000,
+    )
+}
+
 /// Run the model for the card on Now.
 pub fn glance(snap: &Snapshot, t: &Setup) -> Option<Glance> {
-    let inputs = tk::inputs(&snap.days, &snap.tank_log, is_inches(&snap.units()));
-    let sim = tk::simulate(&inputs, t);
+    let inches = is_inches(&snap.units());
+    let inputs = tk::inputs(&snap.days, &snap.tank_log, inches);
+    let mut sim = tk::simulate(&inputs, t);
+    add_today(&mut sim, snap, t, inches);
     let last = sim.last()?;
     let (level, at) = match t.known.filter(|k| k.date > last.date) {
         Some(k) => (k.litres, k.date),
@@ -79,7 +116,9 @@ pub fn glance(snap: &Snapshot, t: &Setup) -> Option<Glance> {
 }
 
 struct Model {
-    key: (u64, u64, String, bool),
+    key: (u64, u64, String, bool, (i64, i64)),
+    /// The last day of the model is today so far.
+    partial: bool,
     sim: Vec<TankDay>,
     /// The level now and the day it's for.
     level: f64,
@@ -138,10 +177,12 @@ impl TanksView {
             snap.tank_version,
             serde_json::to_string(t).unwrap_or_default(),
             inches,
+            today_key(snap),
         );
         if self.model.as_ref().is_none_or(|m| m.key != key) {
             let inputs = tk::inputs(&snap.days, &snap.tank_log, inches);
-            let sim = tk::simulate(&inputs, t);
+            let mut sim = tk::simulate(&inputs, t);
+            let partial = add_today(&mut sim, snap, t, inches);
             let (mut level, mut at) = sim
                 .last()
                 .map_or((t.capacity(), Local::now().date_naive()), |d| {
@@ -163,6 +204,7 @@ impl TanksView {
                     .filter(|i| !i.station && i.rain.is_some())
                     .count(),
                 key,
+                partial,
                 sim,
                 level,
                 at,
@@ -207,7 +249,11 @@ impl TanksView {
                     let over30: f64 = last30.iter().map(|d| d.overflow).sum();
                     let stats = vec![
                         Stat::new("In the tanks", format!("{} L", litres(m.level)), p.rain).detail(
-                            format!("{}% full at the end of {}", num(Some(m.level / cap * 100.0), 0), short_date(m.at)),
+                            if m.partial && m.sim.last().is_some_and(|d| d.date == m.at) {
+                                format!("{}% full now, counting today so far", num(Some(m.level / cap * 100.0), 0))
+                            } else {
+                                format!("{}% full at the end of {}", num(Some(m.level / cap * 100.0), 0), short_date(m.at))
+                            },
                             p.ink2,
                         ),
                         match o.dry_low {

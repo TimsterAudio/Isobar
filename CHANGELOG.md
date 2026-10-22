@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Tanks count today so far:** the level was the end of yesterday, as the station's daily history stops there. It now adds today: the rain so far from the live reading, and the day's use in proportion to the time of day. The Tanks page says "full now", and the Now card, the charts and the outlook start from it.
+
 ## 0.4.1 – 2026-10-20
 
 - **Open in browser on Linux:** reports now go to an `Isobar reports` folder in Documents, where sandboxed browsers (snap and Flatpak Firefox) are allowed to read them; before, they went to a hidden folder they can't see. Isobar tries `xdg-open`, then `gio open`, then the default browser, and if none opens the page it says why and where the report is saved. Before, it only checked that xdg-open started.
