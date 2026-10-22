@@ -2,10 +2,12 @@
 
 ## Unreleased
 
+- **Tanks count today so far:** the level was the end of yesterday, as the station's daily history stops there. It now adds today: the rain so far from the live reading, and the day's use in proportion to the time of day. The Tanks page says "full now", and the Now card, the charts and the outlook start from it.
 - **Wall panel (Z8):** `web/isobar-panel.html`, a single web page for a tablet on the wall, cut down from Now. It reads MX directly (no Isobar needed) and has two views. *Now* shows the temperature with today's high and low, the last 24 hours of temperature and dew point, rain today with the rate or how long it's been dry, this week's highs, lows and rain from the dayfile, and smaller tanks, wind and humidity cards. *Settings* covers the MX address, name, theme (dark from sunset to sunrise by default), 24-hour times, which small cards show, and the tanks, counted on from a known level. Fonts are built in, so it needs no internet. Serve it from MX's `interface` folder; `?demo` shows made-up weather.
 - **Wall panel, the week ahead:** the week strip shows yesterday as measured, today so far against its forecast, and five days of forecast (a picture and a word for the weather, high and low, rain and its chance) from Open-Meteo, for a latitude and longitude set in Settings. Measured is solid, forecast faint. It's the one part that needs the internet; without it, or without a location, the strip shows the last seven days and says why. Settings → Display can keep the history instead.
 - **Wall panel on a phone:** the header takes two lines, the page scrolls, and the cards keep to words. Phones have their own choice of cards, wind and humidity by default.
 - **Wall panel on a tablet:** adds to an iPad's Home Screen as a full-screen app with the Isobar icon; a Full screen button for Chrome on Android; taps don't zoom, select text or pull to refresh; it reloads itself once a night; and it avoids JavaScript too new for older iPads' Safari (untested on one). The guide has the iPad (Guided Access) and Android (Fully Kiosk Browser, or Chrome with app pinning) steps.
+- **Wall panel, tanks count today:** the panel's tank level follows Isobar's: today so far after the last finished day on record (a 9am station before 9am counts that day in full), a day missing from the record counted as dry, and a known level after the record taken as it stands. The card says "now" or "at the end of" a date, and "No rain: N days, to" the date the tanks reach the keep-above level.
 
 ## 0.4.1 – 2026-10-20
 

@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 use std::f64::consts::PI;
 use std::path::Path;
 
-use chrono::{Datelike, Duration, NaiveDate};
+use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
 use serde::{Deserialize, Serialize};
 
 use crate::dayfile::{self, DayRecord};
@@ -215,6 +215,43 @@ pub fn simulate(inputs: &[Input], t: &Tanks) -> Vec<TankDay> {
             }
         })
         .collect()
+}
+
+/// Today so far, after the last finished day on record: the rain the
+/// station has measured since its day began (`rain_mm`), and the day's use
+/// in proportion to the time gone (`used` for the whole day if a record has
+/// it, else the usual figure). None when the record already reaches today,
+/// is more than a day behind, or a known level is set for today or later.
+pub fn today(
+    last: &TankDay,
+    now: NaiveDateTime,
+    rain_mm: Option<f64>,
+    used: Option<f64>,
+    t: &Tanks,
+) -> Option<TankDay> {
+    let date = last.date + Duration::days(1);
+    // A station whose day starts at 9am is still on yesterday's date until
+    // then, so its "today" can be a calendar day behind.
+    if !(0..=1).contains(&(now.date() - date).num_days()) {
+        return None;
+    }
+    if t.known.is_some_and(|k| k.date >= date) {
+        return None;
+    }
+    let gone = (now - date.and_hms_opt(0, 0, 0)?).num_minutes() as f64 / 1440.0;
+    let rain = rain_mm.unwrap_or(0.0).max(0.0);
+    let caught = t.caught(rain);
+    let used = used.unwrap_or(t.use_per_day) * gone.clamp(0.0, 1.0);
+    let cap = t.capacity();
+    let before = last.level + caught - used;
+    Some(TankDay {
+        date,
+        rain,
+        caught,
+        used,
+        overflow: (before - cap).max(0.0),
+        level: before.clamp(0.0, cap),
+    })
 }
 
 /// Where the tanks could go from here.
@@ -766,5 +803,38 @@ mod tests {
         ];
         assert_eq!(parse_log(&rows, date(2026, 10, 18)).unwrap().len(), 2);
         assert!(parse_log(&[vec![t("hello")]], date(2026, 10, 18)).is_err());
+    }
+
+    #[test]
+    fn counts_today_so_far() {
+        let t = tanks();
+        let last = TankDay {
+            date: date(2026, 10, 21),
+            rain: 0.0,
+            caught: 0.0,
+            used: 290.0,
+            overflow: 0.0,
+            level: 30_000.0,
+        };
+        let at = |d: u32, h: u32| date(2026, 10, d).and_hms_opt(h, 0, 0).unwrap();
+        // 6 pm with 2 mm so far: 770 L caught, three quarters of 290 L used.
+        let d = today(&last, at(22, 18), Some(2.0), None, &t).unwrap();
+        assert_eq!(d.date, date(2026, 10, 22));
+        assert_eq!(d.caught, 770.0);
+        assert_eq!(d.used, 217.5);
+        assert_eq!(d.level, 30_552.5);
+        // A 9am station before 9am: its day is still the 22nd, used in full.
+        let d = today(&last, at(23, 7), Some(0.1), None, &t).unwrap();
+        assert_eq!((d.date, d.caught, d.used), (date(2026, 10, 22), 0.0, 290.0));
+        // Too far behind, or a known level today: nothing to add.
+        assert!(today(&last, at(25, 7), None, None, &t).is_none());
+        let known = Tanks {
+            known: Some(KnownLevel {
+                date: date(2026, 10, 22),
+                litres: 40_000.0,
+            }),
+            ..tanks()
+        };
+        assert!(today(&last, at(22, 18), None, None, &known).is_none());
     }
 }

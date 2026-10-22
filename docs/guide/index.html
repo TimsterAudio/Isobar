@@ -623,7 +623,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <figure class="shot"><img src="img/tanks-1.webp" alt="Tanks page: two tank drawings, level, outlook, and the level chart" loading="lazy"><figcaption>Two tanks drawn to scale, the headline figures, and the level chart with a year's outlook.</figcaption></figure>
   <h3>The headline figures</h3>
   <ul>
-    <li><b>In the tanks</b>: litres now and how full.</li>
+    <li><b>In the tanks</b>: litres now and how full. "Now" really is now: the station's daily history stops at yesterday, so Isobar adds today so far, with the rain since the station's day began and the day's use to this time of day (by 6 pm, three quarters of it).</li>
     <li><b>With no rain</b>: how many days until the level reaches your keep-above level, and the date.</li>
     <li><b>With rain like past years</b>: replays the rain of every past year from today's date. "Low in 1 of 8" means one of eight past years' weather would take you below keep-above within a year.</li>
     <li><b>Last 30 days</b>: litres in, used and overflowed.</li>
@@ -648,6 +648,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
     <div class="out" id="roof-out" aria-live="polite"></div>
     <p class="note" id="roof-note"></p>
   </div>
+  <p>Today is counted as it goes: the rain so far today, from the live reading, and the daily use in proportion to the time of day. Tomorrow, when the station closes the day and adds it to its history, today's line is replaced by the full day's figures.</p>
   <p>Without a starting point, Isobar assumes the tanks were full on the first day on record and works forward. That's a guess, so give it a <b>known level</b> in Settings: "full" on a day they overflowed, a number of litres, or a depth you measured with a stick (like "1350 mm", which needs the tank diameters). From then on the model starts from what you told it.</p>
   <h3>Importing a tank spreadsheet</h3>
   <p>If you've kept a spreadsheet (Excel, LibreOffice or CSV), Settings → Rainwater tanks → <b>Import a tank record</b> reads it. It needs a <b>Date</b> column and an <b>mm</b> column; <b>Use</b> (litres that day) and <b>Adjust</b> (litres added or taken out, such as a water delivery) are optional. Isobar finds the header row itself.</p>
@@ -835,7 +836,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <p>Opened from anywhere else, set the MX address in Settings. Browsers only let a page read another address when that server allows it, so if <b>Test connection</b> can't reach MX from there, use MX's own folder instead.</p>
   <p>Settings are kept in the tablet's browser. To set a tablet up from another device, fill in Settings there and use <b>Copy a link with these settings</b>, then open that link on the tablet. Adding <code>?demo</code> to the address shows made-up weather, for trying it out.</p>
   <div class="tip"><b>Tanks on the panel</b>
-    <p>The same model as the Tanks screen: rain times roof area in, the day's use out, overflow above capacity, nothing caught from 0.1 mm or less. The panel doesn't have Isobar's history or your spreadsheet, so give it a <b>known level</b> (a day you checked, or <b>They're full today</b>) and it counts on from there with MX's daily rain. Without one it starts full a year back.</p>
+    <p>The same model as the Tanks screen: rain times roof area in, the day's use out, overflow above capacity, nothing caught from 0.1 mm or less. The panel doesn't have Isobar's history or your spreadsheet, so give it a <b>known level</b> (a day you checked, or <b>They're full today</b>) and it counts on from there with MX's daily rain. Without one it starts full a year back. Like the Tanks screen, it counts today so far: the rain since the station's day began and the day's use up to now, so the level is for this moment, not last midnight.</p>
   </div>
 </section>
 
@@ -1040,6 +1041,8 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <div class="tbl"><table>
     <thead><tr><th>Date</th><th>Change</th></tr></thead>
     <tbody>
+      <tr><td>22 Oct 2026</td><td>Tanks count today so far: today's rain and the day's use to this time.</td></tr>
+      <tr><td>22 Oct 2026</td><td>Wall panel: its tanks count today so far too, as Isobar does.</td></tr>
       <tr><td>21 Oct 2026</td><td>Wall panel: the week ahead with a forecast from Open-Meteo, and a layout for phones. New screenshots.</td></tr>
       <tr><td>20 Oct 2026</td><td>Wall panel: setting it up on an iPad and on Android, full screen with the screen on.</td></tr>
       <tr><td>20 Oct 2026</td><td>The wall panel: a one-page display for a tablet, with screenshots.</td></tr>
