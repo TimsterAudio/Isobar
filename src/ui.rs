@@ -125,7 +125,7 @@ pub fn chip(ui: &mut Ui, label: &str, on: bool) -> Response {
     };
     ui.painter().rect(
         rect,
-        CornerRadius::same(16),
+        CornerRadius::same(theme::RADIUS),
         fill,
         Stroke::new(1.0, border),
         StrokeKind::Inside,

@@ -453,7 +453,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   </ul>
 
   <h3>The thermograph</h3>
-  <p>The one loud thing on the screen: the last 24 hours on graph paper. Temperature is the violet pen, dew point the dashed grey line. When it has rained since midnight, a blue line with a fill shows the running total on its own scale at the right. It starts again at midnight, even if your station's rain day starts at 9 am.</p>
+  <p>The one loud thing on the screen: the last 24 hours on graph paper. Temperature is the violet pen, dew point the dashed grey line. When it has rained since midnight, a blue line with a fill shows the running total on its own scale at the right. It starts again at midnight, even if your station's rain day starts at 9 am. The buttons under the chart look further back: 3, 7 or 30 days, with the rain line on those too, starting again each midnight so every wet day shows as its own rise. Before Isobar has MX's detailed logs, the longer spans show daily highs and lows with a bar for each day's rain.</p>
   <p>Isobar records one reading a minute. A stretch of over 20 minutes with nothing (Isobar closed, laptop asleep, station offline) shows as a gap rather than a misleading straight line. When Isobar starts, and after any gap over 15 minutes, it asks MX for its recent detail and fills the hole.</p>
 
   <h3>The cards</h3>
@@ -474,7 +474,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <p><b>Rearrange them:</b> drag a card by its name. <b>Hide some:</b> Settings → Now screen. Isobar remembers both.</p>
 
   <h3>Any card in the big chart</h3>
-  <p>Click a card and the thermograph shows that measure instead, over a span that suits it. A violet line on top of the card marks the one on show. Chips under the chart change the span; <b>Temperature</b>, or clicking the card again, goes back.</p>
+  <p>Click a card and the thermograph shows that measure instead, over a span that suits it. A violet line on top of the card marks the one on show. The buttons under the chart change the span; <b>Temperature</b>, or clicking the card again, goes back.</p>
   <div class="tbl"><table>
     <thead><tr><th>Card</th><th>Starts at</th><th>Spans offered</th><th>Drawn as</th></tr></thead>
     <tbody>
@@ -989,6 +989,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <div class="tbl"><table>
     <thead><tr><th>Date</th><th>Change</th></tr></thead>
     <tbody>
+      <tr><td>23 Oct 2026</td><td>Rain on the 3, 7 and 30-day thermograph; the span buttons moved under the chart. New Now screenshots.</td></tr>
       <tr><td>22 Oct 2026</td><td>Tanks count today so far: today's rain and the day's use to this time.</td></tr>
       <tr><td>20 Oct 2026</td><td>Open in browser now saves to Documents/Isobar reports and says why if a browser won't open (0.4.1).</td></tr>
       <tr><td>20 Oct 2026</td><td>Isobar 0.4.0 released, with everything below.</td></tr>
@@ -1060,21 +1061,21 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
 
   // Annotated Now screenshot
   const pins = [
-    [18.8, 24.7, "The temperature", "Big enough to read from across the room."],
-    [17.5, 37.1, "Trend", "Change per hour: red rising, blue falling, grey steady."],
-    [18.8, 45.2, "High and low", "Since the station's day began, with times."],
-    [19.4, 54.4, "Feels like, dew point, forecast", "MX's own forecast in italics."],
-    [67.5, 27.4, "The thermograph", "24 hours of temperature (violet), dew point (dashed) and rain since midnight (blue, right scale)."],
-    [87.5, 48.2, "Span chips", "Look further back: 3, 7 or 30 days."],
-    [16.4, 69.6, "Wind dial", "Speed, direction and gusts. Drag a card's name to move it."],
-    [28.8, 71.1, "Pressure tendency", "Three hours' change in forecasters' words. Amber for a big fall."],
-    [39.1, 74.9, "Storm total", "Rain in the current storm, and when it began."],
-    [50.0, 79.3, "Dew point range and cloud base", "Today's lowest and highest dew point, and where cumulus would form."],
-    [60.6, 71.1, "Feels like card", "Apparent temperature, wind chill, heat index and humidex, with today's extremes."],
-    [93.1, 93.2, "Sparklines", "Every card has 24 hours along its foot. Click a card to put it in the big chart."],
-    [94.4, 5.9, "Last update", "Green when live, amber after two quiet minutes or when the station stops sending, red when MX stops answering."],
-    [4.75, 61.0, "Health dot", "Something on Health wants a look."],
-    [10.1, 5.8, "Fold the rail", "Gives the charts the whole window."]
+    [18.8, 24.0, "The temperature", "Big enough to read from across the room."],
+    [17.5, 36.1, "Trend", "Change per hour: red rising, blue falling, grey steady."],
+    [18.8, 44.0, "High and low", "Since the station's day began, with times."],
+    [19.4, 52.9, "Feels like, dew point, forecast", "MX's own forecast in italics."],
+    [67.5, 26.7, "The thermograph", "24 hours of temperature (violet), dew point (dashed) and rain since midnight (blue, right scale)."],
+    [88.8, 54.7, "Span buttons", "Under the chart: look further back, 3, 7 or 30 days, rain included."],
+    [16.4, 70.4, "Wind dial", "Speed, direction and gusts. Drag a card's name to move it."],
+    [28.8, 71.9, "Pressure tendency", "Three hours' change in forecasters' words. Amber for a big fall."],
+    [39.1, 75.6, "Storm total", "Rain in the current storm, and when it began."],
+    [50.0, 79.9, "Dew point range and cloud base", "Today's lowest and highest dew point, and where cumulus would form."],
+    [60.6, 71.9, "Feels like card", "Apparent temperature, wind chill, heat index and humidex, with today's extremes."],
+    [93.1, 93.3, "Sparklines", "Every card has 24 hours along its foot. Click a card to put it in the big chart."],
+    [94.4, 5.7, "Last update", "Green when live, amber after two quiet minutes or when the station stops sending, red when MX stops answering."],
+    [4.75, 59.3, "Health dot", "Something on Health wants a look."],
+    [10.1, 5.6, "Fold the rail", "Gives the charts the whole window."]
   ];
   const annot = $("#annot"), legend = $("#legend");
   function pick(i) {

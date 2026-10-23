@@ -534,6 +534,7 @@ impl Now {
                     self.detail(ui, snap, focus, hours, &p);
                 });
             graph_paper(ui, resp.response.rect, paper, &p);
+            self.span_row(ui, focus);
             return;
         }
         let resp = egui::Frame::new()
@@ -619,12 +620,30 @@ impl Now {
                             ui::KeyMark::Square,
                         );
                     }
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        span_chips(ui, &mut self.spans, None);
-                    });
                 });
             });
         graph_paper(ui, resp.response.rect, paper, &p);
+        self.span_row(ui, None);
+    }
+
+    /// The span chips, and the way back to temperature, in a row under the
+    /// big chart.
+    fn span_row(&mut self, ui: &mut Ui, focus: Option<NowCard>) {
+        ui.add_space(-12.0);
+        ui.allocate_ui_with_layout(
+            vec2(ui.available_width(), 32.0),
+            Layout::right_to_left(Align::Center),
+            |ui| {
+                span_chips(ui, &mut self.spans, focus);
+                if focus.is_some()
+                    && ui::chip(ui, "Temperature", false)
+                        .on_hover_text("Back to the thermograph")
+                        .clicked()
+                {
+                    self.focus = None;
+                }
+            },
+        );
     }
 
     /// The big chart showing one card's measure over a chosen span.
@@ -644,7 +663,7 @@ impl Now {
         // Readings from the history, asked of the worker; the last day
         // comes straight from the live samples.
         let metrics: &[&str] = match focus {
-            None => &["temp", "dew"],
+            None => &["temp", "dew", "rain_today"],
             Some(NowCard::Wind) => &["wind", "gust"],
             Some(NowCard::Pressure) => &["press"],
             Some(NowCard::Humidity) => &["hum"],
@@ -921,7 +940,7 @@ impl Now {
                     };
                     if let Some((hi, lo, what)) = pair {
                         let (xs, h, l) = daily(hi, lo);
-                        Chart::new(
+                        let daily_chart = Chart::new(
                             ("detail-daily", focus.map(|c| c.id()), hours),
                             height,
                             xs,
@@ -937,10 +956,42 @@ impl Now {
                                 .no_points()
                                 .unit(&unit_a, 1),
                         )
-                        .band(0, 1, alpha(color_a, 0.1))
-                        .title(|x| format::nice_date(chart::ts_day(x)))
-                        .show(ui);
+                        .band(0, 1, alpha(color_a, 0.1));
+                        // Each day's rain on its own scale, for temperature.
+                        let rain_days: Vec<Option<f64>> = if focus.is_none() {
+                            let start = chart::ts_day((from / 1000) as f64);
+                            snap.days
+                                .iter()
+                                .filter(|d| d.date >= start)
+                                .map(|d| d.rain)
+                                .collect()
+                        } else {
+                            Vec::new()
+                        };
+                        let rained = rain_days.iter().any(|r| r.is_some_and(|r| r > 0.0));
+                        let daily_chart = if rained {
+                            daily_chart
+                                .series(
+                                    Series::line("Rain", rain_days, alpha(p.rain, 0.55))
+                                        .bars()
+                                        .right()
+                                        .unit(format!(" {}", u.rain), 1),
+                                )
+                                .right_from_zero()
+                        } else {
+                            daily_chart
+                        };
+                        daily_chart
+                            .title(|x| format::nice_date(chart::ts_day(x)))
+                            .show(ui);
                         keys.push((what.into(), color_a, ui::KeyMark::Line));
+                        if rained {
+                            keys.push((
+                                format!("Rain each day ({}, right)", u.rain),
+                                p.rain,
+                                ui::KeyMark::Square,
+                            ));
+                        }
                         note = Some(if snap.demo {
                             "Daily figures: the demo station only has a day of detailed readings."
                                 .into()
@@ -998,6 +1049,30 @@ impl Now {
                     ) {
                         c = c.left_from_zero();
                     }
+                    // Rain since midnight on its own scale, starting again
+                    // each midnight, as on the 24-hour thermograph.
+                    let mut rained = false;
+                    if focus.is_none() {
+                        let rain =
+                            isobar_core::analytics::rain_since_midnight(&pts("rain_today"), |t| {
+                                chart::ts_day(t as f64 / 1000.0)
+                            });
+                        if rain.iter().any(|r| r.1 > 0.0) {
+                            rained = true;
+                            c = c
+                                .series(
+                                    Series::line("Rain since midnight", align(&xs, &rain), p.rain)
+                                        .width(1.25)
+                                        .fill(alpha(p.rain, 0.12))
+                                        .right()
+                                        .span_gaps()
+                                        .max_gap(g)
+                                        .no_points()
+                                        .unit(format!(" {}", u.rain), 1),
+                                )
+                                .right_from_zero();
+                        }
+                    }
                     c.show(ui);
                     keys.push((label_a, color_a, ui::KeyMark::Line));
                     if b_key.is_some() {
@@ -1009,6 +1084,13 @@ impl Now {
                             } else {
                                 ui::KeyMark::Line
                             },
+                        ));
+                    }
+                    if rained {
+                        keys.push((
+                            format!("Rain since midnight ({})", u.rain),
+                            p.rain,
+                            ui::KeyMark::Square,
                         ));
                     }
                 } else {
@@ -1033,16 +1115,6 @@ impl Now {
             if let Some(n) = &note {
                 ui::small(ui, n, p.ink2);
             }
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                span_chips(ui, &mut self.spans, focus);
-                if focus.is_some()
-                    && ui::chip(ui, "Temperature", false)
-                        .on_hover_text("Back to the thermograph")
-                        .clicked()
-                {
-                    self.focus = None;
-                }
-            });
         });
     }
 
