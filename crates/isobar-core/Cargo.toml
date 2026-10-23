@@ -1,6 +1,6 @@
 [package]
 name = "isobar-core"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2021"
 description = "Cumulus MX client, dayfile parser and local store for Isobar"
 

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.4.2 – 2026-10-23
+
 - **Rain on the longer thermograph spans:** 3, 7 and 30 days show rain since midnight too, starting again each midnight, from MX's logs; until those arrive, the daily highs and lows come with a bar for each day's rain. Before, rain only showed over 24 hours.
 - **Span buttons under the chart:** on Now, the 24 hours / 3 / 7 / 30 days buttons (and Temperature, to go back) sit in their own row under the big chart, above the cards, rather than inside it. Buttons across Isobar have the same rounded corners as the side rail's highlight.
 - **Tanks count today so far:** the level was the end of yesterday, as the station's daily history stops there. It now adds today: the rain so far from the live reading, and the day's use in proportion to the time of day. The Tanks page says "full now", and the Now card, the charts and the outlook start from it.
