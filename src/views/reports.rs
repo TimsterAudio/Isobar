@@ -439,13 +439,15 @@ fn save(stem: &str, ext: &str, kind: &str, body: &str) -> Option<(bool, String)>
     })
 }
 
-/// Where "Open in browser" keeps its copies: "Isobar reports" in Documents
-/// (or the home folder). Not beside the history: that's a hidden folder on
-/// Linux, which sandboxed browsers (snap and Flatpak Firefox) can't read.
-pub fn folder(database: Option<&Path>) -> PathBuf {
-    dirs::document_dir()
-        .or_else(dirs::home_dir)
-        .map(|d| d.join("Isobar reports"))
-        .or_else(|| database.and_then(Path::parent).map(|d| d.join("reports")))
-        .unwrap_or_else(|| std::env::temp_dir().join("Isobar reports"))
+/// Where "Open in browser" keeps its copies: the Reports folder of the
+/// folder chosen in Settings, or "Isobar reports" in Documents. Not beside
+/// the usual history folder: that's hidden on Linux, and sandboxed browsers
+/// (snap and Flatpak Firefox) can't read it. The demo uses the temporary
+/// folder.
+pub fn folder(demo: bool) -> PathBuf {
+    if demo {
+        std::env::temp_dir().join("Isobar reports")
+    } else {
+        crate::settings::Paths::locate().reports
+    }
 }

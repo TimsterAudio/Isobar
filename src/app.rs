@@ -357,9 +357,15 @@ impl IsobarApp {
         self.settings.rail_pinned = pinned;
         self.rail_open = false;
         self.rail_hold = !pinned;
-        if let Some(paths) = &self.paths {
-            let _ = self.settings.save(&paths.settings);
+        if let Some(path) = self.settings_path() {
+            let _ = self.settings.save(&path);
         }
+    }
+
+    /// Where settings are saved: looked up each time, as moving Isobar's
+    /// files to another folder takes effect at once. None for the demo.
+    fn settings_path(&self) -> Option<std::path::PathBuf> {
+        self.paths.as_ref().map(|_| Paths::locate().settings)
     }
 }
 
@@ -526,9 +532,7 @@ impl eframe::App for IsobarApp {
                                         self.tanks.ui(ui, &snap, &self.settings, &mut go)
                                     }
                                     Route::Reports => {
-                                        let dir = views::reports::folder(
-                                            self.paths.as_ref().map(|p| p.database.as_path()),
-                                        );
+                                        let dir = views::reports::folder(self.paths.is_none());
                                         self.reports.ui(ui, &snap, &self.settings, &dir, &mut go)
                                     }
                                     Route::Health => {
@@ -561,8 +565,8 @@ impl eframe::App for IsobarApp {
         }
         if let Some(order) = self.now.reordered.take() {
             self.settings.set_cards(&order);
-            if let Some(paths) = &self.paths {
-                let _ = self.settings.save(&paths.settings);
+            if let Some(path) = self.settings_path() {
+                let _ = self.settings.save(&path);
             }
         }
         match go {
@@ -604,8 +608,8 @@ impl IsobarApp {
     }
 
     fn save_settings(&mut self, ctx: &egui::Context, next: Settings) {
-        let result = match &self.paths {
-            Some(paths) => next.save(&paths.settings).map_err(|e| e.to_string()),
+        let result = match self.settings_path() {
+            Some(path) => next.save(&path).map_err(|e| e.to_string()),
             None => Ok(()),
         };
         apply_theme(ctx, next.theme);

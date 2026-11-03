@@ -36,6 +36,12 @@ fn main() -> eframe::Result {
         (s, None, None)
     } else {
         let paths = Paths::locate();
+        // A move of Isobar's files to another folder finishes here, before
+        // the history opens. If it can't, it tries again next time, and
+        // Settings says so.
+        if let Some(problem) = paths.finish_move() {
+            eprintln!("{problem}");
+        }
         let settings = Settings::load(&paths.settings);
         if let Some(dir) = paths.database.parent() {
             let _ = std::fs::create_dir_all(dir);

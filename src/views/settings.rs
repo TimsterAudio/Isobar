@@ -328,6 +328,10 @@ pub struct SettingsView {
     message: Option<(bool, String, Instant)>,
     confirm_clear: bool,
     busy_since: Option<Instant>,
+    /// The folder typed or chosen for Isobar's files, and how moving there
+    /// went.
+    folder: String,
+    folder_msg: Option<(bool, String)>,
     /// The place search: what's typed, and the search under way or done.
     query: String,
     search: Search,
@@ -336,6 +340,8 @@ pub struct SettingsView {
 
 impl SettingsView {
     pub fn new(s: &Settings) -> Self {
+        // Note where the history was at the start, before any move.
+        let _ = current_database();
         SettingsView {
             draft: Draft::from(s),
             saved: Draft::from(s),
@@ -343,6 +349,12 @@ impl SettingsView {
             message: None,
             confirm_clear: false,
             busy_since: None,
+            folder: crate::settings::Paths::locate()
+                .folder
+                .unwrap_or_else(crate::settings::Paths::suggested_folder)
+                .display()
+                .to_string(),
+            folder_msg: None,
             query: String::new(),
             search: Arc::default(),
             searching: false,
@@ -448,7 +460,8 @@ impl SettingsView {
                     }
                 });
             });
-            about(ui, snap, &p);
+            self.files(ui, snap, &p);
+            about(ui, &p);
         });
         demo
     }
@@ -555,6 +568,111 @@ impl SettingsView {
                         p.heat,
                         700.0,
                     );
+                }
+            }
+        });
+    }
+
+    /// Where Isobar keeps its settings, history and reports, and moving
+    /// them all to one folder.
+    fn files(&mut self, ui: &mut Ui, snap: &Snapshot, p: &Palette) {
+        use crate::settings::{looks_like_network, Paths};
+        ui::panel(ui, |ui| {
+            ui::h2(ui, "Isobar's files");
+            if snap.demo {
+                ui::small(ui, "The demo station keeps nothing on disk.", p.ink2);
+                return;
+            }
+            let now = Paths::locate();
+            ui::para(
+                ui,
+                match &now.folder {
+                    Some(f) => format!("All in {}.", f.display()),
+                    None => "In the usual folders for your system's apps.".into(),
+                },
+                theme::body(14.0),
+                p.ink,
+                600.0,
+            );
+            ui::small(ui, format!("Settings: {}", now.settings.display()), p.ink2);
+            ui::small(ui, format!("History: {}", now.database.display()), p.ink2);
+            ui::small(ui, format!("Reports: {}", now.reports.display()), p.ink2);
+            if let Some(from) = Paths::pending_move() {
+                ui::small(
+                    ui,
+                    format!(
+                        "The history is still at {} and moves across when Isobar next starts.",
+                        from.display()
+                    ),
+                    p.warn,
+                );
+            }
+            ui.add_space(4.0);
+            ui::para(
+                ui,
+                "To keep everything together, in Settings, History and Reports folders, choose a folder below: somewhere your backup covers, such as Documents. If the folder already has Isobar's files in it (from another computer, or before a reinstall), Isobar uses those.",
+                theme::body(13.0),
+                p.ink2,
+                600.0,
+            );
+            let mut chosen: Option<Option<std::path::PathBuf>> = None;
+            ui.horizontal(|ui| {
+                ui::text_input(ui, &mut self.folder, "", 420.0);
+                if ui::button(ui, "Choose…", Kind::Secondary).clicked() {
+                    if let Some(f) = rfd::FileDialog::new()
+                        .set_title("Choose a folder for Isobar's files")
+                        .set_directory(
+                            Paths::suggested_folder()
+                                .parent()
+                                .unwrap_or(std::path::Path::new(".")),
+                        )
+                        .pick_folder()
+                    {
+                        self.folder = f.display().to_string();
+                    }
+                }
+            });
+            let typed = std::path::PathBuf::from(self.folder.trim());
+            if looks_like_network(&typed) {
+                ui::small(
+                    ui,
+                    "That looks like a network folder. The history database can be damaged if it's opened over a network, so choose a folder on this computer and let your backup copy it.",
+                    p.heat,
+                );
+            }
+            ui.horizontal(|ui| {
+                if ui::button(ui, "Keep Isobar's files here", Kind::Primary).clicked() {
+                    chosen = Some(if self.folder.trim().is_empty() {
+                        None
+                    } else {
+                        Some(typed.clone())
+                    });
+                }
+                if now.folder.is_some()
+                    && ui::button(ui, "Back to the usual folders", Kind::Secondary).clicked()
+                {
+                    chosen = Some(None);
+                }
+            });
+            if let Some(folder) = chosen {
+                self.folder_msg = Some(match Paths::choose(folder, &now) {
+                    Ok(m) => (true, m),
+                    Err(e) => (false, format!("Couldn't move Isobar's files: {e}.")),
+                });
+            }
+            if let Some((ok, msg)) = &self.folder_msg {
+                ui::para(
+                    ui,
+                    msg,
+                    theme::body(13.0),
+                    if *ok { p.ok } else { p.heat },
+                    600.0,
+                );
+                if *ok
+                    && Paths::locate().database != current_database()
+                    && ui::button(ui, "Restart Isobar now", Kind::Secondary).clicked()
+                {
+                    restart(ui.ctx());
                 }
             }
         });
@@ -953,8 +1071,28 @@ fn pick_dayfile() -> Option<std::path::PathBuf> {
         .pick_file()
 }
 
-/// The version, and where Isobar keeps its files.
-fn about(ui: &mut Ui, snap: &Snapshot, p: &Palette) {
+/// The history this run of Isobar opened, which a move only changes at the
+/// next start.
+fn current_database() -> std::path::PathBuf {
+    use std::sync::OnceLock;
+    static AT_START: OnceLock<std::path::PathBuf> = OnceLock::new();
+    AT_START
+        .get_or_init(|| crate::settings::Paths::locate().database)
+        .clone()
+}
+
+/// Start Isobar again: a new copy, then close this one.
+fn restart(ctx: &egui::Context) {
+    if let Ok(exe) = std::env::current_exe() {
+        let args: Vec<String> = std::env::args().skip(1).collect();
+        if std::process::Command::new(exe).args(args).spawn().is_ok() {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+    }
+}
+
+/// The version.
+fn about(ui: &mut Ui, p: &Palette) {
     ui::panel(ui, |ui| {
         ui::h2(ui, "About Isobar");
         ui::text(
@@ -963,17 +1101,6 @@ fn about(ui: &mut Ui, snap: &Snapshot, p: &Palette) {
             theme::semi(15.0),
             p.ink,
         );
-        if snap.demo {
-            ui::small(ui, "The demo station keeps nothing on disk.", p.ink2);
-        } else {
-            let paths = crate::settings::Paths::locate();
-            ui::small(
-                ui,
-                format!("Settings: {}", paths.settings.display()),
-                p.ink2,
-            );
-            ui::small(ui, format!("History: {}", paths.database.display()), p.ink2);
-        }
         ui::small(
             ui,
             "A companion to Cumulus MX. Releases and the user guide are on GitHub: github.com/TimsterAudio/Isobar",

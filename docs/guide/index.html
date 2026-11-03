@@ -807,7 +807,8 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
     <li><b>Alerts</b>: see <a href="#alerts">Alerts</a>.</li>
     <li><b>Now screen</b>: tick the cards you want. "Put the cards back in the usual order" undoes your dragging.</li>
     <li><b>Appearance</b>: theme (Match system, Light, Dark) and times (24-hour 16:52, or 12-hour 4:52 PM).</li>
-    <li><b>About Isobar</b>: the version you're running, and where your settings and history are kept.</li>
+    <li><b>Isobar's files</b>: where your settings, history and reports are, and a button to keep them all in one folder you choose (see <a href="#storage">Where Isobar keeps things</a>).</li>
+    <li><b>About Isobar</b>: the version you're running.</li>
   </ul>
 </section>
 
@@ -850,15 +851,32 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
 <!-- ============================================================ storage -->
 <section class="s" id="storage">
   <h2>Where Isobar keeps things</h2>
-  <p>Two files, both in a folder called <code>app.isobar.desktop</code>:</p>
+  <p>Three things: your settings, the history, and the reports you open in the browser. Settings → <b>Isobar's files</b> shows exactly where they are on this computer.</p>
+  <h3>All in one folder (recommended)</h3>
+  <p>In Settings → Isobar's files, choose a folder (Documents is ideal, as backups usually cover it) and press <b>Keep Isobar's files here</b>. Isobar then keeps everything inside it:</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Folder</th><th>Holds</th></tr></thead>
+    <tbody>
+      <tr><td><code>Isobar\Settings</code></td><td><code>settings.json</code></td></tr>
+      <tr><td><code>Isobar\History</code></td><td><code>isobar.sqlite</code>, the history</td></tr>
+      <tr><td><code>Isobar\Reports</code></td><td>Reports opened in the browser</td></tr>
+    </tbody>
+  </table></div>
+  <p>The settings move across at once. The history is in use while Isobar runs, so it moves when Isobar next starts: press <b>Restart Isobar now</b> and it's done. If the folder already holds Isobar's files (from another computer, or from before a reinstall), Isobar uses those and leaves the current ones where they are. <b>Back to the usual folders</b> undoes it the same way.</p>
+  <div class="warn"><b>Keep it on this computer</b>
+    <p>Choose a folder on this computer's own drive, and let your backup copy it. The history database can be damaged if it's opened over a network share, so Isobar warns if the folder looks like one.</p>
+  </div>
+  <h3>The usual folders</h3>
+  <p>Until you choose a folder, Isobar uses your system's usual places for apps, in folders called <code>app.isobar.desktop</code>:</p>
   <div class="tbl"><table>
     <thead><tr><th>File</th><th>Windows</th><th>Linux</th></tr></thead>
     <tbody>
       <tr><td><code>settings.json</code></td><td><code>%APPDATA%\app.isobar.desktop\</code></td><td><code>~/.config/app.isobar.desktop/</code></td></tr>
       <tr><td><code>isobar.sqlite</code></td><td><code>%APPDATA%\app.isobar.desktop\</code></td><td><code>~/.local/share/app.isobar.desktop/</code></td></tr>
+      <tr><td>Reports</td><td><code>Documents\Isobar reports\</code></td><td><code>~/Documents/Isobar reports/</code></td></tr>
     </tbody>
   </table></div>
-  <p>On Windows, <code>%APPDATA%</code> is usually <code>C:\Users\<i>you</i>\AppData\Roaming</code>. Paste <code>%APPDATA%\app.isobar.desktop</code> into Explorer's address bar to go straight there.</p>
+  <p>On Windows, <code>%APPDATA%</code> is usually <code>C:\Users\<i>you</i>\AppData\Roaming</code>. Paste <code>%APPDATA%\app.isobar.desktop</code> into Explorer's address bar to go straight there. With a folder chosen, a small <code>folder.json</code> stays in the usual settings place, so Isobar knows where to look when it starts.</p>
   <h3>settings.json</h3>
   <p>A few kilobytes: station address and login, latitude and longitude, tank setup and known level, card order, alerts, theme. The MX password, if you set one, is in here as plain text.</p>
   <h3>isobar.sqlite</h3>
@@ -888,6 +906,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
     <li><b><code>settings.json</code></b>. It's small, and retyping tank diameters is nobody's idea of fun.</li>
     <li><b>Your tank spreadsheet</b>, if you imported one.</li>
   </ol>
+  <p>Easiest of all: keep Isobar's files in one folder your backup already covers, such as Documents (Settings → Isobar's files). Then settings, history and reports are all backed up without a thought.</p>
   <p><code>isobar.sqlite</code> is optional: it only saves the wait while Isobar fetches the history again. If you do copy it, close Isobar first, so the database and its working files are all in step.</p>
   <h3>Starting again on a new computer</h3>
   <p>Download Isobar, put <code>settings.json</code> in place (or just type the station address in), start it, and import the tank spreadsheet again if you use one. Daily history is back in seconds; the detailed history comes back in the background.</p>
@@ -1044,6 +1063,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <div class="tbl"><table>
     <thead><tr><th>Date</th><th>Change</th></tr></thead>
     <tbody>
+      <tr><td>3 Nov 2026</td><td>Keep all of Isobar's files in one folder you choose, with Settings, History and Reports inside.</td></tr>
       <tr><td>3 Nov 2026</td><td>The Forecast screen: the week ahead from Open-Meteo, and the months ahead from your records. Longitude and a place search in Settings, and an About panel with the version. Rain on the thermograph stays as recorded.</td></tr>
       <tr><td>23 Oct 2026</td><td>Isobar 0.4.2 released, with the two changes below.</td></tr>
       <tr><td>23 Oct 2026</td><td>Rain on the 3, 7 and 30-day thermograph; the span buttons moved under the chart. New Now screenshots.</td></tr>

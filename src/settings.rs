@@ -228,16 +228,66 @@ impl Settings {
     }
 }
 
-/// Where Isobar keeps its files. The same folders the first (Tauri) version
-/// used, so settings and history carry over.
+/// Where Isobar keeps its files: the usual per-user folders (the same ones
+/// the first, Tauri, version used, so settings and history carry over), or
+/// one folder the person chose with Settings, History and Reports inside.
+/// The choice lives in a small `folder.json` at the usual settings place.
+#[derive(Debug, Clone, PartialEq)]
 pub struct Paths {
     pub settings: PathBuf,
     pub database: PathBuf,
+    pub reports: PathBuf,
+    /// The chosen folder, if not the usual ones.
+    pub folder: Option<PathBuf>,
+}
+
+/// What `folder.json` holds.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+struct FolderChoice {
+    folder: Option<PathBuf>,
+    /// A history database to move into place at the next start.
+    move_history_from: Option<PathBuf>,
+}
+
+const ID: &str = "app.isobar.desktop";
+
+fn pointer() -> PathBuf {
+    dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(ID)
+        .join("folder.json")
+}
+
+fn read_choice() -> FolderChoice {
+    std::fs::read_to_string(pointer())
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+fn write_choice(c: &FolderChoice) -> Result<(), String> {
+    let p = pointer();
+    if let Some(dir) = p.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(&p, serde_json::to_string_pretty(c).unwrap_or_default())
+        .map_err(|e| format!("couldn't write {}: {e}", p.display()))
+}
+
+/// The history database and the two files SQLite keeps beside it.
+fn database_files(db: &Path) -> [PathBuf; 3] {
+    let name = |ext: &str| {
+        let mut s = db.as_os_str().to_os_string();
+        s.push(ext);
+        PathBuf::from(s)
+    };
+    [db.to_path_buf(), name("-wal"), name("-shm")]
 }
 
 impl Paths {
-    pub fn locate() -> Paths {
-        const ID: &str = "app.isobar.desktop";
+    /// The usual per-user folders.
+    pub fn usual() -> Paths {
         let config = dirs::config_dir()
             .unwrap_or_else(|| PathBuf::from("."))
             .join(ID);
@@ -247,8 +297,159 @@ impl Paths {
         Paths {
             settings: config.join("settings.json"),
             database: data.join("isobar.sqlite"),
+            reports: dirs::document_dir()
+                .or_else(dirs::home_dir)
+                .map_or_else(|| data.join("reports"), |d| d.join("Isobar reports")),
+            folder: None,
         }
     }
+
+    /// Everything in one folder, in Settings, History and Reports.
+    pub fn in_folder(folder: &Path) -> Paths {
+        Paths {
+            settings: folder.join("Settings").join("settings.json"),
+            database: folder.join("History").join("isobar.sqlite"),
+            reports: folder.join("Reports"),
+            folder: Some(folder.to_path_buf()),
+        }
+    }
+
+    pub fn locate() -> Paths {
+        match read_choice().folder {
+            Some(f) => Paths::in_folder(&f),
+            None => Paths::usual(),
+        }
+    }
+
+    /// A history move waiting for the next start, from where.
+    pub fn pending_move() -> Option<PathBuf> {
+        read_choice().move_history_from
+    }
+
+    /// A folder to suggest: Isobar in Documents.
+    pub fn suggested_folder() -> PathBuf {
+        dirs::document_dir()
+            .or_else(dirs::home_dir)
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("Isobar")
+    }
+
+    /// Keep Isobar's files in `folder` (or the usual folders, for None)
+    /// from now on. Settings copy across at once; the history moves at the
+    /// next start, as it's in use. Files already there (another computer's,
+    /// or from before) are kept and used instead. Returns what happened, in
+    /// words.
+    pub fn choose(folder: Option<PathBuf>, current: &Paths) -> Result<String, String> {
+        let target = folder
+            .as_deref()
+            .map_or_else(Paths::usual, Paths::in_folder);
+        if target.database == current.database {
+            return Ok("Isobar's files are already there.".into());
+        }
+        for dir in [
+            target.settings.parent(),
+            target.database.parent(),
+            Some(target.reports.as_path()),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            std::fs::create_dir_all(dir)
+                .map_err(|e| format!("couldn't make the folder {}: {e}", dir.display()))?;
+        }
+        let mut notes = Vec::new();
+        if target.settings.exists() {
+            notes.push("There are settings there already; Isobar will use those.");
+        } else if current.settings.exists() {
+            // Moved, not copied, so an old copy can't be picked up later.
+            std::fs::copy(&current.settings, &target.settings)
+                .map_err(|e| format!("couldn't copy the settings: {e}"))?;
+            let _ = std::fs::remove_file(&current.settings);
+        }
+        let move_history_from = if target.database.exists() {
+            notes.push("There's a history there already; Isobar will use that one and leave this one where it is.");
+            None
+        } else {
+            current.database.exists().then(|| current.database.clone())
+        };
+        let moving = move_history_from.is_some();
+        write_choice(&FolderChoice {
+            folder,
+            move_history_from,
+        })?;
+        let mut out = String::from(if moving {
+            "Done. Restart Isobar to finish: the history moves across as it starts."
+        } else {
+            "Done. Restart Isobar to start using them."
+        });
+        for n in notes {
+            out.push(' ');
+            out.push_str(n);
+        }
+        Ok(out)
+    }
+
+    /// At startup, before the history opens: move it into place if a move
+    /// is waiting. A copy first, then the old files go, so a failure part
+    /// way leaves the old history where it was. Returns a problem, if any.
+    pub fn finish_move(&self) -> Option<String> {
+        let mut choice = read_choice();
+        let from = choice.move_history_from.clone()?;
+        let done = |choice: &mut FolderChoice| {
+            choice.move_history_from = None;
+            let _ = write_choice(choice);
+        };
+        if self.database.exists() || !from.exists() || from == self.database {
+            done(&mut choice);
+            return None;
+        }
+        if let Some(dir) = self.database.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let pairs: Vec<(PathBuf, PathBuf)> = database_files(&from)
+            .into_iter()
+            .zip(database_files(&self.database))
+            .filter(|(a, _)| a.exists())
+            .collect();
+        // The Isobar that asked for the restart may take a moment to let go
+        // of the files.
+        let mut last = String::new();
+        for _ in 0..20 {
+            match pairs
+                .iter()
+                .try_for_each(|(a, b)| std::fs::copy(a, b).map(|_| ()))
+            {
+                Ok(()) => {
+                    for (a, _) in &pairs {
+                        let _ = std::fs::remove_file(a);
+                    }
+                    done(&mut choice);
+                    return None;
+                }
+                Err(e) => last = e.to_string(),
+            }
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
+        for (_, b) in &pairs {
+            let _ = std::fs::remove_file(b);
+        }
+        Some(format!(
+            "Couldn't move the history to {} ({last}). It's still at {}; Isobar will try again next time it starts.",
+            self.database.display(),
+            from.display()
+        ))
+    }
+}
+
+/// True for a folder that looks like a network share, where the history
+/// database shouldn't live.
+pub fn looks_like_network(p: &Path) -> bool {
+    let s = p.to_string_lossy();
+    s.starts_with("\\\\")
+        || s.starts_with("//")
+        || s.starts_with("smb:")
+        || s.starts_with("/mnt/smb")
+        || s.contains("/gvfs/")
 }
 
 #[cfg(test)]
@@ -290,5 +491,25 @@ mod tests {
         assert!(s.clock_24h);
         assert!(s.rail_pinned);
         assert_eq!(s.theme, ThemeChoice::System);
+    }
+
+    #[test]
+    fn one_folder_for_everything() {
+        let p = Paths::in_folder(Path::new("/home/me/Documents/Isobar"));
+        assert_eq!(
+            p.settings,
+            Path::new("/home/me/Documents/Isobar/Settings/settings.json")
+        );
+        assert_eq!(
+            p.database,
+            Path::new("/home/me/Documents/Isobar/History/isobar.sqlite")
+        );
+        assert_eq!(p.reports, Path::new("/home/me/Documents/Isobar/Reports"));
+        let files = database_files(&p.database);
+        assert!(files[1].to_string_lossy().ends_with("isobar.sqlite-wal"));
+        assert!(looks_like_network(Path::new(r"\\nas\backup\Isobar")));
+        assert!(!looks_like_network(Path::new(
+            r"C:\Users\me\Documents\Isobar"
+        )));
     }
 }
