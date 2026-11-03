@@ -293,6 +293,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
     <li><a href="#around">Finding your way around</a></li>
     <li class="grp">The screens</li>
     <li><a href="#now">Now</a></li>
+    <li><a href="#forecast">Forecast</a></li>
     <li><a href="#history">History</a></li>
     <li><a href="#compare">Compare</a></li>
     <li><a href="#insights">Insights</a></li>
@@ -336,6 +337,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <p>It's one program, with nothing else to install. It never changes anything on your station: it only reads. Delete Isobar tomorrow and your Cumulus setup won't notice.</p>
   <div class="screens">
     <a href="#now"><b>Now</b><span>What's happening outside, with a 24-hour trace.</span></a>
+    <a href="#forecast"><b>Forecast</b><span>The week ahead, and what your records say about the months ahead.</span></a>
     <a href="#history"><b>History</b><span>Any date range, against your station's normals.</span></a>
     <a href="#compare"><b>Compare</b><span>This October against every other October.</span></a>
     <a href="#insights"><b>Insights</b><span>Odd days, records, storms and dry spells.</span></a>
@@ -453,7 +455,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   </ul>
 
   <h3>The thermograph</h3>
-  <p>The one loud thing on the screen: the last 24 hours on graph paper. Temperature is the violet pen, dew point the dashed grey line. When it has rained since midnight, a blue line with a fill shows the running total on its own scale at the right. It starts again at midnight, even if your station's rain day starts at 9 am. The buttons under the chart look further back: 3, 7 or 30 days, with the rain line on those too, starting again each midnight so every wet day shows as its own rise. Before Isobar has MX's detailed logs, the longer spans show daily highs and lows with a bar for each day's rain.</p>
+  <p>The one loud thing on the screen: the last 24 hours on graph paper. Temperature is the violet pen, dew point the dashed grey line. When it has rained since midnight, a blue line with a fill shows the running total on its own scale at the right. It starts again at midnight, even if your station's rain day starts at 9 am. The buttons under the chart look further back: 3, 7 or 30 days, with the rain line on those too, starting again each midnight so every wet day shows as its own rise. Before Isobar has MX's detailed logs, the longer spans show daily highs and lows with a bar for each day's rain. Like ink on a paper chart, the rain stays where it was drawn: a morning shower still shows at its full total that evening, even once the morning has scrolled off the left edge.</p>
   <p>Isobar records one reading a minute. A stretch of over 20 minutes with nothing (Isobar closed, laptop asleep, station offline) shows as a gap rather than a misleading straight line. When Isobar starts, and after any gap over 15 minutes, it asks MX for its recent detail and fills the hole.</p>
 
   <h3>The cards</h3>
@@ -493,6 +495,41 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
 
   <h3>When things go quiet</h3>
   <p>Top right says "Updated 5 s ago" in green. If no reading has arrived for two minutes it turns amber; if MX stops answering it turns red with "Offline" and the reason. If MX is still answering but says the station itself has gone quiet (its "data stopped" flag), it says <b>Station stopped sending</b> in amber, and a desktop alert goes off once. That one usually means the console, its cable or its radio link wants a look, or a fresh set of batteries. If MX can't be reached at all, Now tells you what went wrong and offers to open Settings. Usually the address is wrong, MX isn't running, or the computer running MX has gone to sleep.</p>
+</section>
+
+<!-- ============================================================ forecast -->
+<section class="s" id="forecast">
+  <h2>Forecast <span class="tag">Screen</span></h2>
+  <p class="lead">Two looks ahead: the coming week from a weather model, and the coming year from your own records.</p>
+  <figure class="shot"><img src="img/forecast-1.webp" alt="The week ahead: seven days and a 48-hour chart" loading="lazy"><figcaption>The week ahead, for the demo station's Sydney.</figcaption></figure>
+  <h3>The week ahead</h3>
+  <p>Seven days for your station's location from <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a>, a free forecast service that runs the national weather models. For each day:</p>
+  <ul>
+    <li>the weather in words, and the high and low</li>
+    <li>the rain expected, with the highest chance of rain in any hour ("Dry" when it's unlikely)</li>
+    <li>the wind's direction, strongest average and gusts, and the UV index</li>
+  </ul>
+  <p>Under the days, a chart of the next 48 hours: temperature, and the chance of rain each hour. Everything is in your station's units. Isobar fetches it every hour, or when you press <b>Refresh</b>.</p>
+  <p>It needs your station's latitude and longitude. In Settings → Station, type your town into <b>Find a town or suburb</b>, press <b>Find</b>, and pick it from the list; that fills them in. Then save.</p>
+  <div class="tip"><b>Model, not mast</b>
+    <p>The forecast is for the area around your location as the model sees it, so your gauge and the forecast won't agree to the millimetre. Hills, the coast and your own backyard all make a difference the model can't see.</p>
+  </div>
+
+  <figure class="shot"><img src="img/forecast-2.webp" alt="The months ahead: odds for the next 3, 6 and 12 months, the reasons, and a month-by-month table" loading="lazy"><figcaption>The months ahead, from the demo station's eight years.</figcaption></figure>
+  <h3>The months ahead</h3>
+  <p>A pattern analysis from your station's own history: is the next 3, 6 or 12 months likely to be warmer or cooler, wetter or drier than normal, and why. It's not a weather forecast, and it says so.</p>
+  <ul>
+    <li><b>Where things stand</b>: how the last three full months compared with your normal for them.</li>
+    <li><b>The odds</b>: for the next 3, 6 and 12 months, the middle of what followed in the five most similar past years, and how many of them went each way ("Warmer in 4 of 5").</li>
+    <li><b>Why</b>: which years were most like this one, what happened after them, your station's long-term warming trend, and how often this method has been right at your station.</li>
+    <li><b>Month by month</b>: each of the next 12 months, against its normal.</li>
+  </ul>
+  <div class="idea"><b>The idea</b>
+    <p>Weather has some memory. Wet soil, warm seas and a stuck pattern can carry a season into the next one. If last winter at your station looked like the winters of 2016, 2020 and 2022, what came after those winters is worth a look. That's all it is, though: a station sees one corner of the sky, and the drivers of a season (El Niño and La Niña, the Indian Ocean Dipole) happen far away. Weather services' seasonal outlooks use those, and they're the better guide.</p>
+  </div>
+  <div class="warn"><b>How far to trust it</b>
+    <p>Isobar tries the method on every past year at your station, leaving that year out, and counts how often it called the next three months right. Around 50% is a coin toss, and the page says so plainly. With only a few years of records, expect it to be a curiosity rather than a guide.</p>
+  </div>
 </section>
 
 <!-- ============================================================ history -->
@@ -748,6 +785,8 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
       <tr><td>Username, password</td><td>Only if you've secured the MX interface. Stored <b>unencrypted</b> in the settings file.</td></tr>
       <tr><td>Check every</td><td>Seconds between live readings. 10 is plenty; MX itself updates about that often.</td></tr>
       <tr><td>Latitude</td><td>Degrees, south negative. Used for day length and the evaporation estimate. Empty means "work it out from sunrise and sunset".</td></tr>
+      <tr><td>Longitude</td><td>Degrees, west negative. With the latitude, it's where the forecast is for.</td></tr>
+      <tr><td>Find a town or suburb</td><td>Looks the name up with Open-Meteo and fills in the latitude and longitude for the one you pick. The place name shows on the Forecast screen.</td></tr>
       <tr><td>Test connection</td><td>Asks MX for a reading without saving anything.</td></tr>
     </tbody>
   </table></div>
@@ -768,6 +807,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
     <li><b>Alerts</b>: see <a href="#alerts">Alerts</a>.</li>
     <li><b>Now screen</b>: tick the cards you want. "Put the cards back in the usual order" undoes your dragging.</li>
     <li><b>Appearance</b>: theme (Match system, Light, Dark) and times (24-hour 16:52, or 12-hour 4:52 PM).</li>
+    <li><b>About Isobar</b>: the version you're running, and where your settings and history are kept.</li>
   </ul>
 </section>
 
@@ -791,7 +831,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
 <!-- ============================================================ data -->
 <section class="s" id="data">
   <h2>Where the data comes from</h2>
-  <p>Everything comes from Cumulus MX's own web interface, the same one its dashboard uses. Isobar only ever reads.</p>
+  <p>Everything about your station comes from Cumulus MX's own web interface, the same one its dashboard uses. Isobar only ever reads. The one thing from elsewhere is the week's forecast, from Open-Meteo over the internet; it sends only your location.</p>
   <div class="tbl"><table>
     <thead><tr><th>What</th><th>From MX</th><th>How often</th></tr></thead>
     <tbody>
@@ -799,6 +839,8 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
       <tr><td>Daily history</td><td><code>/api/data/dayfile</code>, in pages</td><td>Checked every 30 minutes; fetched again when the line count changes</td></tr>
       <tr><td>Recent detail</td><td><code>/api/graphdata/*.json</code> (72 hours, a reading a minute)</td><td>At startup, and after any gap over 15 minutes</td></tr>
       <tr><td>Detailed history</td><td><code>/api/data/logfile</code>, a month at a time</td><td>Back to the start of your history, newest first; the current month every 10 minutes</td></tr>
+      <tr><td>The week ahead</td><td>Open-Meteo, <code>api.open-meteo.com/v1/forecast</code> (not MX)</td><td>Every hour, when there's a location</td></tr>
+      <tr><td>Place search</td><td>Open-Meteo, <code>geocoding-api.open-meteo.com</code></td><td>When you press Find</td></tr>
     </tbody>
   </table></div>
   <p>On top of that, Isobar keeps one live reading a minute itself, so the 24-hour charts work even if MX's graph data isn't available.</p>
@@ -818,7 +860,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   </table></div>
   <p>On Windows, <code>%APPDATA%</code> is usually <code>C:\Users\<i>you</i>\AppData\Roaming</code>. Paste <code>%APPDATA%\app.isobar.desktop</code> into Explorer's address bar to go straight there.</p>
   <h3>settings.json</h3>
-  <p>A few kilobytes: station address and login, latitude, tank setup and known level, card order, alerts, theme. The MX password, if you set one, is in here as plain text.</p>
+  <p>A few kilobytes: station address and login, latitude and longitude, tank setup and known level, card order, alerts, theme. The MX password, if you set one, is in here as plain text.</p>
   <h3>isobar.sqlite</h3>
   <p>A SQLite database, which is Isobar's local copy of everything:</p>
   <div class="tbl"><table>
@@ -919,6 +961,15 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
     <li>Departures are from the station's other years: the mean temperature of the same month in all of them, and the average rain of those with 25 or more days.</li>
   </ul>
 
+  <h3>The months ahead</h3>
+  <ul>
+    <li>Each full month (25 days or more) gets its mean temperature and rain total. Normal for a calendar month is the average over every year that has it.</li>
+    <li>Temperatures are taken against a straight-line trend through all the months, so a warming station's early years compare fairly. The trend is shown as degrees a decade, and added back for the months ahead.</li>
+    <li>The last three full months are compared with the same three months in every other year, by temperature (against trend) and rain (as a share of normal), each scaled by how much it usually varies. The five closest are the similar years.</li>
+    <li>For each month ahead, the outlook is the middle (median) of what those years did, with the count of how many were warmer or colder, wetter or drier. Near normal is within 0.3° and 15% of rain.</li>
+    <li>The hit rate repeats all this for every past window, using only the other years, and checks whether the next three months came out on the side of normal it said. Because each year is left out of its own test, the score errs slightly low.</li>
+  </ul>
+
   <h3>Ten-minute storage</h3>
   <p>Detailed log readings are grouped into 10-minute steps on the clock. Within a step, readings are averaged, except gust and rain rate (the highest is kept) and bearing and the rain totals (the latest is kept). The step is timed at its last reading.</p>
 </section>
@@ -959,6 +1010,10 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
     <p>See <a href="#install">Windows being suspicious</a>. Check the checksum, then restore the file from Defender's Protection history and allow it.</p>
   </details>
   <details>
+    <summary>The forecast says it couldn't reach Open-Meteo</summary>
+    <p>The week ahead comes over the internet, so the computer running Isobar needs to be online. A firewall or proxy that blocks <code>api.open-meteo.com</code> will stop it too. Isobar tries again every hour; <b>Refresh</b> tries at once.</p>
+  </details>
+  <details>
     <summary>Open in browser doesn't open anything</summary>
     <p>Isobar asks the system to open the page with your usual browser. On Linux it tries <code>xdg-open</code>, then <code>gio open</code>, then the system's default browser. If they all fail it says why, and where the report is saved (<code>Documents/Isobar reports</code>): open it from there. If xdg-open says it has no method for opening the file, your desktop has no default browser set. Choosing one in your desktop's settings usually fixes it, or run <code>xdg-settings set default-web-browser firefox.desktop</code>.</p>
   </details>
@@ -989,6 +1044,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <div class="tbl"><table>
     <thead><tr><th>Date</th><th>Change</th></tr></thead>
     <tbody>
+      <tr><td>3 Nov 2026</td><td>The Forecast screen: the week ahead from Open-Meteo, and the months ahead from your records. Longitude and a place search in Settings, and an About panel with the version. Rain on the thermograph stays as recorded.</td></tr>
       <tr><td>23 Oct 2026</td><td>Isobar 0.4.2 released, with the two changes below.</td></tr>
       <tr><td>23 Oct 2026</td><td>Rain on the 3, 7 and 30-day thermograph; the span buttons moved under the chart. New Now screenshots.</td></tr>
       <tr><td>22 Oct 2026</td><td>Tanks count today so far: today's rain and the day's use to this time.</td></tr>
@@ -1075,7 +1131,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
     [60.6, 71.9, "Feels like card", "Apparent temperature, wind chill, heat index and humidex, with today's extremes."],
     [93.1, 93.3, "Sparklines", "Every card has 24 hours along its foot. Click a card to put it in the big chart."],
     [94.4, 5.7, "Last update", "Green when live, amber after two quiet minutes or when the station stops sending, red when MX stops answering."],
-    [4.75, 59.3, "Health dot", "Something on Health wants a look."],
+    [4.75, 65.7, "Health dot", "Something on Health wants a look."],
     [10.1, 5.6, "Fold the rail", "Gives the charts the whole window."]
   ];
   const annot = $("#annot"), legend = $("#legend");

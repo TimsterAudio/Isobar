@@ -12,6 +12,9 @@ pub enum CoreError {
     Db(#[from] rusqlite::Error),
     #[error("file error: {0}")]
     Io(#[from] std::io::Error),
+    /// Something from a web service other than the station, said as is.
+    #[error("{0}")]
+    Service(String),
 }
 
 impl From<reqwest::Error> for CoreError {

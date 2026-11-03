@@ -23,6 +23,7 @@ const STRIP_W: f32 = 44.0;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Route {
     Now,
+    Forecast,
     History,
     Compare,
     Insights,
@@ -36,8 +37,9 @@ pub enum Route {
 }
 
 impl Route {
-    const ALL: [Route; 9] = [
+    const ALL: [Route; 10] = [
         Route::Now,
+        Route::Forecast,
         Route::History,
         Route::Compare,
         Route::Insights,
@@ -51,6 +53,7 @@ impl Route {
     fn label(self) -> &'static str {
         match self {
             Route::Now => "Now",
+            Route::Forecast => "Forecast",
             Route::History => "History",
             Route::Compare => "Compare",
             Route::Insights => "Insights",
@@ -108,6 +111,7 @@ pub struct IsobarApp {
     seasons: views::seasons::Seasons,
     tanks: views::tanks::TanksView,
     reports: views::reports::Reports,
+    forecast: views::forecast::ForecastView,
     health: views::health::Health,
     settings_view: views::settings::SettingsView,
 }
@@ -146,6 +150,7 @@ impl IsobarApp {
             seasons: Default::default(),
             tanks: Default::default(),
             reports: Default::default(),
+            forecast: Default::default(),
             health: Default::default(),
         }
     }
@@ -502,6 +507,13 @@ impl eframe::App for IsobarApp {
                                 ui.spacing_mut().item_spacing.y = 24.0;
                                 match self.route {
                                     Route::Now => self.now.ui(ui, &snap, &self.settings, &mut go),
+                                    Route::Forecast => self.forecast.ui(
+                                        ui,
+                                        &snap,
+                                        &self.settings,
+                                        &self.worker,
+                                        &mut go,
+                                    ),
                                     Route::History => self.history.ui(ui, &snap, &mut go),
                                     Route::Compare => self.compare.ui(ui, &snap, &mut go),
                                     Route::Insights => {
@@ -572,6 +584,8 @@ impl IsobarApp {
             clock_24h: self.settings.clock_24h,
             rail_pinned: self.settings.rail_pinned,
             latitude: Some(isobar_core::demo::LATITUDE),
+            longitude: Some(isobar_core::demo::LONGITUDE),
+            place: Some("Sydney, New South Wales, Australia".into()),
             tanks: Some(isobar_core::demo::tanks()),
             ..Default::default()
         };

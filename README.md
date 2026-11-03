@@ -32,6 +32,7 @@ No MX on the network? Point **Dayfile on this computer** at a `dayfile.txt` inst
 ## Screens
 
 - **Now**: the current temperature with its trend, a 24-hour temperature and dew point trace, and wind, pressure, rain, humidity and sun readouts with 24-hour sparklines. It warns you when the data goes stale or the station can't be reached.
+- **Forecast**: the week ahead for the station's location from Open-Meteo, and the months ahead from the station's own history (similar past years, the warming trend, and how often that's been right).
 - **History**: range presets or any date range, a summary compared with your station's own normals ("rain 94% of normal"), temperature, rain, wind and pressure charts, and a year heatmap of each day against normal. Hover a chart to read its values; drag across one to zoom in, and double-click to zoom out. Ranges longer than about 200 days switch to weekly values, and longer than three years to monthly values.
 - **Compare**: one month (or the whole year) overlaid for every year on record with a ranking table, or two date ranges side by side with wind roses.
 - **Insights**: unusual days measured against the seasonal normal for that date, a records board, a monthly climate table and prevailing-wind roses.
@@ -53,6 +54,7 @@ Desktop notifications cover strong gusts, frost, heat, and rain starting after t
 | Live conditions | `GET /api/data/currentdata`, every 10 s by default |
 | Daily history | `GET /api/data/dayfile?draw=1&start=N&length=1000`, paged; re-checked every 30 minutes and downloaded again when the line count changes |
 | Recent detail (best effort) | `GET /api/graphdata/{temp,press,wind,wdir,rain,hum,solar}data.json`, on first connect |
+| The week ahead | Open-Meteo (`api.open-meteo.com/v1/forecast`, free, no key), hourly, once a latitude and longitude are set; the place search uses `geocoding-api.open-meteo.com` |
 | Detailed history | `GET /api/data/logfile?from=…&to=…`, MX's monthly log files a month at a time in the background, newest first; the current month every 10 minutes. Kept at most one reading per 10 minutes |
 
 Isobar also stores one live sample a minute (21 days are kept), so the 24-hour charts fill in even if the graph-data endpoints aren't available.

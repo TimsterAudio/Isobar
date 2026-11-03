@@ -138,6 +138,11 @@ pub struct Settings {
     /// The station's latitude in degrees, south negative. Without it, Isobar
     /// works it out from the day's sunrise and sunset.
     pub latitude: Option<f64>,
+    /// The station's longitude in degrees, west negative, for the forecast.
+    pub longitude: Option<f64>,
+    /// The place the location was found from ("Leongatha, Victoria,
+    /// Australia"), to show beside the forecast.
+    pub place: Option<String>,
     /// Rainwater tanks, once set up.
     pub tanks: Option<isobar_core::tanks::Tanks>,
     /// The cards on Now, in order. Empty means the usual order, all shown.
@@ -158,6 +163,8 @@ impl Default for Settings {
             clock_24h: true,
             rail_pinned: true,
             latitude: None,
+            longitude: None,
+            place: None,
             tanks: None,
             now_cards: Vec::new(),
             alerts: Alerts::default(),

@@ -28,6 +28,8 @@ fn main() -> eframe::Result {
         let s = Settings {
             station_name: "Demo station".into(),
             latitude: Some(isobar_core::demo::LATITUDE),
+            longitude: Some(isobar_core::demo::LONGITUDE),
+            place: Some("Sydney, New South Wales, Australia".into()),
             tanks: Some(isobar_core::demo::tanks()),
             ..Default::default()
         };

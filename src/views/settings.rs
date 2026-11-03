@@ -30,6 +30,8 @@ struct Draft {
     password: String,
     poll: String,
     latitude: String,
+    longitude: String,
+    place: String,
     dayfile: String,
     alerts_on: bool,
     gust: String,
@@ -191,6 +193,8 @@ impl Draft {
             password: s.password.clone().unwrap_or_default(),
             poll: s.poll_seconds.to_string(),
             latitude: opt_num(s.latitude),
+            longitude: opt_num(s.longitude),
+            place: s.place.clone().unwrap_or_default(),
             dayfile: s.dayfile_path.clone().unwrap_or_default(),
             alerts_on: s.alerts.enabled,
             gust: opt_num(s.alerts.gust_above),
@@ -230,6 +234,7 @@ impl Draft {
             .map_err(|_| "Check every needs a whole number of seconds.".to_string())?;
         let opt = |s: &str| (!s.trim().is_empty()).then(|| s.trim().to_string());
         let latitude = parse_latitude(&self.latitude)?;
+        let longitude = parse_longitude(&self.longitude)?;
         let tanks = self.tanks.to_tanks()?;
         let order: Vec<NowCard> = if self.reset_order {
             NowCard::ALL.to_vec()
@@ -255,6 +260,8 @@ impl Draft {
             clock_24h: self.clock_24h,
             rail_pinned: base.rail_pinned,
             latitude,
+            longitude,
+            place: opt(&self.place),
             tanks,
             now_cards: Vec::new(),
             alerts: Alerts {
@@ -292,6 +299,28 @@ fn parse_latitude(s: &str) -> Result<Option<f64>, String> {
     }
 }
 
+/// "145.9", "145.9 E" or "71.1°W"; empty is none.
+fn parse_longitude(s: &str) -> Result<Option<f64>, String> {
+    let t = s.trim().replace(',', ".").replace('°', "");
+    if t.is_empty() {
+        return Ok(None);
+    }
+    let (num, sign) = match t.chars().last().map(|c| c.to_ascii_uppercase()) {
+        Some('W') => (&t[..t.len() - 1], -1.0),
+        Some('E') => (&t[..t.len() - 1], 1.0),
+        _ => (t.as_str(), 1.0),
+    };
+    match num.trim().parse::<f64>() {
+        Ok(v) if (-180.0..=180.0).contains(&v) => Ok(Some(v * sign)),
+        _ => Err(
+            "Longitude needs a number of degrees from -180 to 180, such as 145.9 or 71.1 W.".into(),
+        ),
+    }
+}
+
+/// A place search under way, or its answer.
+type Search = Arc<Mutex<Option<Result<Vec<isobar_core::forecast::Place>, String>>>>;
+
 pub struct SettingsView {
     draft: Draft,
     saved: Draft,
@@ -299,6 +328,10 @@ pub struct SettingsView {
     message: Option<(bool, String, Instant)>,
     confirm_clear: bool,
     busy_since: Option<Instant>,
+    /// The place search: what's typed, and the search under way or done.
+    query: String,
+    search: Search,
+    searching: bool,
 }
 
 impl SettingsView {
@@ -310,6 +343,9 @@ impl SettingsView {
             message: None,
             confirm_clear: false,
             busy_since: None,
+            query: String::new(),
+            search: Arc::default(),
+            searching: false,
         }
     }
 
@@ -412,6 +448,7 @@ impl SettingsView {
                     }
                 });
             });
+            about(ui, snap, &p);
         });
         demo
     }
@@ -456,19 +493,26 @@ impl SettingsView {
             });
             ui.add_space(-6.0);
             ui::para(ui, "Only needed if you've secured the MX interface. Stored unencrypted in Isobar's settings file.", theme::body(13.0), p.ink2, 560.0);
-            ui::columns(ui, 2, 16.0, false, |i, ui| {
-                if i == 0 {
+            ui::columns(ui, 3, 16.0, false, |i, ui| match i {
+                0 => {
                     ui::field(ui, "Check every (seconds)", None, |ui| {
                         ui::text_input(ui, &mut self.draft.poll, "10", 120.0)
                     });
-                } else {
+                }
+                1 => {
                     ui::field(ui, "Latitude", None, |ui| {
                         ui::text_input(ui, &mut self.draft.latitude, "Worked out", 120.0)
                     });
                 }
+                _ => {
+                    ui::field(ui, "Longitude", None, |ui| {
+                        ui::text_input(ui, &mut self.draft.longitude, "e.g. 145.9", 120.0)
+                    });
+                }
             });
             ui.add_space(-6.0);
-            ui::para(ui, "Latitude is in degrees, south negative: -33.9 or 33.9 S for Sydney. Seasons uses it for day length, and to estimate evaporation if the station doesn't record it. Leave it empty and Isobar works it out from the day's sunrise and sunset.", theme::body(13.0), p.ink2, 560.0);
+            ui::para(ui, "In degrees, south and west negative: -33.9 and 151.2 for Sydney. Seasons uses the latitude for day length, and to estimate evaporation if the station doesn't record it; left empty, Isobar works it out from the day's sunrise and sunset. The forecast needs both. Find your town below to fill them in.", theme::body(13.0), p.ink2, 560.0);
+            self.place_search(ui, p);
 
             ui.horizontal(|ui| {
                 let running = matches!(*self.test.lock().unwrap(), Some(Test::Running));
@@ -514,6 +558,64 @@ impl SettingsView {
                 }
             }
         });
+    }
+
+    /// Find a town by name and fill in its latitude and longitude.
+    fn place_search(&mut self, ui: &mut Ui, p: &Palette) {
+        if !self.draft.place.is_empty() {
+            ui::small(ui, format!("Location: {}", self.draft.place), p.ink2);
+        }
+        let mut go = false;
+        ui.horizontal(|ui| {
+            let resp = ui::text_input(ui, &mut self.query, "Find a town or suburb", 300.0);
+            go |= resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+            go |= ui::button(ui, "Find", Kind::Secondary).clicked();
+            if self.searching {
+                ui::small(ui, "Looking…", p.ink2);
+            }
+        });
+        if go && !self.query.trim().is_empty() && !self.searching {
+            self.searching = true;
+            *self.search.lock().unwrap() = None;
+            let (slot, ctx, name) = (self.search.clone(), ui.ctx().clone(), self.query.clone());
+            std::thread::spawn(move || {
+                let found = isobar_core::forecast::search(isobar_core::forecast::SEARCH_URL, &name)
+                    .map_err(|e| format!("Couldn't search for places: {e}"));
+                *slot.lock().unwrap() = Some(found);
+                ctx.request_repaint();
+            });
+        }
+        let answer = self.search.lock().unwrap().clone();
+        match answer {
+            None => {}
+            Some(Err(e)) => {
+                self.searching = false;
+                ui::small(ui, e, p.heat);
+            }
+            Some(Ok(places)) => {
+                self.searching = false;
+                if places.is_empty() {
+                    ui::small(ui, "No places by that name. Try the nearest town.", p.ink2);
+                }
+                let mut picked = None;
+                ui.horizontal_wrapped(|ui| {
+                    ui.spacing_mut().item_spacing = egui::vec2(6.0, 6.0);
+                    for (k, place) in places.iter().enumerate() {
+                        if ui::chip(ui, &place.label(), false).clicked() {
+                            picked = Some(k);
+                        }
+                    }
+                });
+                if let Some(k) = picked {
+                    let place = &places[k];
+                    self.draft.latitude = format!("{:.3}", place.latitude);
+                    self.draft.longitude = format!("{:.3}", place.longitude);
+                    self.draft.place = place.label();
+                    *self.search.lock().unwrap() = None;
+                    self.query.clear();
+                }
+            }
+        }
     }
 
     fn start_test(&mut self, ctx: &egui::Context) {
@@ -849,6 +951,35 @@ fn pick_dayfile() -> Option<std::path::PathBuf> {
         .add_filter("Cumulus dayfile", &["txt", "csv"])
         .add_filter("All files", &["*"])
         .pick_file()
+}
+
+/// The version, and where Isobar keeps its files.
+fn about(ui: &mut Ui, snap: &Snapshot, p: &Palette) {
+    ui::panel(ui, |ui| {
+        ui::h2(ui, "About Isobar");
+        ui::text(
+            ui,
+            format!("Version {}", env!("CARGO_PKG_VERSION")),
+            theme::semi(15.0),
+            p.ink,
+        );
+        if snap.demo {
+            ui::small(ui, "The demo station keeps nothing on disk.", p.ink2);
+        } else {
+            let paths = crate::settings::Paths::locate();
+            ui::small(
+                ui,
+                format!("Settings: {}", paths.settings.display()),
+                p.ink2,
+            );
+            ui::small(ui, format!("History: {}", paths.database.display()), p.ink2);
+        }
+        ui::small(
+            ui,
+            "A companion to Cumulus MX. Releases and the user guide are on GitHub: github.com/TimsterAudio/Isobar",
+            p.ink2,
+        );
+    });
 }
 
 #[cfg(test)]

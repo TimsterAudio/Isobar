@@ -32,6 +32,9 @@ pub fn tanks() -> crate::tanks::Tanks {
 }
 
 /// Where the demo station is, near Sydney.
+/// The demo station's longitude, for its forecast.
+pub const LONGITUDE: f64 = 151.2;
+
 pub const LATITUDE: f64 = -33.9;
 
 /// A small deterministic generator, so the demo looks the same every run.
@@ -222,6 +225,69 @@ pub fn samples_for(now_ms: i64, days: i64) -> BTreeMap<String, Vec<(i64, f64)>> 
         t += 5 * 60_000;
     }
     out
+}
+
+/// A made-up week ahead: a front on the third day, then clearing.
+pub fn forecast(now_ms: i64) -> crate::forecast::Forecast {
+    use crate::forecast::{Forecast, ForecastDay, ForecastHour};
+    let today = Local
+        .timestamp_millis_opt(now_ms)
+        .single()
+        .map_or_else(|| Local::now().date_naive(), |t| t.date_naive());
+    // Weather code, max, min, rain, chance, wind, gust, direction.
+    type Day = (u32, f64, f64, f64, f64, f64, f64, f64);
+    let plan: [Day; 7] = [
+        (2, 21.5, 10.2, 0.0, 5.0, 18.0, 34.0, 200.0),
+        (3, 24.0, 12.8, 0.4, 20.0, 24.0, 45.0, 330.0),
+        (63, 17.1, 11.5, 14.2, 90.0, 35.0, 72.0, 245.0),
+        (80, 15.6, 8.9, 4.1, 65.0, 30.0, 58.0, 225.0),
+        (2, 18.2, 7.4, 0.2, 15.0, 20.0, 37.0, 200.0),
+        (1, 21.0, 9.1, 0.0, 5.0, 14.0, 28.0, 180.0),
+        (0, 23.4, 11.0, 0.0, 0.0, 12.0, 25.0, 45.0),
+    ];
+    let days = plan
+        .iter()
+        .enumerate()
+        .map(|(k, p)| ForecastDay {
+            date: today + Duration::days(k as i64),
+            code: Some(p.0),
+            max: Some(p.1),
+            min: Some(p.2),
+            rain: Some(p.3),
+            rain_chance: Some(p.4),
+            wind: Some(p.5),
+            gust: Some(p.6),
+            dir: Some(p.7),
+            uv: Some(6.0 + (k % 3) as f64),
+        })
+        .collect();
+    let hour0 = now_ms - now_ms.rem_euclid(3_600_000) + 3_600_000;
+    let hours = (0..48)
+        .map(|k| {
+            let ts = hour0 + k * 3_600_000;
+            let at = Local.timestamp_millis_opt(ts).single();
+            let h = at.map_or(12.0, |t| t.hour() as f64);
+            let day = at.map_or(0, |t| {
+                (t.date_naive() - today).num_days().clamp(0, 6) as usize
+            });
+            let (code, max, min, rain, chance, ..) = plan[day];
+            let swing = (((h - 9.0) / 24.0) * TAU).sin() * 0.5 + 0.5;
+            ForecastHour {
+                ts,
+                temp: Some(round1(min + (max - min) * swing)),
+                rain_chance: Some((chance * (0.6 + 0.4 * swing)).round()),
+                rain: Some(round1(rain / 24.0)),
+                code: Some(code),
+            }
+        })
+        .collect();
+    Forecast {
+        fetched_at: now_ms - 12 * 60_000,
+        latitude: LATITUDE,
+        longitude: LONGITUDE,
+        days,
+        hours,
+    }
 }
 
 /// "2026-10-12 02:02" in local time, as MX writes its last rain tip.

@@ -2,9 +2,9 @@
 
 Everything that could be added, from the data the owner's Cumulus MX 5.1.5 station sends. Added in full on 2026-10-18 so the owner can trim it. The owner reviews it on a printable checklist page with the same IDs, and marks each item **Yes** (build it), *Later* (keep, not now) or no (drop it). Items with no mark are still undecided; don't build them.
 
-## Decisions so far (2026-10-22)
+## Decisions so far (2026-11-03)
 
-- **Yes:** A1, A2, A3, B1, B2, B3, B4, B6, B7, B8, C1, D1, D2, D3, D4, E2, E3, F1, F2, G1, G2, H2, H3, I1, I2, K4, L1, L3, Z1, Z2, Z3, Z4, Z6, Z8
+- **Yes:** A1, A2, A3, B1, B2, B3, B4, B6, B7, B8, C1, D1, D2, D3, D4, E2, E3, F1, F2, G1, G2, H2, H3, I1, I2, K4, L1, L3, Z1, Z2, Z3, Z4, Z6, Z8, Z10, Z11, Z12
 - **Undecided:** B5, E1, H1, J1, J2, J3, K1, K3, K5, L2, L4, L5, Z5, Z7, Z9
 
 Tags: **Stored** is already in the local history (no new downloading), **Live** is sent by MX in `currentdata` but not read yet (add it to `LiveReading` in `crates/isobar-core/src/live.rs` and check it against the fixture), **Build** is worked out by Isobar. ★ marks a suggested starting point.
@@ -86,6 +86,9 @@ Changes to the views and anything not listed, added as the owner sends them.
 - [x] **Z6** Click a card on Now to show it in the big chart, over a span that suits it (pressure 3 days, rain 7 days of daily totals, tanks 3 months; others 24 hours), with span chips. — **Yes**, done 2026-10-19
 - [ ] **Z5** Units of your choice (metric, imperial, or one by one: °C/°F, mm/in, km/h, m/s, mph, knots, hPa/inHg), as a setting that overrides the station's. By default Isobar keeps following the units MX reports. *Build*
 - [x] **Z8** Tanks count today so far: today's rain from the live reading and the day's use to this time, not just up to yesterday. — **Yes**, done 2026-10-22 (the owner's request)
+- [x] **Z10** Rain on the thermograph stays as it was recorded as the chart moves on, like ink on a paper chart. — **Yes**, done 2026-11-03 (the owner's request)
+- [x] **Z11** A Forecast page: the week ahead from Open-Meteo for the station's location, and a look ahead 6 to 12 months from the recorded history (wetter, drier, warmer, colder, and why: a pattern analysis). — **Yes**, done 2026-11-03 (the owner's request). Similar past years by the last three months against normal, the trend, and a leave-one-year-out hit rate
+- [x] **Z12** The version number in Settings. — **Yes**, done 2026-11-03, in an About panel with where the files are
 - [ ] **Z9** A new name: "Isobar" is used by several other apps. Ideas so far: Atmospherix, AClimatEyes. Means renaming the program, window, files and repository; settings and history can move with a one-time copy. *Build* (added 2026-10-22)
 - [ ] **Z7** More colour themes beyond chart-paper light and dark (for example a warmer paper, a high-contrast theme, or ones matched to other instruments). *Build* (parked 2026-10-19; undecided again 2026-10-20)
 

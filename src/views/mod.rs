@@ -1,4 +1,5 @@
 pub mod compare;
+pub mod forecast;
 pub mod health;
 pub mod history;
 pub mod insights;

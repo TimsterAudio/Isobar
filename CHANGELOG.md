@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Forecast screen:** *The week ahead* gives seven days for the station's location from Open-Meteo (weather in words, high and low, rain and its chance, wind and gusts, UV) and a 48-hour chart of temperature and chance of rain, in the station's units, fetched every hour. *The months ahead* is a pattern analysis from the station's own history: the last three full months against normal, the five past years most like them, and what followed, as odds for the next 3, 6 and 12 months and month by month, with the warming trend and a hit rate from testing the method on every past year.
+- **Location:** Settings → Station has a longitude beside the latitude, and a place search that fills both in.
+- **About Isobar:** the version, and where the settings and history are kept, at the foot of Settings.
+- **Rain stays as recorded on the thermograph:** rain that fell earlier in a day no longer drops out of the running total as the 24-hour window slides past it.
+
 ## 0.4.2 – 2026-10-23
 
 - **Rain on the longer thermograph spans:** 3, 7 and 30 days show rain since midnight too, starting again each midnight, from MX's logs; until those arrive, the daily highs and lows come with a bar for each day's rain. Before, rain only showed over 24 hours.

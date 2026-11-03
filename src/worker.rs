@@ -107,7 +107,21 @@ pub struct Shared {
     pub tank_outcome: Option<Outcome>,
     pub log_summary: Arc<LogSummary>,
     pub detail: Option<Arc<Detail>>,
+    pub forecast: ForecastState,
+    /// When the forecast was last asked for (Unix ms).
+    pub forecast_tried: i64,
 }
+
+/// The forecast from Open-Meteo, and how fetching it is going.
+#[derive(Default, Clone)]
+pub struct ForecastState {
+    pub data: Option<Arc<isobar_core::forecast::Forecast>>,
+    pub error: Option<String>,
+    pub loading: bool,
+}
+
+/// How often to fetch the forecast again.
+const FORECAST_EVERY_MS: i64 = 60 * 60_000;
 
 pub enum Cmd {
     Settings(Box<Settings>),
@@ -126,6 +140,8 @@ pub enum Cmd {
         from_ms: i64,
         to_ms: i64,
     },
+    /// Fetch the forecast again now.
+    RefreshForecast,
     /// End the thread (when switching to the demo station).
     Stop,
 }
@@ -555,6 +571,10 @@ impl Worker {
                 });
                 false
             }
+            Cmd::RefreshForecast => {
+                self.forecast(true);
+                false
+            }
             Cmd::Stop => false,
             Cmd::ClearHistory => {
                 let r = self.store.clear_days();
@@ -577,7 +597,65 @@ impl Worker {
     }
 
     /// One round of polling. Returns how long to wait before the next.
+    /// Fetch the forecast on a thread of its own when there's a location
+    /// and the last one is an hour old, or for somewhere else. After an
+    /// error, wait an hour before trying again unless asked.
+    fn forecast(&self, force: bool) {
+        let (Some(lat), Some(lon)) = (self.settings.latitude, self.settings.longitude) else {
+            self.update(|s| s.forecast = ForecastState::default());
+            return;
+        };
+        let now = now_ms();
+        let (state, tried) = {
+            let s = self.h.lock();
+            (s.forecast.clone(), s.forecast_tried)
+        };
+        let here = |f: &isobar_core::forecast::Forecast| {
+            (f.latitude - lat).abs() < 0.1 && (f.longitude - lon).abs() < 0.1
+        };
+        let fresh = state
+            .data
+            .as_ref()
+            .is_some_and(|f| now - f.fetched_at < FORECAST_EVERY_MS && here(f));
+        let moved = state.data.as_ref().is_some_and(|f| !here(f));
+        let waiting = now - tried < FORECAST_EVERY_MS && !moved;
+        if state.loading || (!force && (fresh || waiting)) {
+            return;
+        }
+        let units = self
+            .h
+            .lock()
+            .live
+            .as_ref()
+            .map(|r| r.units.clone())
+            .unwrap_or_default();
+        self.update(|s| {
+            s.forecast.loading = true;
+            s.forecast_tried = now;
+        });
+        let (h, ctx) = (self.h.clone(), self.ctx.clone());
+        std::thread::spawn(move || {
+            // ISOBAR_FORECAST_URL points at a stand-in server for testing.
+            let base = std::env::var("ISOBAR_FORECAST_URL")
+                .unwrap_or_else(|_| isobar_core::forecast::FORECAST_URL.into());
+            let got = isobar_core::forecast::fetch(&base, lat, lon, &units, now_ms());
+            {
+                let mut s = h.lock();
+                s.forecast.loading = false;
+                match got {
+                    Ok(f) => {
+                        s.forecast.data = Some(Arc::new(f));
+                        s.forecast.error = None;
+                    }
+                    Err(e) => s.forecast.error = Some(format!("Couldn't get the forecast: {e}")),
+                }
+            }
+            ctx.request_repaint();
+        });
+    }
+
     fn tick(&mut self) -> Duration {
+        self.forecast(false);
         if !self.settings.has_station() {
             // File mode: re-import the dayfile whenever it changes.
             if let Some(path) = self.settings.dayfile().map(str::to_string) {
@@ -861,6 +939,7 @@ fn run_demo(h: Handle, ctx: egui::Context, rx: Receiver<Cmd>) {
         s.days = Arc::new(days);
         s.days_version += 1;
         s.samples = Arc::new(samples.clone());
+        s.forecast.data = Some(Arc::new(demo::forecast(now_ms())));
         s.log_summary = Arc::new(LogSummary {
             indoor: match (month.get("intemp"), month.get("temp")) {
                 (Some(i), Some(o)) => isobar_core::indoor::indoor_summary(i, o),
@@ -923,7 +1002,7 @@ fn run_demo(h: Handle, ctx: egui::Context, rx: Receiver<Cmd>) {
                 });
                 ctx.request_repaint();
             }
-            Ok(Cmd::Settings(_)) | Err(RecvTimeoutError::Timeout) => {}
+            Ok(Cmd::Settings(_)) | Ok(Cmd::RefreshForecast) | Err(RecvTimeoutError::Timeout) => {}
             Ok(Cmd::Stop) | Err(RecvTimeoutError::Disconnected) => return,
         }
     }

@@ -40,7 +40,7 @@ GitHub Actions (`.github/workflows/build.yml`) runs the checks, builds both prog
 ## State
 
 Verified in a Linux cloud session (2026-10-17):
-- `cargo test --workspace`: 81 tests pass (dayfile parsing, live mapping, URL normalisation, store, analytics, seasons and sun geometry, health checks, tank model and import, demo, settings, alerts, chart ticks, formatting).
+- `cargo test --workspace`: 84 tests pass (dayfile parsing, live mapping, URL normalisation, store, analytics, seasons and sun geometry, health checks, tank model and import, demo, settings, alerts, chart ticks, formatting).
 - Every screen rendered with the demo station in light and dark (screenshots in `docs/`).
 - End to end against a fake MX server: 2,665 days synced in three pages, live reading mapped, graph-data backfill filled the thermograph, and an unreachable station shows a clear message.
 - The Windows `.exe` cross-compiles (12 MB, only system DLLs) and runs under Wine.
@@ -51,8 +51,11 @@ The owner's tanks (2026-10-18): 385 m² roof, two 22,500 L tanks (3,530 mm insid
 
 MX's monthly logs (from the Cumulus MX source, checked 2026-10-19 against 5.1.6, same as 5.1.5): `GET /api/data/logfile?from=YYYY-MM-DD&to=YYYY-MM-DD&draw=1&start=N&length=N` returns `{"data": [[line, "dd/MM/yy HH:mm", "unix seconds", temp, hum, dew, wind, gust, avg bearing, rain rate, rain today, pressure, rain counter, in temp, in hum, latest gust, wind chill, heat index, UV, solar, ET, annual ET, apparent, solar max, sunshine, bearing, RG-11, rain since midnight, feels like, humidex, BGT, WBGT], ...], "recordsTotal": N}`, or an empty body when that month's file doesn't exist. Dates are meteorological days. Isobar stores them in the `log` table (values in hundredths as integers), at most one row per 10 minutes, and fetches a month a step. The owner's MX logs every minute (about 140 MB for five years before 10-minute storage, 2026-10-19), so each 10 minutes is combined on the way in: averages, the highest gust and rain rate, the latest bearing and rain totals, timed at the last reading; only the newest step is left as it is while it fills. A store from before this is thinned once at startup (meta `log_step`), then VACUUMed.
 
+The forecast (2026-11-03) comes from Open-Meteo, the one service besides MX: `api.open-meteo.com/v1/forecast` with `timezone=auto&timeformat=unixtime` and the station's units (`temperature_unit`, `precipitation_unit`, `wind_speed_unit`), daily for 7 days and hourly for 48, and `geocoding-api.open-meteo.com/v1/search` for the place search. Free, no key, CC BY 4.0: keep the attribution line on the Forecast screen. Cloud sessions can't reach it (the proxy refuses), so `ISOBAR_FORECAST_URL` points the worker at a stand-in server for testing. The months-ahead outlook (`outlook.rs`) is the owner's pattern analysis: analogue years by the last three full months against normal, detrended temperatures, and a leave-one-year-out hit rate shown plainly on the page.
+
 Not verified:
 - Whether the owner's MX interface needs a login. Basic auth is supported but untested.
+- The forecast and place search against the real Open-Meteo (tested only against a stand-in with its documented format).
 
 ## Suggested order of work
 
