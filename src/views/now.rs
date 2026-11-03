@@ -98,6 +98,8 @@ fn uv_band(uv: f64) -> &'static str {
 /// Seconds and values of one sampled metric.
 fn series(snap: &Snapshot, key: &str) -> (Vec<f64>, Vec<Option<f64>>) {
     let pts = snap.samples.get(key).map(Vec::as_slice).unwrap_or(&[]);
+    // The rain readings reach back past 24 hours; show the last 24.
+    let pts = &pts[pts.partition_point(|p| p.0 < snap.now_ms - 86_400_000)..];
     (
         pts.iter().map(|p| p.0 as f64 / 1000.0).collect(),
         pts.iter().map(|p| Some(p.1)).collect(),
@@ -685,10 +687,17 @@ impl Now {
                 .as_ref()
                 .is_some_and(|(k, at)| *k == key && at.elapsed().as_secs() < 5);
             if fresh != Some(true) && !asked {
+                // Temperature asks from the midnight before, so the rain
+                // since midnight on the first day counts in full.
+                let ask_from = if focus.is_none() {
+                    chart::day_ts(chart::ts_day((from / 1000) as f64)) as i64 * 1000
+                } else {
+                    from
+                };
                 self.request = Some((
                     key.clone(),
                     metrics.iter().map(|m| m.to_string()).collect(),
-                    from,
+                    ask_from,
                     to,
                 ));
                 self.requested = Some((key.clone(), std::time::Instant::now()));
@@ -842,7 +851,8 @@ impl Now {
             _ => {
                 // Line charts: the first metric leads, the second aligns to it.
                 let (a_key, b_key) = (metrics[0], metrics.get(1).copied());
-                let a = pts(a_key);
+                let mut a = pts(a_key);
+                a.retain(|q| q.0 >= from);
                 let fallback = hours > 24 && covered(&a) < 0.5;
                 let (label_a, color_a, unit_a, label_b, color_b, unit_b, dashed_b): (
                     String,
@@ -1667,13 +1677,19 @@ fn bottom(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
 
 /// Rain since local midnight, built up from the station's "rain today"
 /// samples so it resets at midnight whatever the station's rain day is.
+/// Worked out from the midnight before the window, so rain that fell before
+/// the 24 hours began still counts, and each total stays as it was recorded.
 fn rain_today(snap: &Snapshot) -> Vec<(i64, f64)> {
     let pts = snap
         .samples
         .get("rain_today")
         .map(Vec::as_slice)
         .unwrap_or(&[]);
-    isobar_core::analytics::rain_since_midnight(pts, |t| chart::ts_day(t as f64 / 1000.0))
+    let mut all =
+        isobar_core::analytics::rain_since_midnight(pts, |t| chart::ts_day(t as f64 / 1000.0));
+    let cut = all.partition_point(|p| p.0 < snap.now_ms - 86_400_000);
+    all.drain(..cut);
+    all
 }
 
 /// Values of `pts` at the timestamps `xs` (seconds), where they line up

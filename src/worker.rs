@@ -417,10 +417,9 @@ impl Worker {
     }
 
     fn reload_samples(&self) {
-        let samples = self
-            .store
-            .samples_since(now_ms() - DAY_MS)
-            .unwrap_or_default();
+        let now = now_ms();
+        let mut samples = self.store.samples_since(rain_from(now)).unwrap_or_default();
+        trim_samples(&mut samples, now);
         self.update(|s| s.samples = Arc::new(samples));
     }
 
@@ -642,11 +641,9 @@ impl Worker {
                     self.update(|s| {
                         let samples = Arc::make_mut(&mut s.samples);
                         for (k, v) in &metrics {
-                            let series = samples.entry(k.to_string()).or_default();
-                            series.push((now, *v));
-                            let cut = series.partition_point(|p| p.0 < now - DAY_MS);
-                            series.drain(..cut);
+                            samples.entry(k.to_string()).or_default().push((now, *v));
                         }
+                        trim_samples(samples, now);
                     });
                 }
                 let s = &self.settings;
@@ -820,6 +817,34 @@ fn thin(series: Samples, from_ms: i64, to_ms: i64) -> Samples {
         .collect()
 }
 
+/// Local midnight at the start of the day 24 hours before `now_ms`: the
+/// rain readings go back this far, so rain since midnight keeps the rain
+/// that fell before the 24-hour window began.
+fn rain_from(now_ms: i64) -> i64 {
+    let then = now_ms - DAY_MS;
+    chrono::Local
+        .timestamp_millis_opt(then)
+        .single()
+        .and_then(|d| d.date_naive().and_hms_opt(0, 0, 0))
+        .and_then(|m| m.and_local_timezone(chrono::Local).earliest())
+        .map_or(then, |m| m.timestamp_millis())
+}
+
+/// Keep the last 24 hours of each reading, and the rain back to the
+/// midnight before that.
+fn trim_samples(samples: &mut Samples, now_ms: i64) {
+    let rain_cut = rain_from(now_ms);
+    for (k, series) in samples.iter_mut() {
+        let cut = if k == "rain_today" {
+            rain_cut
+        } else {
+            now_ms - DAY_MS
+        };
+        let n = series.partition_point(|p| p.0 < cut);
+        series.drain(..n);
+    }
+}
+
 /// The demo station: synthetic history, and a live reading every five
 /// seconds.
 fn run_demo(h: Handle, ctx: egui::Context, rx: Receiver<Cmd>) {
@@ -827,16 +852,8 @@ fn run_demo(h: Handle, ctx: egui::Context, rx: Receiver<Cmd>) {
     // A month of readings for the chart on Now to look back over; the last
     // day of it is the live samples.
     let month = demo::samples_for(now_ms(), 30);
-    let day_ago = now_ms() - DAY_MS;
-    let samples: Samples = month
-        .iter()
-        .map(|(k, v)| {
-            (
-                k.clone(),
-                v.iter().copied().filter(|p| p.0 >= day_ago).collect(),
-            )
-        })
-        .collect();
+    let mut samples: Samples = month.clone();
+    trim_samples(&mut samples, now_ms());
     {
         let mut s = h.lock();
         s.status.day_count = days.len();
