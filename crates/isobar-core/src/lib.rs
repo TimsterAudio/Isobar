@@ -9,9 +9,11 @@
 //! * [`seasons`] covers water balance, frost, growing degree days and the sun.
 //! * [`tanks`] models rainwater tanks from the rain.
 //! * [`health`] checks the data itself: missing days and gaps in readings.
+//! * [`backup`] makes nightly copies of the history for a backup program.
 //! * [`demo`] is a synthetic station for trying Isobar without one.
 
 pub mod analytics;
+pub mod backup;
 pub mod dayfile;
 pub mod demo;
 pub mod error;

@@ -83,6 +83,16 @@ fn context(snap: &Snapshot, settings: &Settings) -> ReportContext {
     }
 }
 
+/// Opens a folder (or file) in the system's file manager, on a thread of
+/// its own.
+pub fn open_in_background(path: std::path::PathBuf) {
+    std::thread::spawn(move || {
+        if let Err(e) = open_file(&path) {
+            eprintln!("Couldn't open {}: {e}", path.display());
+        }
+    });
+}
+
 /// Opens a file with the system's usual program for it, a browser for HTML.
 /// Blocks until the opener is done (on Linux it can run the browser itself),
 /// so it runs on its own thread.

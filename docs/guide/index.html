@@ -807,6 +807,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
     <li><b>Alerts</b>: see <a href="#alerts">Alerts</a>.</li>
     <li><b>Now screen</b>: tick the cards you want. "Put the cards back in the usual order" undoes your dragging.</li>
     <li><b>Appearance</b>: theme (Match system, Light, Dark) and times (24-hour 16:52, or 12-hour 4:52 PM).</li>
+    <li><b>Nightly backup</b>: the time each day Isobar writes a safe copy of the history and settings for your backup program, how many copies to keep, and <b>Back up now</b> (see <a href="#storage">Where Isobar keeps things</a>).</li>
     <li><b>Isobar's files</b>: where your settings, history and reports are, and a button to keep them all in one folder you choose (see <a href="#storage">Where Isobar keeps things</a>).</li>
     <li><b>About Isobar</b>: the version you're running.</li>
   </ul>
@@ -907,9 +908,24 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
     <li><b>Your tank spreadsheet</b>, if you imported one.</li>
   </ol>
   <p>Easiest of all: keep Isobar's files in one folder your backup already covers, such as Documents (Settings → Isobar's files). Then settings, history and reports are all backed up without a thought.</p>
-  <p><code>isobar.sqlite</code> is optional: it only saves the wait while Isobar fetches the history again. If you do copy it, close Isobar first, so the database and its working files are all in step.</p>
+  <h3>The nightly backup</h3>
+  <p>The history, <code>isobar.sqlite</code>, is open the whole time Isobar runs, and changes every few seconds. A backup program copying it mid-write can end up with a file that's neither one thing nor the other. So once a day Isobar writes a complete copy of the history (and your settings) into a <code>Backups</code> folder, named by date: <code>isobar-2026-11-04.sqlite</code> and <code>settings-2026-11-04.json</code>. Nothing touches those again, so your backup program can copy them whenever it likes.</p>
+  <ul>
+    <li><b>When:</b> Settings → <b>Nightly backup</b>. It's 21:00 to start with; set it a little before your backup runs. If the computer's off at that time, Isobar catches up the next time it's running.</li>
+    <li><b>How many:</b> the last seven copies by default; older ones are deleted. Anything else you put in that folder is left alone.</li>
+    <li><b>Where:</b> <code>Backups</code> inside your one folder if you've chosen one, otherwise <code>Isobar backups</code> in Documents. The panel shows the folder, when the last copy was made, and has <b>Back up now</b> and <b>Open the folder</b>.</li>
+  </ul>
+  <p>The copy is written under a temporary name and only renamed when it's complete, so even a backup that runs at exactly the wrong moment never picks up half of one.</p>
+  <h3>Putting a backup back</h3>
+  <ol>
+    <li>Close Isobar.</li>
+    <li>In the History folder, delete <code>isobar.sqlite</code> and, if they're there, <code>isobar.sqlite-wal</code> and <code>isobar.sqlite-shm</code>.</li>
+    <li>Copy the backup you want (say <code>isobar-2026-11-04.sqlite</code>) into the History folder and rename it <code>isobar.sqlite</code>. Do the same with a <code>settings-…json</code> into the Settings folder as <code>settings.json</code> if you want those back too.</li>
+    <li>Start Isobar. It fetches anything since the backup from MX.</li>
+  </ol>
+  <p>Honestly, the history is the least precious thing here: MX has it all, and Isobar can fetch it again. The backup just saves the wait, and keeps your tank record and the detailed readings that MX may have tidied away.</p>
   <h3>Starting again on a new computer</h3>
-  <p>Download Isobar, put <code>settings.json</code> in place (or just type the station address in), start it, and import the tank spreadsheet again if you use one. Daily history is back in seconds; the detailed history comes back in the background.</p>
+  <p>If your one folder came back with the rest of your files, start Isobar, go to Settings → Isobar's files and choose it: Isobar uses the settings and history already there. Otherwise, download Isobar, put <code>settings.json</code> in place (or just type the station address in), start it, and import the tank spreadsheet again if you use one. Daily history is back in seconds; the detailed history comes back in the background.</p>
   <h3>Two computers, one station</h3>
   <p>Run Isobar on both, each pointing at MX. MX is the shared dataset; each Isobar keeps its own small cache. <b>Don't</b> put <code>isobar.sqlite</code> on a network share and open it from two machines: SQLite expects to live on the machine using it, and over a network it can lock up or get damaged. Copy <code>settings.json</code> across instead.</p>
 </section>
@@ -1063,6 +1079,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <div class="tbl"><table>
     <thead><tr><th>Date</th><th>Change</th></tr></thead>
     <tbody>
+      <tr><td>4 Nov 2026</td><td>The nightly backup: a safe, dated copy of the history and settings each day for your backup program, and how to put one back.</td></tr>
       <tr><td>3 Nov 2026</td><td>Keep all of Isobar's files in one folder you choose, with Settings, History and Reports inside.</td></tr>
       <tr><td>3 Nov 2026</td><td>The Forecast screen: the week ahead from Open-Meteo, and the months ahead from your records. Longitude and a place search in Settings, and an About panel with the version. Rain on the thermograph stays as recorded.</td></tr>
       <tr><td>23 Oct 2026</td><td>Isobar 0.4.2 released, with the two changes below.</td></tr>

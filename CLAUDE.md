@@ -18,7 +18,7 @@ Isobar was designed and first built in a claude.ai conversation, then rewritten 
 - **Anomalies** are measured against a day-of-year climatology (±7 days across other years), not one global mean. The old dashboard used a global mean and so flagged ordinary seasonal days.
 - **Visual identity:** recording-instrument chart paper. Pale green-grey paper, slate ink, and a violet "pen" colour (`trace`) reserved for the primary recorded series. Fonts are Barlow and Barlow Condensed, built into the binary from `assets/fonts`. The large thermograph panel on the Now screen is the one bold element; keep everything else quiet. Colours are in `src/theme.rs`. Isobar keeps its own look rather than the TAW hi-fi look.
 - **Copy style:** sentence case, plain words, active voice, specific error messages.
-- **Files:** by default the same folders as the first version (`app.isobar.desktop` under the config and data directories), so settings and history carry over. Since 2026-11-03 the owner can keep everything in one folder of their choosing (they use My Documents on Windows, as it's backed up), with `Settings`, `History` and `Reports` inside; a `folder.json` in the usual config folder names it and any history move waiting for the next start (`Paths` in `src/settings.rs`).
+- **Files:** by default the same folders as the first version (`app.isobar.desktop` under the config and data directories), so settings and history carry over. Since 2026-11-03 the owner can keep everything in one folder of their choosing (they use My Documents on Windows, as it's backed up), with `Settings`, `History` and `Reports` inside; a `folder.json` in the usual config folder names it and any history move waiting for the next start (`Paths` in `src/settings.rs`). Since 2026-11-04 a nightly backup (`backup.rs`, SQLite `VACUUM INTO` under a `.part` name, then renamed) writes dated copies of the history and settings into `Backups` (or `Isobar backups` in Documents) at a set time for the owner's evening backup run; meta `last_backup` records the last one.
 
 ## Checks before pushing
 
@@ -40,7 +40,7 @@ GitHub Actions (`.github/workflows/build.yml`) runs the checks, builds both prog
 ## State
 
 Verified in a Linux cloud session (2026-10-17):
-- `cargo test --workspace`: 85 tests pass (dayfile parsing, live mapping, URL normalisation, store, analytics, seasons and sun geometry, health checks, tank model and import, demo, settings, alerts, chart ticks, formatting).
+- `cargo test --workspace`: 88 tests pass (dayfile parsing, live mapping, URL normalisation, store, analytics, seasons and sun geometry, health checks, tank model and import, demo, settings, alerts, chart ticks, formatting).
 - Every screen rendered with the demo station in light and dark (screenshots in `docs/`).
 - End to end against a fake MX server: 2,665 days synced in three pages, live reading mapped, graph-data backfill filled the thermograph, and an unreachable station shows a clear message.
 - The Windows `.exe` cross-compiles (12 MB, only system DLLs) and runs under Wine.

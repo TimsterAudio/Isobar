@@ -62,6 +62,14 @@ impl Store {
         Ok(Store { conn })
     }
 
+    /// Write a complete, consistent copy of the database to `path`, which
+    /// must not exist yet, while it stays open and in use.
+    pub fn copy_to(&self, path: &Path) -> Result<()> {
+        self.conn
+            .execute("VACUUM INTO ?1", [path.to_string_lossy().as_ref()])?;
+        Ok(())
+    }
+
     pub fn open_in_memory() -> Result<Self> {
         let conn = Connection::open_in_memory()?;
         conn.execute_batch(SCHEMA)?;

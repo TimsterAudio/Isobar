@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+## 0.5.0 – 2026-11-04
+
+- **Nightly backup:** the history is always open while Isobar runs, so a backup program copying it can catch it half written. Once a day, at a time set in Settings → Nightly backup (21:00 to start with), Isobar writes a complete copy of the history (SQLite's `VACUUM INTO`) and the settings into a Backups folder, named by date, keeping the last seven. If the computer's off at that time, it makes the copy next time it runs. Back up now and Open the folder are beside it. The folder is Backups in your one folder, or Isobar backups in Documents.
 - **All of Isobar's files in one folder:** Settings → Isobar's files shows where the settings, history and reports are, and keeps them all in one folder you choose (Documents is ideal for backups), in Settings, History and Reports folders. The settings move at once and the history when Isobar restarts, which a button does; a folder that already has Isobar's files is used as it is. Isobar warns about network folders, where the history could be damaged. Back to the usual folders works the same way.
 - **Forecast screen:** *The week ahead* gives seven days for the station's location from Open-Meteo (weather in words, high and low, rain and its chance, wind and gusts, UV) and a 48-hour chart of temperature and chance of rain, in the station's units, fetched every hour. *The months ahead* is a pattern analysis from the station's own history: the last three full months against normal, the five past years most like them, and what followed, as odds for the next 3, 6 and 12 months and month by month, with the warming trend and a hit rate from testing the method on every past year.
 - **Location:** Settings → Station has a longitude beside the latitude, and a place search that fills both in.

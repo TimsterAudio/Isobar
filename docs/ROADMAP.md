@@ -4,7 +4,7 @@ Everything that could be added, from the data the owner's Cumulus MX 5.1.5 stati
 
 ## Decisions so far (2026-11-03)
 
-- **Yes:** A1, A2, A3, B1, B2, B3, B4, B6, B7, B8, C1, D1, D2, D3, D4, E2, E3, F1, F2, G1, G2, H2, H3, I1, I2, K4, L1, L3, Z1, Z2, Z3, Z4, Z6, Z8, Z10, Z11, Z12, Z13
+- **Yes:** A1, A2, A3, B1, B2, B3, B4, B6, B7, B8, C1, D1, D2, D3, D4, E2, E3, F1, F2, G1, G2, H2, H3, I1, I2, K4, L1, L3, Z1, Z2, Z3, Z4, Z6, Z8, Z10, Z11, Z12, Z13, Z14
 - **Undecided:** B5, E1, H1, J1, J2, J3, K1, K3, K5, L2, L4, L5, Z5, Z7, Z9
 
 Tags: **Stored** is already in the local history (no new downloading), **Live** is sent by MX in `currentdata` but not read yet (add it to `LiveReading` in `crates/isobar-core/src/live.rs` and check it against the fixture), **Build** is worked out by Isobar. ★ marks a suggested starting point.
@@ -89,6 +89,7 @@ Changes to the views and anything not listed, added as the owner sends them.
 - [x] **Z10** Rain on the thermograph stays as it was recorded as the chart moves on, like ink on a paper chart. — **Yes**, done 2026-11-03 (the owner's request)
 - [x] **Z11** A Forecast page: the week ahead from Open-Meteo for the station's location, and a look ahead 6 to 12 months from the recorded history (wetter, drier, warmer, colder, and why: a pattern analysis). — **Yes**, done 2026-11-03 (the owner's request). Similar past years by the last three months against normal, the trend, and a leave-one-year-out hit rate
 - [x] **Z12** The version number in Settings. — **Yes**, done 2026-11-03, in an About panel with where the files are
+- [x] **Z14** A nightly backup copy of the history and settings, at a set time, that isn't held open, for the owner's evening backup run. — **Yes**, done 2026-11-04 (the owner's request): Settings → Nightly backup
 - [x] **Z13** Keep all of Isobar's files in one top-level folder of your choosing (My Documents, which is backed up), with Settings, History and Reports folders inside. — **Yes**, done 2026-11-03 (the owner's request): Settings → Isobar's files
 - [ ] **Z9** A new name: "Isobar" is used by several other apps. Ideas so far: Atmospherix, AClimatEyes. Means renaming the program, window, files and repository; settings and history can move with a one-time copy. *Build* (added 2026-10-22)
 - [ ] **Z7** More colour themes beyond chart-paper light and dark (for example a warmer paper, a high-contrast theme, or ones matched to other instruments). *Build* (parked 2026-10-19; undecided again 2026-10-20)

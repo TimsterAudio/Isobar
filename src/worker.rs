@@ -110,6 +110,15 @@ pub struct Shared {
     pub forecast: ForecastState,
     /// When the forecast was last asked for (Unix ms).
     pub forecast_tried: i64,
+    pub backup: BackupState,
+}
+
+/// The nightly backup: the last one made, and how the latest try went.
+#[derive(Default, Clone)]
+pub struct BackupState {
+    /// When (Unix ms) and where the last copy was made.
+    pub last: Option<(i64, PathBuf)>,
+    pub error: Option<String>,
 }
 
 /// The forecast from Open-Meteo, and how fetching it is going.
@@ -142,6 +151,8 @@ pub enum Cmd {
     },
     /// Fetch the forecast again now.
     RefreshForecast,
+    /// Make a backup copy now, whatever the time.
+    BackUpNow,
     /// End the thread (when switching to the demo station).
     Stop,
 }
@@ -204,6 +215,7 @@ struct Worker {
     log_wait_until: Option<Instant>,
     log_summary_at: Option<Instant>,
     log_summary_dirty: bool,
+    backup_failed_at: std::cell::Cell<Option<Instant>>,
 }
 
 impl Worker {
@@ -223,7 +235,18 @@ impl Worker {
             log_wait_until: None,
             log_summary_at: None,
             log_summary_dirty: true,
+            backup_failed_at: std::cell::Cell::new(None),
         };
+        let last_backup = w
+            .store
+            .meta_get("last_backup")
+            .ok()
+            .flatten()
+            .and_then(|v| v.parse::<i64>().ok())
+            .zip(w.store.meta_get("last_backup_file").ok().flatten());
+        if let Some((at, file)) = last_backup {
+            w.update(|s| s.backup.last = Some((at, PathBuf::from(file))));
+        }
         let last_sync = w
             .store
             .meta_get("last_sync")
@@ -575,6 +598,10 @@ impl Worker {
                 self.forecast(true);
                 false
             }
+            Cmd::BackUpNow => {
+                self.backup(true);
+                false
+            }
             Cmd::Stop => false,
             Cmd::ClearHistory => {
                 let r = self.store.clear_days();
@@ -654,8 +681,77 @@ impl Worker {
         });
     }
 
+    /// Copy the history and settings into the backups folder when the
+    /// nightly time has passed since the last copy, or now if `force`.
+    fn backup(&self, force: bool) {
+        use isobar_core::backup;
+        let b = &self.settings.backup;
+        let last: Option<i64> = self
+            .store
+            .meta_get("last_backup")
+            .ok()
+            .flatten()
+            .and_then(|v| v.parse().ok());
+        if !force {
+            let Some(at) = backup::parse_time(&b.time) else {
+                return;
+            };
+            let local = |ms: i64| {
+                chrono::Local
+                    .timestamp_millis_opt(ms)
+                    .single()
+                    .map(|t| t.naive_local())
+            };
+            let now = chrono::Local::now().naive_local();
+            if !b.enabled || !backup::due(now, at, last.and_then(local)) {
+                return;
+            }
+            // Try at most every ten minutes after a failure.
+            if self
+                .backup_failed_at
+                .get()
+                .is_some_and(|t| t.elapsed() < Duration::from_secs(600))
+            {
+                return;
+            }
+        }
+        let paths = crate::settings::Paths::locate();
+        let day = chrono::Local::now().date_naive();
+        match backup::run(
+            &self.store,
+            Some(&paths.settings),
+            &paths.backups,
+            day,
+            b.keep.max(1) as usize,
+        ) {
+            Ok(file) => {
+                self.backup_failed_at.set(None);
+                let at = now_ms();
+                let _ = self.store.meta_set("last_backup", &at.to_string());
+                let _ = self
+                    .store
+                    .meta_set("last_backup_file", &file.to_string_lossy());
+                self.update(|s| {
+                    s.backup = BackupState {
+                        last: Some((at, file)),
+                        error: None,
+                    }
+                });
+            }
+            Err(e) => {
+                self.backup_failed_at.set(Some(Instant::now()));
+                let text = format!(
+                    "Couldn't make the backup in {}: {e}",
+                    paths.backups.display()
+                );
+                self.update(|s| s.backup.error = Some(text));
+            }
+        }
+    }
+
     fn tick(&mut self) -> Duration {
         self.forecast(false);
+        self.backup(false);
         if !self.settings.has_station() {
             // File mode: re-import the dayfile whenever it changes.
             if let Some(path) = self.settings.dayfile().map(str::to_string) {
@@ -1002,7 +1098,10 @@ fn run_demo(h: Handle, ctx: egui::Context, rx: Receiver<Cmd>) {
                 });
                 ctx.request_repaint();
             }
-            Ok(Cmd::Settings(_)) | Ok(Cmd::RefreshForecast) | Err(RecvTimeoutError::Timeout) => {}
+            Ok(Cmd::Settings(_))
+            | Ok(Cmd::RefreshForecast)
+            | Ok(Cmd::BackUpNow)
+            | Err(RecvTimeoutError::Timeout) => {}
             Ok(Cmd::Stop) | Err(RecvTimeoutError::Disconnected) => return,
         }
     }

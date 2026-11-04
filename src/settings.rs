@@ -18,6 +18,27 @@ pub struct Alerts {
     pub stopped: bool,
 }
 
+/// The nightly copy of the history and settings.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Backup {
+    pub enabled: bool,
+    /// Local time of day, as typed ("21:00").
+    pub time: String,
+    /// How many nights' copies to keep.
+    pub keep: u32,
+}
+
+impl Default for Backup {
+    fn default() -> Self {
+        Backup {
+            enabled: true,
+            time: "21:00".into(),
+            keep: 7,
+        }
+    }
+}
+
 impl Default for Alerts {
     fn default() -> Self {
         Alerts {
@@ -148,6 +169,7 @@ pub struct Settings {
     /// The cards on Now, in order. Empty means the usual order, all shown.
     pub now_cards: Vec<CardChoice>,
     pub alerts: Alerts,
+    pub backup: Backup,
 }
 
 impl Default for Settings {
@@ -168,6 +190,7 @@ impl Default for Settings {
             tanks: None,
             now_cards: Vec::new(),
             alerts: Alerts::default(),
+            backup: Backup::default(),
         }
     }
 }
@@ -237,6 +260,8 @@ pub struct Paths {
     pub settings: PathBuf,
     pub database: PathBuf,
     pub reports: PathBuf,
+    /// Where the nightly copies go.
+    pub backups: PathBuf,
     /// The chosen folder, if not the usual ones.
     pub folder: Option<PathBuf>,
 }
@@ -300,6 +325,9 @@ impl Paths {
             reports: dirs::document_dir()
                 .or_else(dirs::home_dir)
                 .map_or_else(|| data.join("reports"), |d| d.join("Isobar reports")),
+            backups: dirs::document_dir()
+                .or_else(dirs::home_dir)
+                .map_or_else(|| data.join("Backups"), |d| d.join("Isobar backups")),
             folder: None,
         }
     }
@@ -310,6 +338,7 @@ impl Paths {
             settings: folder.join("Settings").join("settings.json"),
             database: folder.join("History").join("isobar.sqlite"),
             reports: folder.join("Reports"),
+            backups: folder.join("Backups"),
             folder: Some(folder.to_path_buf()),
         }
     }

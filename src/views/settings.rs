@@ -46,6 +46,9 @@ struct Draft {
     hidden_cards: Vec<NowCard>,
     /// Put the cards back in the usual order on save.
     reset_order: bool,
+    backup_on: bool,
+    backup_time: String,
+    backup_keep: String,
 }
 
 /// The rainwater tank fields, as typed.
@@ -212,6 +215,9 @@ impl Draft {
                 .map(|c| c.0)
                 .collect(),
             reset_order: false,
+            backup_on: s.backup.enabled,
+            backup_time: s.backup.time.clone(),
+            backup_keep: s.backup.keep.to_string(),
         }
     }
 
@@ -236,6 +242,12 @@ impl Draft {
         let latitude = parse_latitude(&self.latitude)?;
         let longitude = parse_longitude(&self.longitude)?;
         let tanks = self.tanks.to_tanks()?;
+        let backup_time = isobar_core::backup::parse_time(&self.backup_time)
+            .ok_or_else(|| "Back up at needs a time of day, such as 21:00 or 9 pm.".to_string())?;
+        let keep: u32 = match self.backup_keep.trim().parse() {
+            Ok(n) if (1..=365).contains(&n) => n,
+            _ => return Err("Keep needs a number of copies from 1 to 365.".into()),
+        };
         let order: Vec<NowCard> = if self.reset_order {
             NowCard::ALL.to_vec()
         } else {
@@ -271,6 +283,11 @@ impl Draft {
                 heat_above: alert("Temperature at or above", &self.heat)?,
                 rain_start: self.rain_start,
                 stopped: self.stopped,
+            },
+            backup: crate::settings::Backup {
+                enabled: self.backup_on,
+                time: backup_time.format("%H:%M").to_string(),
+                keep,
             },
         })
         .map(|mut s| {
@@ -461,6 +478,7 @@ impl SettingsView {
                 });
             });
             self.files(ui, snap, &p);
+            self.backups(ui, snap, worker, &p);
             about(ui, &p);
         });
         demo
@@ -675,6 +693,66 @@ impl SettingsView {
                     restart(ui.ctx());
                 }
             }
+        });
+    }
+
+    fn backups(&mut self, ui: &mut Ui, snap: &Snapshot, worker: &Handle, p: &Palette) {
+        ui::panel(ui, |ui| {
+            ui::h2(ui, "Nightly backup");
+            if snap.demo {
+                ui::small(ui, "The demo station has nothing to back up.", p.ink2);
+                return;
+            }
+            let dir = crate::settings::Paths::locate().backups;
+            ui::para(
+                ui,
+                "The history is always open while Isobar runs, so a backup program copying it can catch it half written. Once a day Isobar writes a complete copy of the history and settings into a backups folder, where nothing touches it again, for your backup to pick up. Set it a little before your backup runs. If the computer's off at that time, Isobar makes it next time it's running.",
+                theme::body(13.0),
+                p.ink2,
+                600.0,
+            );
+            ui.checkbox(
+                &mut self.draft.backup_on,
+                egui::RichText::new("Make a copy every day").font(theme::body(15.0)),
+            );
+            ui::columns(ui, 3, 16.0, false, |i, ui| match i {
+                0 => {
+                    ui::field(ui, "Back up at", None, |ui| {
+                        ui::text_input(ui, &mut self.draft.backup_time, "21:00", 120.0)
+                    });
+                }
+                1 => {
+                    ui::field(ui, "Copies to keep", None, |ui| {
+                        ui::text_input(ui, &mut self.draft.backup_keep, "7", 120.0)
+                    });
+                }
+                _ => {}
+            });
+            ui::small(ui, format!("Folder: {}", dir.display()), p.ink2);
+            let state = worker.lock().backup.clone();
+            match &state.last {
+                Some((at, file)) => ui::small(
+                    ui,
+                    format!(
+                        "Last copy: {}, {}",
+                        crate::format::time_and_date(*at),
+                        file.file_name().unwrap_or_default().to_string_lossy()
+                    ),
+                    p.ink2,
+                ),
+                None => ui::small(ui, "No copy made yet.", p.ink2),
+            };
+            if let Some(e) = &state.error {
+                ui::small(ui, e, p.heat);
+            }
+            ui.horizontal(|ui| {
+                if ui::button(ui, "Back up now", Kind::Secondary).clicked() {
+                    worker.send(Cmd::BackUpNow);
+                }
+                if dir.exists() && ui::button(ui, "Open the folder", Kind::Secondary).clicked() {
+                    crate::views::reports::open_in_background(dir.clone());
+                }
+            });
         });
     }
 
