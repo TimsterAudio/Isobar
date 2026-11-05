@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.0 – 2026-11-05
+
 - **Temperature trend (J1):** Insights shows each year's average temperature against the station's normal, a bar a year, measured day by day against the normal for each date so part years compare fairly. The warmest and coolest whole years, and a fitted line in degrees a decade with a plain verdict on whether it's more than the swings from year to year.
 - **Heating and cooling degree days (E1):** Seasons gives this year's heating and cooling degree days so far against normal and last year, by month (the current one against the same dates in other years) and for the last four seasons. MX's own figures when the dayfile has them, otherwise from each day's average against 18.3°C (65°F).
 - **Almanac (L2):** a new report for a calendar year, finished or so far: the year against normal and how it ranks, a chart and table month by month, station records set and days that were the warmest or coldest for their date, the first and last frosts and hot days against their usual dates, the longest spells against the records, the wettest week, and the tank year.
