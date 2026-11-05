@@ -34,6 +34,7 @@ struct Cache {
     gusts: Vec<an::GustDay>,
     gust_months: ([Option<f64>; 12], Option<f64>),
     hemisphere: Hemisphere,
+    trend: Option<isobar_core::trends::TempTrend>,
 }
 
 pub struct Insights {
@@ -120,6 +121,7 @@ impl Insights {
                 gust_months: an::gust_factor_by_month(&gusts),
                 gusts,
                 hemisphere: se::hemisphere(days, settings.latitude),
+                trend: isobar_core::trends::temperature_trend(days),
             });
         }
 
@@ -152,6 +154,7 @@ impl Insights {
         }
         self.pressure_falls(ui, snap);
         self.climate(ui, snap, days[0].date, last);
+        self.trend(ui, snap);
         self.wind(ui, last);
         self.gust_factor(ui, snap);
     }
@@ -819,6 +822,136 @@ impl Insights {
             });
         });
         self.by_season = by_season;
+    }
+
+    fn trend(&self, ui: &mut Ui, snap: &Snapshot) {
+        let p = Palette::of(ui.ctx());
+        let Some(t) = self.cache.as_ref().and_then(|c| c.trend.as_ref()) else {
+            return;
+        };
+        let u = snap.units();
+        let deg = |v: f64| format!("{}°", signed(Some(v), 1));
+        ui::panel(ui, |ui| {
+            ui::h2(ui, "Temperature trend");
+            ui::muted(
+                ui,
+                format!(
+                    "Each year's average temperature against your station's normal of {}{}. Every day is measured against the usual for its date, so a part year (the first and this one) compares fairly with a whole one. Bars up were warmer than normal, bars down cooler; the dashed line is the straight-line fit through every year with six months or more on record.",
+                    num(Some(t.normal), 1),
+                    u.temp
+                ),
+            );
+            let warmest = t
+                .years
+                .iter()
+                .filter(|y| !y.partial())
+                .max_by(|a, b| a.anomaly.total_cmp(&b.anomaly));
+            let coolest = t
+                .years
+                .iter()
+                .filter(|y| !y.partial())
+                .min_by(|a, b| a.anomaly.total_cmp(&b.anomaly));
+            let year_stat = |label: &str, y: Option<&isobar_core::trends::YearTemp>, c| match y {
+                Some(y) => ui::Stat::new(label, y.year.to_string(), c)
+                    .detail(format!("{} against normal", deg(y.anomaly)), p.ink2),
+                None => ui::Stat::new(label, "–", p.ink2).detail("Needs a whole year", p.ink2),
+            };
+            let fit = match t.per_decade {
+                Some((s, _)) => {
+                    let verdict = if t.clear() {
+                        "More than the swings from year to year"
+                    } else {
+                        "Within the swings from year to year: could be chance"
+                    };
+                    ui::Stat::new("Fitted line", format!("{} a decade", deg(s)), p.ink)
+                        .detail(verdict, p.ink2)
+                }
+                None => ui::Stat::new("Fitted line", "–", p.ink2)
+                    .detail("Needs five years with six months or more", p.ink2),
+            };
+            ui::stats(
+                ui,
+                &[
+                    year_stat("Warmest year", warmest, p.heat),
+                    year_stat("Coolest year", coolest, p.cold),
+                    fit,
+                ],
+            );
+            let xs: Vec<f64> = t.years.iter().map(|y| y.year as f64).collect();
+            let up: Vec<Option<f64>> = t
+                .years
+                .iter()
+                .map(|y| (y.anomaly >= 0.0).then_some(y.anomaly))
+                .collect();
+            let down: Vec<Option<f64>> = t
+                .years
+                .iter()
+                .map(|y| (y.anomaly < 0.0).then_some(y.anomaly))
+                .collect();
+            let info: Vec<(i32, usize, bool, f64)> = t
+                .years
+                .iter()
+                .map(|y| (y.year, y.days, y.partial(), y.mean))
+                .collect();
+            let unit = u.temp.clone();
+            let mut chart = Chart::new(
+                "temp-trend",
+                220.0,
+                xs,
+                XAxis::Index {
+                    splits: None,
+                    label: Box::new(|x| format!("{}", x.round() as i64)),
+                },
+            )
+            .title(move |x| {
+                let y = x.round() as i32;
+                match info.iter().find(|i| i.0 == y) {
+                    Some(i) if i.2 => format!(
+                        "{y} (part year, {} days): average {}{unit}",
+                        i.1,
+                        num(Some(i.3), 1)
+                    ),
+                    Some(i) => format!("{y}: average {}{unit}", num(Some(i.3), 1)),
+                    None => y.to_string(),
+                }
+            })
+            .series(
+                Series::line("Warmer than normal", up, p.heat)
+                    .bars()
+                    .unit("°", 2),
+            )
+            .series(
+                Series::line("Cooler than normal", down, p.cold)
+                    .bars()
+                    .unit("°", 2),
+            );
+            if t.per_decade.is_some() {
+                chart = chart.series(
+                    Series::line("Fitted line", t.fit.clone(), p.ink2)
+                        .dashed()
+                        .no_points()
+                        .width(1.5)
+                        .unit("°", 2),
+                );
+            }
+            chart.show(ui);
+            let partial: Vec<String> = t
+                .years
+                .iter()
+                .filter(|y| y.partial())
+                .map(|y| format!("{} ({} days)", y.year, y.days))
+                .collect();
+            if !partial.is_empty() {
+                ui::small(
+                    ui,
+                    format!(
+                        "Part years: {}. They aren't counted for warmest and coolest.",
+                        partial.join(", ")
+                    ),
+                    p.ink2,
+                );
+            }
+        });
     }
 
     fn gust_factor(&self, ui: &mut Ui, snap: &Snapshot) {

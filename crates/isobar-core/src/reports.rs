@@ -16,7 +16,7 @@ use crate::seasons::{is_fahrenheit, is_inches};
 const MONTH_ABBR: [&str; 12] = [
     "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
 ];
-const MONTH_NAMES: [&str; 12] = [
+pub(crate) const MONTH_NAMES: [&str; 12] = [
     "January",
     "February",
     "March",
@@ -326,7 +326,7 @@ pub fn noaa_year(days: &[DayRecord], year: i32, u: &Units) -> Option<NoaaYear> {
     })
 }
 
-fn days_in_month(y: i32, m: u32) -> u32 {
+pub(crate) fn days_in_month(y: i32, m: u32) -> u32 {
     let first = NaiveDate::from_ymd_opt(y, m, 1).unwrap();
     let next = if m == 12 {
         NaiveDate::from_ymd_opt(y + 1, 1, 1)
@@ -379,7 +379,7 @@ fn header(cols: &[(&str, usize)]) -> String {
         .to_string()
 }
 
-fn dir(b: Option<f64>) -> String {
+pub(crate) fn dir(b: Option<f64>) -> String {
     b.map_or("---".into(), |b| an::compass(b).to_string())
 }
 
@@ -705,14 +705,14 @@ pub fn noaa_year_text(y: &NoaaYear, cx: &ReportContext) -> String {
 
 // ------------------------------------------------------------- HTML output
 
-fn esc(s: &str) -> String {
+pub(crate) fn esc(s: &str) -> String {
     s.replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")
 }
 
 /// The page around a report: Isobar's chart-paper look, with print styles.
-fn page(title: &str, body: &str) -> String {
+pub(crate) fn page(title: &str, body: &str) -> String {
     format!(
         r#"<!doctype html>
 <html lang="en">
@@ -777,11 +777,11 @@ ul.notes {{ margin: 6px 0; padding-left: 18px; }}
     )
 }
 
-fn h(v: Option<f64>, digits: usize) -> String {
+pub(crate) fn h(v: Option<f64>, digits: usize) -> String {
     v.map_or("–".into(), |x| format!("{x:.digits$}"))
 }
 
-fn short(d: NaiveDate) -> String {
+pub(crate) fn short(d: NaiveDate) -> String {
     format!("{} {}", d.day(), &MONTH_NAMES[d.month0() as usize][..3])
 }
 
@@ -1148,14 +1148,14 @@ pub fn month_review(days: &[DayRecord], year: i32, month: u32, u: &Units) -> Opt
 }
 
 /// Scale `v` from `lo..hi` onto `a..b`.
-fn sc(v: f64, lo: f64, hi: f64, a: f64, b: f64) -> f64 {
+pub(crate) fn sc(v: f64, lo: f64, hi: f64, a: f64, b: f64) -> f64 {
     if hi <= lo {
         return (a + b) / 2.0;
     }
     a + (v - lo) / (hi - lo) * (b - a)
 }
 
-fn nice_step(range: f64, ticks: f64) -> f64 {
+pub(crate) fn nice_step(range: f64, ticks: f64) -> f64 {
     let raw = (range / ticks).max(1e-9);
     let mag = 10f64.powf(raw.log10().floor());
     let n = raw / mag;

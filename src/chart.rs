@@ -22,7 +22,8 @@ pub enum Style {
     Dashed {
         width: f32,
     },
-    /// Bars up from zero (or the bottom of the chart).
+    /// Bars up from zero (or the bottom of the chart), and down from it
+    /// for values below zero.
     Bars,
 }
 
@@ -496,13 +497,21 @@ impl Chart {
                     let base = fy(0f64.max(if s.right { r0 } else { l0 }), s.right);
                     for &i in &vis {
                         if let Some(v) = s.ys.get(i).copied().flatten() {
-                            if v <= 0.0 {
+                            if v == 0.0 {
                                 continue;
                             }
                             let x = fx(self.xs[i]);
-                            let top = fy(v, s.right).min(base - 1.0);
+                            // Below zero (an anomaly, say) hangs down from it.
+                            let (top, bottom) = if v > 0.0 {
+                                (fy(v, s.right).min(base - 1.0), base)
+                            } else {
+                                (base, fy(v, s.right).max(base + 1.0))
+                            };
                             clip.rect_filled(
-                                Rect::from_min_max(pos2(x - w / 2.0, top), pos2(x + w / 2.0, base)),
+                                Rect::from_min_max(
+                                    pos2(x - w / 2.0, top),
+                                    pos2(x + w / 2.0, bottom),
+                                ),
                                 CornerRadius::same(1),
                                 alpha(s.color, 0.6),
                             );

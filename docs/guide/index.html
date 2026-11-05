@@ -343,7 +343,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
     <a href="#insights"><b>Insights</b><span>Odd days, records, storms and dry spells.</span></a>
     <a href="#seasons"><b>Seasons</b><span>Water balance, frost, growing warmth and sun.</span></a>
     <a href="#tanks"><b>Tanks</b><span>For houses on rainwater: how long it lasts.</span></a>
-    <a href="#reports"><b>Reports</b><span>NOAA summaries and a month in review, to print.</span></a>
+    <a href="#reports"><b>Reports</b><span>NOAA summaries, a month in review, the year's almanac, and CSV.</span></a>
     <a href="#health"><b>Health</b><span>Is it the weather, or is it the station?</span></a>
     <a href="#settings"><b>Settings</b><span>Your station, tanks, alerts and looks.</span></a>
   </div>
@@ -596,6 +596,10 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <figure class="shot"><img src="img/insights-4.webp" alt="Monthly climate table and prevailing wind roses" loading="lazy"></figure>
   <h3>Your station's climate</h3>
   <p>A month-by-month table: average max and min, highest, lowest, rain, rain days, and how many years each figure comes from. Rain only counts months with at least 25 days of data, so a month with a dead gauge doesn't drag the average down.</p>
+  <figure class="shot"><img src="img/insights-6.webp" alt="The temperature trend: a bar for each year above or below normal, with a dashed fitted line" loading="lazy"><figcaption>Eight-odd years of the demo station, warmer and cooler.</figcaption></figure>
+  <h3>Temperature trend</h3>
+  <p>A bar for each year: how far its average temperature sat above or below your station's normal. Red bars went up, blue went down. Every day is measured against the usual for its own date, so a part year (your first, and this one) doesn't look freezing just because it's missing summer. The panel names the warmest and coolest whole years, and draws a dashed straight line through every year with at least six months on record.</p>
+  <p>The line's slope is given in degrees a decade, with a plain verdict: either it's more than the usual swings from year to year, or it's within them and could be chance. With only a handful of years, it's nearly always the second. That's not a dodge; it's what a short record honestly supports. A single El Niño summer can tilt a short line more than a decade of anything else.</p>
   <h3>Prevailing wind</h3>
   <p>Wind roses showing the share of days by the day's dominant wind direction. <b>By year</b> gives all time and this year side by side; <b>By season</b> gives four roses, summer first, named for your hemisphere, across every year on record. Seasonal roses are where the interesting stuff hides: the wind that brings your winter rain is rarely the one that brings summer's hot days.</p>
   <figure class="shot"><img src="img/insights-5.webp" alt="Seasonal wind roses and the gust factor panel" loading="lazy"><figcaption>The roses by season, and the gust factor below.</figcaption></figure>
@@ -623,6 +627,15 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <figure class="shot"><img src="img/seasons-2.webp" alt="Frost calendar and growing degree days" loading="lazy"></figure>
   <h3>Growing degree days</h3>
   <p>The warmth that drives growth. Each day adds how far its average temperature was above a base: 10° suits most fruit, vegetables and vines, and 5° suits grass, cereals and cool-season crops. The growing year runs from 1 July in the south (1 January in the north). The chart shows this year's running total against every other year, with the normal, the warmest so far, and last year.</p>
+  <figure class="shot"><img src="img/seasons-8.webp" alt="Heating and cooling degree days this year by month and by season, against last year and normal" loading="lazy"><figcaption>This year's heating and cooling, month by month and season by season.</figcaption></figure>
+  <h3>Heating and cooling degree days</h3>
+  <p>How much heating or cooling the weather asked of a house. Each degree a day's average temperature falls below the base adds a <b>heating degree day</b>; each degree above adds a <b>cooling degree day</b>. The base is 18.3°C (65°F), the usual one for homes. If your dayfile has MX's own degree days, Isobar uses those, with whatever base you set in MX.</p>
+  <ul>
+    <li><b>The headline</b>: heating and cooling for the year so far, against the normal by this date and last year to the same date.</li>
+    <li><b>By month</b>: each month of this year with last year's and the normal beside it. The current month says "so far" and is compared with the same dates in other years, so a fortnight isn't measured against a whole month.</li>
+    <li><b>By season</b>: the season under way and the three before it, named for your hemisphere.</li>
+  </ul>
+  <p>Point at a figure to see it as a percentage against normal. A heating bill rises roughly in step with heating degree days, which makes them handy for telling a cold winter from a draughty house.</p>
   <figure class="shot"><img src="img/seasons-3.webp" alt="Sunshine hours by month against normal" loading="lazy"></figure>
   <h3>Sunshine</h3>
   <p>Hours of sunshine each month against the normal for that month: this month so far, the last 12 full months, the sunniest and dullest months on record, and a table by calendar month. Cumulus MX works sunshine out from a solar radiation sensor; no sensor, no panel. Months need at least 25 days of records to count.</p>
@@ -701,7 +714,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
 <!-- ============================================================ reports -->
 <section class="s" id="reports">
   <h2>Reports <span class="tag">Screen</span></h2>
-  <p class="lead">Paperwork, but the good kind: climate summaries and a month in review, to keep, print or send to the neighbour who insists their gauge got more.</p>
+  <p class="lead">Paperwork, but the good kind: climate summaries, a month in review and a whole-year almanac, to keep, print or send to the neighbour who insists their gauge got more. Plus the raw daily history for anyone who'd rather wrangle a spreadsheet.</p>
   <figure class="shot"><img src="img/reports-1.webp" alt="The Reports screen with a monthly climate summary previewed as text" loading="lazy"><figcaption>A monthly climate summary, previewed in the classic layout.</figcaption></figure>
   <p>Pick a report, then the month and year. Then:</p>
   <ul>
@@ -742,6 +755,24 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <div class="idea"><b>The idea</b>
     <p>Every comparison is with your own station's other years: your own backyard, measured the same way, year after year. The current month works too: it says "so far", and its normals are scaled to the days it has.</p>
   </div>
+  <h3>Almanac</h3>
+  <p>The year in review, on a page or three. Pick a year: a finished one, or this one so far.</p>
+  <ul>
+    <li><b>The headline figures</b>: the mean temperature against normal, rain against normal (to date, for this year), rain days, the wettest, hottest and coldest days, frosts and the peak gust. A whole year also gets its rank: "3rd warmest of 12 whole years", "the driest of 12".</li>
+    <li><b>Month by month</b>: a chart of each month's temperature against normal and its rain against normal, then a table with the means, extremes, rain, rain days, frosts and hot days.</li>
+    <li><b>Records</b>: any all-time station record the year set (hottest day, coldest night, wettest day, strongest gust, lowest and highest pressure), with the record it beat, and how many days were the warmest or coldest for their date.</li>
+    <li><b>Firsts and lasts</b>: the first and last frosts (0° or below) and the last hot day of summer and the first of the next (30° or more), each against its usual date and the earliest and latest on record. In the north it's the last frost of spring and the first of autumn, and the first and last hot days.</li>
+    <li><b>Spells</b>: the longest dry spell, the most rain days in a row, the longest runs of hot days and frosts, each beside the longest on record, and the wettest seven days.</li>
+    <li><b>The tank year</b>, if you've set up tanks: caught, used, overflowed and the lowest level.</li>
+  </ul>
+  <div class="pair">
+    <figure class="shot"><img src="img/reports-3.webp" alt="The almanac previewed in Isobar" loading="lazy"><figcaption>In Isobar: the headline figures and the firsts and lasts.</figcaption></figure>
+    <figure class="shot"><img src="img/report-almanac.webp" alt="The almanac page in a browser, with the month-by-month chart and table" loading="lazy"><figcaption>In the browser: the full page.</figcaption></figure>
+  </div>
+  <h3>Daily history (CSV)</h3>
+  <figure class="shot"><img src="img/reports-4.webp" alt="Choosing dates to export the daily history as CSV" loading="lazy"></figure>
+  <p>Every day's figures, a row a day, for Excel, LibreOffice or anything that reads CSV. Choose the dates (or tap <b>Everything</b>, <b>This year</b> or <b>Last year</b>) and <b>Save as CSV…</b>. There are 31 columns: highs and lows with their times, the average, rain with the highest rate and wettest hour, the peak gust with its bearing and time, the highest average wind, wind run and the dominant direction, pressure, humidity and dew point ranges, feels like and apparent temperature, sunshine, evapotranspiration, solar, UV and degree days. Each heading carries its unit.</p>
+  <p>Dates are written as 2026-11-05, which every spreadsheet reads as a date whichever way round your region writes them. Missing values are left empty rather than zero, so an average in your spreadsheet won't be dragged down by a day the sensor was out.</p>
 </section>
 
 <!-- ============================================================ health -->
@@ -966,6 +997,12 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <h3>Growing degree days</h3>
   <p>For each day, the average of the max and min, minus the base (10° or 5°), counted only when positive. A day of 24° and 12° adds 18 − 10 = 8 at base 10.</p>
 
+  <h3>Heating and cooling degree days</h3>
+  <p>For each day, the base (18.3°C or 65°F) minus the day's average temperature, counted only when positive, gives heating; the average minus the base gives cooling. The average is MX's own when the dayfile has it, otherwise halfway between the high and low. MX's own degree days win when the dayfile has them. Normals are the average over other years with nine days in ten on record for the same dates.</p>
+  <h3>Temperature trend</h3>
+  <p>Each day's average temperature minus the normal for its date (all years, ±7 days), averaged over the year. A year needs 30 days to show and six months to count towards the fitted line, which is an ordinary least-squares line through those years. "More than the swings from year to year" means the slope is at least twice its standard error; otherwise it's said to be within them.</p>
+  <h3>Almanac firsts and lasts</h3>
+  <p>A frost is a low of 0°C (32°F) or below; a hot day a high of 30°C (90°F) or more. Each is looked for in its half of the year (or the whole year, for events in the middle of the calendar), and the usual date is the average day it fell in other years with nine days in ten on record for that stretch. A year it didn't happen counts in "it did in so many of so many years", not in the usual date.</p>
   <h3>Frost dates</h3>
   <p>The frost year runs January to December in the south (July to June in the north), so a winter isn't split in two. First and last frost are the first and last nights at or below the threshold in each frost year, averaged by day of year across years that had any.</p>
 
@@ -1069,7 +1106,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
 <!-- ============================================================ next -->
 <section class="s" id="next">
   <h2>What's coming</h2>
-  <p>The roadmap lives in <code>docs/ROADMAP.md</code> in the repository, with a printable checklist for deciding what gets built. Still on the table, among others: more reports (a yearly almanac, saving straight to PDF, CSV export), units of your choice, heating and cooling degree days by month, wind run and Beaufort force, a warming-trend chart, more colour themes, and a readout in the system tray.</p>
+  <p>The roadmap lives in <code>docs/ROADMAP.md</code> in the repository, with a printable checklist for deciding what gets built. Still on the table, among others: saving reports straight to PDF, units of your choice, wind run and Beaufort force, more colour themes, and a readout in the system tray.</p>
 </section>
 
 <!-- ============================================================ changes -->
@@ -1079,6 +1116,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <div class="tbl"><table>
     <thead><tr><th>Date</th><th>Change</th></tr></thead>
     <tbody>
+      <tr><td>5 Nov 2026</td><td>The temperature trend on Insights, heating and cooling degree days on Seasons, the Almanac and the daily history as CSV on Reports.</td></tr>
       <tr><td>4 Nov 2026</td><td>The nightly backup: a safe, dated copy of the history and settings each day for your backup program, and how to put one back.</td></tr>
       <tr><td>3 Nov 2026</td><td>Keep all of Isobar's files in one folder you choose, with Settings, History and Reports inside.</td></tr>
       <tr><td>3 Nov 2026</td><td>The Forecast screen: the week ahead from Open-Meteo, and the months ahead from your records. Longitude and a place search in Settings, and an About panel with the version. Rain on the thermograph stays as recorded.</td></tr>

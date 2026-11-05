@@ -2,10 +2,10 @@
 
 Everything that could be added, from the data the owner's Cumulus MX 5.1.5 station sends. Added in full on 2026-10-18 so the owner can trim it. The owner reviews it on a printable checklist page with the same IDs, and marks each item **Yes** (build it), *Later* (keep, not now) or no (drop it). Items with no mark are still undecided; don't build them.
 
-## Decisions so far (2026-11-03)
+## Decisions so far (2026-11-05)
 
-- **Yes:** A1, A2, A3, B1, B2, B3, B4, B6, B7, B8, C1, D1, D2, D3, D4, E2, E3, F1, F2, G1, G2, H2, H3, I1, I2, K4, L1, L3, Z1, Z2, Z3, Z4, Z6, Z8, Z10, Z11, Z12, Z13, Z14
-- **Undecided:** B5, E1, H1, J1, J2, J3, K1, K3, K5, L2, L4, L5, Z5, Z7, Z9
+- **Yes:** A1, A2, A3, B1, B2, B3, B4, B6, B7, B8, C1, D1, D2, D3, D4, E1, E2, E3, F1, F2, G1, G2, H2, H3, I1, I2, J1, K4, L1, L2, L3, L5, Z1, Z2, Z3, Z4, Z6, Z8, Z10, Z11, Z12, Z13, Z14
+- **Undecided:** B5, H1, J2, J3, K1, K3, K5, L4, Z5, Z7, Z9
 
 Tags: **Stored** is already in the local history (no new downloading), **Live** is sent by MX in `currentdata` but not read yet (add it to `LiveReading` in `crates/isobar-core/src/live.rs` and check it against the fixture), **Build** is worked out by Isobar. ★ marks a suggested starting point.
 
@@ -36,7 +36,7 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 - [x] **D4** Water tanks (the owner's note on D1): the household runs on tanks. Rain as a volume caught by the roof (litres or gallons), with tank capacity, a level estimate and daily usage. *Build* — **Yes**, done 2026-10-18 as the Tanks page. Seeded from the owner's spreadsheet (rain, use and adjustments from 2009); the model matches it to the litre. Owner's figures: 385 m² roof, 2 × 22,500 L, 290 L a day, full with 5,023 L overflow on 3 Oct 2026. Their sheet uses 43,000 L capacity and keeps 3,000 L in reserve.
 
 ## E. Energy and comfort
-- [ ] **E1** ★ Heating and cooling degree days by month and season, against normal and last year. *Stored*
+- [x] **E1** ★ Heating and cooling degree days by month and season, against normal and last year. *Stored* — **Yes**, done 2026-11-05: Seasons → Heating and cooling degree days
 - [x] **E2** Comfort days by dew point band, counted by month. *Stored* — **Yes**, done 2026-10-20 on Seasons: dry, comfortable, sticky and oppressive by the day's highest dew point (10, 16 and 20°C), this year against normal by now
 - [x] **E3** Indoor against outdoor: how the house holds its heat. *Live* — **Yes**, done 2026-10-20 on Seasons, from MX's logs (or Isobar's own readings): daily swing inside against outside, lag of the warmest inside, overnight half-life (22:00 to 05:00), by month
 
@@ -58,7 +58,7 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 - [x] **I2** Biggest 24-hour pressure falls on record. *Stored* — **Yes**, done 2026-10-19 on Insights. The dayfile has only each day's high and low, so a fall is one day's high to the next day's low; one per storm
 
 ## J. Long-term climate
-- [ ] **J1** ★ Warming trend: each year's average against normal, one bar a year. *Stored*
+- [x] **J1** ★ Temperature trend (the owner's name: "warming" would assume the answer): each year's average against normal, one bar a year. *Stored* — **Yes**, done 2026-11-05: Insights → Temperature trend, with a fitted line and a plain verdict on whether it's more than year-to-year noise
 - [ ] **J2** Daily warm and cold records set each year. *Stored*
 - [ ] **J3** Daily temperature range by month. *Stored*
 
@@ -71,10 +71,10 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 ## L. Reports
 Added 2026-10-19 at the owner's request. Each report is a page Isobar writes as a single HTML file (opens in any browser, prints well, and the browser's Print → Save as PDF makes a PDF), with a straight-to-PDF option as a later step.
 - [x] **L1** ★ NOAA-style climate summaries, monthly and yearly: the familiar table of each day's mean, high, low, degree days, rain and wind, with totals and departures from normal. *Stored* — **Yes**, done 2026-10-20 on the new Reports screen: monthly and yearly, previewed as the classic text, saved as HTML or text
-- [ ] **L2** Weather almanac for a year: the year in review, month by month against normal, records set, firsts and lasts (first frost, last 30° day), wettest and driest spells, and the tank year. *Stored*
+- [x] **L2** Weather almanac for a year: the year in review, month by month against normal, records set, firsts and lasts (first frost, last 30° day), wettest and driest spells, and the tank year. *Stored* — **Yes**, done 2026-11-05: Reports → Almanac
 - [x] **L3** Monthly summary page: a one-page review of a month with its charts, ready to print or share. *Stored* — **Yes**, done 2026-10-20 as "Month in review" on the Reports screen
 - [ ] **L4** Save straight to PDF from Isobar, without going through a browser. *Build*
-- [ ] **L5** Export the daily history to CSV, for any range, to open in a spreadsheet (moved from K2 on 2026-10-19). *Build*
+- [x] **L5** Export the daily history to CSV, for any range, to open in a spreadsheet (moved from K2 on 2026-10-19). *Build* — **Yes**, done 2026-11-05: Reports → Daily history (CSV)
 
 ## Z. The owner's own tweaks
 Changes to the views and anything not listed, added as the owner sends them.

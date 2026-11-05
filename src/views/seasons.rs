@@ -5,6 +5,7 @@ use chrono::{Datelike, Duration, Local, NaiveDate};
 use eframe::egui::{pos2, vec2, Align, Align2, Layout, Rect, Sense, Stroke, Ui};
 use isobar_core::analytics::{doy_index, mean_series, YearSeries, MONTH_STARTS};
 use isobar_core::seasons::{self as se, FrostNormals, FrostYear, Hemisphere, MonthTotal, Span};
+use isobar_core::trends::{self as tr, DegreeRow};
 use isobar_core::{DayRecord, LiveReading, Units};
 
 use crate::app::{Route, Snapshot};
@@ -155,6 +156,17 @@ struct Cache {
     growing: Growing,
     sun: Option<Sun>,
     comfort: Option<se::Comfort>,
+    degrees: Degrees,
+}
+
+/// Heating and cooling degree days this year, by month and by season.
+struct Degrees {
+    base: f64,
+    /// The dayfile has MX's own figures.
+    from_mx: bool,
+    year: DegreeRow,
+    months: Vec<DegreeRow>,
+    seasons: Vec<DegreeRow>,
 }
 
 pub struct Seasons {
@@ -336,6 +348,16 @@ impl Seasons {
                 },
                 sun: sun(days),
                 comfort: se::comfort(days, &se::comfort_edges(se::is_fahrenheit(&u))),
+                degrees: {
+                    let base = isobar_core::reports::Thresholds::for_units(&u).degree_base;
+                    Degrees {
+                        base,
+                        from_mx: days.iter().rev().take(400).any(|d| d.hdd.is_some()),
+                        year: tr::degree_year(days, last, base),
+                        months: tr::degree_months(days, last, base),
+                        seasons: tr::degree_seasons(days, last, hemi, base),
+                    }
+                },
             });
         }
 
@@ -362,6 +384,7 @@ impl Seasons {
         self.water_panel(ui, &u, go);
         self.frost_panel(ui, &u, last);
         self.growing_panel(ui, &u);
+        self.degree_panel(ui, &u);
         self.sun_panel(ui, last);
         self.day_length_panel(ui, lat, go);
         self.comfort_panel(ui, &u, last);
@@ -692,6 +715,106 @@ impl Seasons {
             }
         });
         self.frost_at = at;
+    }
+
+    fn degree_panel(&self, ui: &mut Ui, u: &Units) {
+        let p = Palette::of(ui.ctx());
+        let Some(c) = self.cache.as_ref() else { return };
+        let d = &c.degrees;
+        let whole = |v: Option<f64>| num(v, 0);
+        ui::panel(ui, |ui| {
+            ui::h2(ui, "Heating and cooling degree days");
+            ui::para(
+                ui,
+                format!(
+                    "How much heating or cooling the weather called for. Each degree a day's average temperature falls below {base}{t} adds a heating degree day; each degree above adds a cooling one. A home's heating bill rises roughly in step with the first, air conditioning with the second. {src}",
+                    base = num(Some(d.base), 1),
+                    t = u.temp,
+                    src = if d.from_mx {
+                        "These are MX's own figures from the dayfile, with the base set in MX; Isobar works out any days without them from the day's average."
+                    } else {
+                        "Worked out from each day's average temperature."
+                    }
+                ),
+                theme::body(14.0),
+                p.ink2,
+                900.0,
+            );
+            let y = &d.year;
+            let stat = |label: String, i: usize, color| {
+                let get = |v: Option<(f64, f64)>| v.map(|v| if i == 0 { v.0 } else { v.1 });
+                Stat::new(label, whole(get(y.this)), color).detail(
+                    format!(
+                        "Normal by now {} · last year {}",
+                        whole(get(y.normal)),
+                        whole(get(y.last_year))
+                    ),
+                    p.ink2,
+                )
+            };
+            ui::stats(
+                ui,
+                &[
+                    stat(format!("Heating, {}", y.label), 0, p.cold),
+                    stat(format!("Cooling, {}", y.label), 1, p.heat),
+                ],
+            );
+            let table = |ui: &mut Ui, first: &'static str, rows: &[DegreeRow]| {
+                let cols = [
+                    col(first, 150.0, false),
+                    col("Heating", 0.0, true),
+                    col("Last year", 0.0, true),
+                    col("Normal", 0.0, true),
+                    col("Cooling", 0.0, true),
+                    col("Last year", 0.0, true),
+                    col("Normal", 0.0, true),
+                ];
+                let body: Vec<Vec<ui::Cell>> = rows
+                    .iter()
+                    .map(|r| {
+                        let label = if r.partial {
+                            format!("{} (so far)", r.label)
+                        } else {
+                            r.label.clone()
+                        };
+                        let mut out = vec![cell(label).strong().color(p.ink)];
+                        for (i, color) in [(0, p.cold), (1, p.heat)] {
+                            let get =
+                                |v: Option<(f64, f64)>| v.map(|v| if i == 0 { v.0 } else { v.1 });
+                            let this = get(r.this);
+                            let normal = get(r.normal);
+                            let vs = match (this, normal) {
+                                (Some(a), Some(n)) if n >= 1.0 => format!(
+                                    "{}% against normal over {} years{}",
+                                    signed(Some((a / n - 1.0) * 100.0), 0),
+                                    r.years,
+                                    if r.partial {
+                                        ", for the same dates"
+                                    } else {
+                                        ""
+                                    }
+                                ),
+                                (Some(_), Some(_)) => "Next to none in a usual year".into(),
+                                _ => "No normal yet".into(),
+                            };
+                            out.push(cell(whole(this)).color(color).tooltip(vs));
+                            out.push(cell(whole(get(r.last_year))).color(p.ink2));
+                            out.push(cell(whole(normal)).color(p.ink2));
+                        }
+                        out
+                    })
+                    .collect();
+                ui::table(ui, &cols, &body, 14.0);
+            };
+            table(ui, "Month", &d.months);
+            ui.add_space(6.0);
+            table(ui, "Season", &d.seasons);
+            ui::small(
+                ui,
+                "A stretch under way is compared with the same dates in other years. A dash means fewer than nine days in ten on record.",
+                p.ink2,
+            );
+        });
     }
 
     fn growing_panel(&mut self, ui: &mut Ui, u: &Units) {

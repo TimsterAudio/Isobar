@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Temperature trend (J1):** Insights shows each year's average temperature against the station's normal, a bar a year, measured day by day against the normal for each date so part years compare fairly. The warmest and coolest whole years, and a fitted line in degrees a decade with a plain verdict on whether it's more than the swings from year to year.
+- **Heating and cooling degree days (E1):** Seasons gives this year's heating and cooling degree days so far against normal and last year, by month (the current one against the same dates in other years) and for the last four seasons. MX's own figures when the dayfile has them, otherwise from each day's average against 18.3°C (65°F).
+- **Almanac (L2):** a new report for a calendar year, finished or so far: the year against normal and how it ranks, a chart and table month by month, station records set and days that were the warmest or coldest for their date, the first and last frosts and hot days against their usual dates, the longest spells against the records, the wettest week, and the tank year.
+- **Daily history as CSV (L5):** Reports → Daily history (CSV) saves every day's figures for any dates, 31 columns headed with their units, for Excel or LibreOffice.
+- Charts draw bars below zero downwards (they were left out before).
+
 ## 0.5.0 – 2026-11-04
 
 - **Nightly backup:** the history is always open while Isobar runs, so a backup program copying it can catch it half written. Once a day, at a time set in Settings → Nightly backup (21:00 to start with), Isobar writes a complete copy of the history (SQLite's `VACUUM INTO`) and the settings into a Backups folder, named by date, keeping the last seven. If the computer's off at that time, it makes the copy next time it runs. Back up now and Open the folder are beside it. The folder is Backups in your one folder, or Isobar backups in Documents.

@@ -7,16 +7,20 @@
 //! * [`store`] is the local SQLite cache of daily records and live samples.
 //! * [`analytics`] turns the daily history into normals, anomalies and records.
 //! * [`seasons`] covers water balance, frost, growing degree days and the sun.
+//! * [`trends`] compares years: the temperature trend and degree days.
 //! * [`tanks`] models rainwater tanks from the rain.
 //! * [`health`] checks the data itself: missing days and gaps in readings.
+//! * [`almanac`] is a calendar year in review, as a page to print.
 //! * [`backup`] makes nightly copies of the history for a backup program.
 //! * [`demo`] is a synthetic station for trying Isobar without one.
 
+pub mod almanac;
 pub mod analytics;
 pub mod backup;
 pub mod dayfile;
 pub mod demo;
 pub mod error;
+pub mod export;
 pub mod forecast;
 pub mod health;
 pub mod indoor;
@@ -28,6 +32,7 @@ pub mod reports;
 pub mod seasons;
 pub mod store;
 pub mod tanks;
+pub mod trends;
 
 pub use dayfile::DayRecord;
 pub use error::{CoreError, Result};
