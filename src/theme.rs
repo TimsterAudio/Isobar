@@ -71,11 +71,128 @@ pub const DARK: Palette = Palette {
     ok: hex(0x7fcf8b),
 };
 
+/// Warm paper: the cream chart of a barograph drum, sepia ink.
+pub const WARM: Palette = Palette {
+    dark: false,
+    paper: hex(0xefe6d4),
+    sheet: hex(0xf8f2e6),
+    grid: hex(0xdccfb6),
+    faint: hex(0xe8dcc6),
+    ink: hex(0x2e2418),
+    ink2: hex(0x6e5f4c),
+    trace: hex(0x6a2f8a),
+    heat: hex(0xb0371f),
+    cold: hex(0x2c5f86),
+    rain: hex(0x2f62a0),
+    wind: hex(0x2f7360),
+    warn: hex(0x9a650a),
+    ok: hex(0x3d7535),
+};
+
+/// High contrast: white paper, black ink, strong colours.
+pub const CONTRAST: Palette = Palette {
+    dark: false,
+    paper: hex(0xffffff),
+    sheet: hex(0xffffff),
+    grid: hex(0x8a8a8a),
+    faint: hex(0xe2e2e2),
+    ink: hex(0x000000),
+    ink2: hex(0x2b2b2b),
+    trace: hex(0x5a1ea8),
+    heat: hex(0xb30000),
+    cold: hex(0x0042a3),
+    rain: hex(0x0050c8),
+    wind: hex(0x006650),
+    warn: hex(0x8a5200),
+    ok: hex(0x1f6b2a),
+};
+
+/// Night: nearly black and dimmed, for a dark room.
+pub const NIGHT: Palette = Palette {
+    dark: true,
+    paper: hex(0x0a0d10),
+    sheet: hex(0x111519),
+    grid: hex(0x222a31),
+    faint: hex(0x191f25),
+    ink: hex(0xc4ccd3),
+    ink2: hex(0x7a858f),
+    trace: hex(0x9c84d6),
+    heat: hex(0xc96a59),
+    cold: hex(0x6b98c0),
+    rain: hex(0x5b8cc4),
+    wind: hex(0x4b9f87),
+    warn: hex(0xbd9343),
+    ok: hex(0x67a972),
+};
+
+/// Blueprint: a drawing office's blue sheet, white ink, a yellow pen.
+pub const BLUEPRINT: Palette = Palette {
+    dark: true,
+    paper: hex(0x0f2d4f),
+    sheet: hex(0x143760),
+    grid: hex(0x2f5986),
+    faint: hex(0x1b426f),
+    ink: hex(0xeef5ff),
+    ink2: hex(0xa9c3e2),
+    trace: hex(0xf3dd6b),
+    heat: hex(0xff8f7f),
+    cold: hex(0xa3d5ff),
+    rain: hex(0x84c3ff),
+    wind: hex(0x7fe0c2),
+    warn: hex(0xffa95c),
+    ok: hex(0x9be7a0),
+};
+
+/// The set of colours in use: chart paper follows light and dark; the
+/// others have one look each.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Look {
+    Paper,
+    Warm,
+    Contrast,
+    Night,
+    Blueprint,
+}
+
+static LOOK: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+impl Look {
+    /// The palettes for egui's light and dark themes.
+    fn pair(self) -> (Palette, Palette) {
+        match self {
+            Look::Paper => (LIGHT, DARK),
+            Look::Warm => (WARM, WARM),
+            Look::Contrast => (CONTRAST, CONTRAST),
+            Look::Night => (NIGHT, NIGHT),
+            Look::Blueprint => (BLUEPRINT, BLUEPRINT),
+        }
+    }
+
+    fn current() -> Look {
+        match LOOK.load(std::sync::atomic::Ordering::Relaxed) {
+            1 => Look::Warm,
+            2 => Look::Contrast,
+            3 => Look::Night,
+            4 => Look::Blueprint,
+            _ => Look::Paper,
+        }
+    }
+}
+
+/// Switch to `look`, restyling egui's widgets to match.
+pub fn set_look(ctx: &egui::Context, look: Look) {
+    LOOK.store(look as u8, std::sync::atomic::Ordering::Relaxed);
+    let (l, d) = look.pair();
+    ctx.set_style_of(Theme::Light, style(&l));
+    ctx.set_style_of(Theme::Dark, style(&d));
+}
+
 impl Palette {
     pub fn of(ctx: &egui::Context) -> Palette {
+        let (l, d) = Look::current().pair();
         match ctx.theme() {
-            Theme::Dark => DARK,
-            Theme::Light => LIGHT,
+            Theme::Dark => d,
+            Theme::Light => l,
         }
     }
 }

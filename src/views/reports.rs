@@ -374,6 +374,30 @@ impl Reports {
             if let Some(o) = self.opened.lock().unwrap().take() {
                 self.outcome = Some(o);
             }
+            if ui::button(ui, "Save as PDF…", Kind::Secondary)
+                .on_hover_text("Made by your system's Edge, Chrome or Chromium in the background, with the page's print layout.")
+                .clicked()
+            {
+                if let Some(target) = rfd::FileDialog::new()
+                    .set_title("Save the report as PDF")
+                    .set_file_name(format!("{stem}.pdf"))
+                    .add_filter("PDF", &["pdf"])
+                    .save_file()
+                {
+                    self.outcome = Some((true, "Making the PDF…".into()));
+                    *self.opened.lock().unwrap() = None;
+                    let (slot, ctx) = (self.opened.clone(), ui.ctx().clone());
+                    let (dir, html, stem) = (reports_dir.to_path_buf(), html.clone(), stem.clone());
+                    std::thread::spawn(move || {
+                        let r = make_pdf(&dir, &stem, &html, &target);
+                        *slot.lock().unwrap() = Some(match r {
+                            Ok(()) => (true, format!("Saved {}", target.display())),
+                            Err(e) => (false, format!("Couldn't make the PDF: {e}.")),
+                        });
+                        ctx.request_repaint();
+                    });
+                }
+            }
             if ui::button(ui, "Save as HTML…", Kind::Secondary).clicked() {
                 self.outcome = save(&stem, "html", "Web page", &html);
             }
@@ -650,6 +674,21 @@ impl Reports {
             p.ink2,
         );
     }
+}
+
+/// Write the page into the reports folder, have the browser print it there,
+/// and move the PDF to `target`.
+fn make_pdf(dir: &Path, stem: &str, html: &str, target: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(dir).map_err(|e| format!("couldn't use {}: {e}", dir.display()))?;
+    let page = dir.join(format!("{stem}.html"));
+    std::fs::write(&page, html).map_err(|e| format!("couldn't write {}: {e}", page.display()))?;
+    let made = dir.join(format!("{stem} (printing).pdf"));
+    crate::pdf::print(&page, &made, dir)?;
+    let moved = std::fs::rename(&made, target).or_else(|_| {
+        std::fs::copy(&made, target).map(|_| ())?;
+        std::fs::remove_file(&made)
+    });
+    moved.map_err(|e| format!("couldn't save it as {}: {e}", target.display()))
 }
 
 type AlmanacKey = (i32, u64, u64, String);

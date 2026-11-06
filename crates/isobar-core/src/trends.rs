@@ -349,6 +349,197 @@ pub fn degree_year(days: &[DayRecord], last: NaiveDate, base: f64) -> DegreeRow 
     )
 }
 
+// ---------------------------------------------------------------- wind run
+
+/// Wind run for one calendar month across the record.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct RunMonth {
+    /// The average day's run in this month, over every year.
+    pub normal_daily: Option<f64>,
+    /// The average month's total, from months with 25 days or more.
+    pub normal_total: Option<f64>,
+    /// This year's total and average day, so far.
+    pub this_total: Option<f64>,
+    pub this_daily: Option<f64>,
+    pub this_days: usize,
+}
+
+/// Wind run by month for `year` against the record.
+pub fn wind_run_months(days: &[DayRecord], year: i32) -> Vec<RunMonth> {
+    let mut all = [(0usize, 0.0f64); 12];
+    let mut by_month: std::collections::BTreeMap<(i32, u32), (usize, f64)> = Default::default();
+    for d in days {
+        let Some(r) = d.wind_run else { continue };
+        let m = d.date.month0() as usize;
+        all[m].0 += 1;
+        all[m].1 += r;
+        let e = by_month.entry((d.date.year(), d.date.month())).or_default();
+        e.0 += 1;
+        e.1 += r;
+    }
+    (0..12)
+        .map(|m| {
+            let full: Vec<f64> = by_month
+                .iter()
+                .filter(|((y, mm), (n, _))| *mm == m as u32 + 1 && *y != year && *n >= 25)
+                .map(|(_, (_, t))| *t)
+                .collect();
+            let this = by_month.get(&(year, m as u32 + 1));
+            RunMonth {
+                normal_daily: (all[m].0 > 0).then(|| all[m].1 / all[m].0 as f64),
+                normal_total: (!full.is_empty())
+                    .then(|| full.iter().sum::<f64>() / full.len() as f64),
+                this_total: this.map(|t| t.1),
+                this_daily: this.filter(|t| t.0 > 0).map(|t| t.1 / t.0 as f64),
+                this_days: this.map_or(0, |t| t.0),
+            }
+        })
+        .collect()
+}
+
+/// The days with the most wind run, most first.
+pub fn windiest_days(days: &[DayRecord], n: usize) -> Vec<(NaiveDate, f64)> {
+    let mut v: Vec<(NaiveDate, f64)> = days
+        .iter()
+        .filter_map(|d| d.wind_run.filter(|r| *r > 0.0).map(|r| (d.date, r)))
+        .collect();
+    v.sort_by(|a, b| b.1.total_cmp(&a.1));
+    v.truncate(n);
+    v
+}
+
+/// Each year's total wind run, and the days it covers.
+pub fn wind_run_years(days: &[DayRecord]) -> Vec<(i32, f64, usize)> {
+    let mut out: Vec<(i32, f64, usize)> = Vec::new();
+    for d in days {
+        let Some(r) = d.wind_run else { continue };
+        let y = d.date.year();
+        match out.last_mut() {
+            Some(l) if l.0 == y => {
+                l.1 += r;
+                l.2 += 1;
+            }
+            _ => out.push((y, r, 1)),
+        }
+    }
+    out
+}
+
+// ---------------------------------------------------------------- records by year
+
+/// How many of the station's standing daily records a year holds: for each
+/// date of the year, the year with the highest high, highest low, lowest
+/// high and lowest low on record. Ties count for each year sharing them.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct YearRecords {
+    pub year: i32,
+    pub days: usize,
+    /// Highest high for the date.
+    pub warm_days: usize,
+    /// Highest low.
+    pub warm_nights: usize,
+    /// Lowest high.
+    pub cool_days: usize,
+    /// Lowest low.
+    pub cold_nights: usize,
+}
+
+pub fn records_by_year(days: &[DayRecord]) -> Vec<YearRecords> {
+    type Best = Option<(f64, Vec<i32>)>;
+    let mut best: Vec<[Best; 4]> = vec![Default::default(); 366];
+    let mut years: Vec<YearRecords> = Vec::new();
+    for d in days {
+        let y = d.date.year();
+        if years.last().is_none_or(|l| l.year != y) {
+            years.push(YearRecords {
+                year: y,
+                ..Default::default()
+            });
+        }
+        years.last_mut().unwrap().days += 1;
+        let k = doy_index(d.date);
+        let vals = [d.temp_max, d.temp_min, d.temp_max, d.temp_min];
+        for (i, v) in vals.into_iter().enumerate() {
+            let Some(v) = v else { continue };
+            let higher = i < 2;
+            let slot = &mut best[k][i];
+            match slot {
+                None => *slot = Some((v, vec![y])),
+                Some((b, ys)) => {
+                    if (v - *b).abs() < 1e-9 {
+                        if !ys.contains(&y) {
+                            ys.push(y);
+                        }
+                    } else if (higher && v > *b) || (!higher && v < *b) {
+                        *slot = Some((v, vec![y]));
+                    }
+                }
+            }
+        }
+    }
+    for b in &best {
+        for (i, slot) in b.iter().enumerate() {
+            let Some((_, ys)) = slot else { continue };
+            for y in ys {
+                if let Some(r) = years.iter_mut().find(|r| r.year == *y) {
+                    match i {
+                        0 => r.warm_days += 1,
+                        1 => r.warm_nights += 1,
+                        2 => r.cool_days += 1,
+                        _ => r.cold_nights += 1,
+                    }
+                }
+            }
+        }
+    }
+    years
+}
+
+// ---------------------------------------------------------------- daily range
+
+/// The daily temperature range (high minus low) for one calendar month.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct RangeMonth {
+    /// The average range over every year.
+    pub normal: Option<f64>,
+    /// This year's average range.
+    pub this_year: Option<f64>,
+    pub widest: Option<(NaiveDate, f64)>,
+    pub narrowest: Option<(NaiveDate, f64)>,
+}
+
+pub fn day_range(d: &DayRecord) -> Option<f64> {
+    Some(d.temp_max? - d.temp_min?).filter(|r| *r >= 0.0)
+}
+
+pub fn range_months(days: &[DayRecord], year: i32) -> Vec<RangeMonth> {
+    let mut out: Vec<RangeMonth> = vec![RangeMonth::default(); 12];
+    let mut sums = vec![(0usize, 0.0f64, 0usize, 0.0f64); 12];
+    for d in days {
+        let Some(r) = day_range(d) else { continue };
+        let m = d.date.month0() as usize;
+        sums[m].0 += 1;
+        sums[m].1 += r;
+        if d.date.year() == year {
+            sums[m].2 += 1;
+            sums[m].3 += r;
+        }
+        let o = &mut out[m];
+        if o.widest.is_none_or(|w| r > w.1) {
+            o.widest = Some((d.date, r));
+        }
+        if o.narrowest.is_none_or(|w| r < w.1) {
+            o.narrowest = Some((d.date, r));
+        }
+    }
+    for (m, o) in out.iter_mut().enumerate() {
+        let (n, s, tn, ts) = sums[m];
+        o.normal = (n > 0).then(|| s / n as f64);
+        o.this_year = (tn > 0).then(|| ts / tn as f64);
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -443,5 +634,80 @@ mod tests {
         assert_eq!(day_degrees(&r, 15.5), Some((5.5, 0.0)));
         r.hdd = Some(8.0);
         assert_eq!(day_degrees(&r, 15.5), Some((8.0, 0.0)));
+    }
+
+    #[test]
+    fn wind_run_by_month() {
+        let mut d = Vec::new();
+        let mut t = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap();
+        while t <= NaiveDate::from_ymd_opt(2025, 2, 10).unwrap() {
+            d.push(DayRecord {
+                date: t,
+                wind_run: Some(if t.year() == 2025 { 300.0 } else { 200.0 }),
+                ..Default::default()
+            });
+            t += Duration::days(1);
+        }
+        let m = wind_run_months(&d, 2025);
+        assert_eq!(m[0].normal_total, Some(6200.0));
+        assert_eq!(m[0].this_total, Some(9300.0));
+        assert_eq!(m[1].this_days, 10);
+        assert_eq!(m[1].this_daily, Some(300.0));
+        assert!(m[5].this_total.is_none() && m[5].normal_daily == Some(200.0));
+        assert_eq!(windiest_days(&d, 1)[0].1, 300.0);
+        assert_eq!(wind_run_years(&d)[0], (2024, 366.0 * 200.0, 366));
+    }
+
+    #[test]
+    fn standing_records_go_to_their_years() {
+        // Three years: 2021 the warmest days, 2022 the coldest nights, and
+        // 2023 ties 2021's highs on 1 January only.
+        let mut d = Vec::new();
+        for (y, max, min) in [(2021, 30.0, 15.0), (2022, 25.0, 5.0), (2023, 26.0, 10.0)] {
+            let mut t = NaiveDate::from_ymd_opt(y, 1, 1).unwrap();
+            while t.year() == y {
+                let tie = y == 2023 && t.ordinal() == 1;
+                d.push(DayRecord {
+                    date: t,
+                    temp_max: Some(if tie { 30.0 } else { max }),
+                    temp_min: Some(min),
+                    ..Default::default()
+                });
+                t += Duration::days(1);
+            }
+        }
+        let r = records_by_year(&d);
+        assert_eq!(r.len(), 3);
+        // 29 Feb exists in none of these years: 365 dates.
+        assert_eq!(r[0].warm_days, 365);
+        assert_eq!(r[2].warm_days, 1);
+        assert_eq!(r[0].warm_nights, 365);
+        assert_eq!(r[1].cold_nights, 365);
+        assert_eq!(r[1].cool_days, 365);
+        assert_eq!(r[2].cold_nights, 0);
+    }
+
+    #[test]
+    fn ranges_by_month() {
+        let d = vec![
+            DayRecord {
+                date: NaiveDate::from_ymd_opt(2024, 3, 1).unwrap(),
+                temp_max: Some(25.0),
+                temp_min: Some(10.0),
+                ..Default::default()
+            },
+            DayRecord {
+                date: NaiveDate::from_ymd_opt(2025, 3, 1).unwrap(),
+                temp_max: Some(20.0),
+                temp_min: Some(15.0),
+                ..Default::default()
+            },
+        ];
+        let m = range_months(&d, 2025);
+        assert_eq!(m[2].normal, Some(10.0));
+        assert_eq!(m[2].this_year, Some(5.0));
+        assert_eq!(m[2].widest.unwrap().1, 15.0);
+        assert_eq!(m[2].narrowest.unwrap().1, 5.0);
+        assert!(m[0].normal.is_none());
     }
 }

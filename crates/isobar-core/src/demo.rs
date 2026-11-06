@@ -393,6 +393,17 @@ pub fn live(samples: &BTreeMap<String, Vec<(i64, f64)>>, now_ms: i64, jitter: f6
         apparent_low_time: Some("05:44".into()),
         cloud_base: Some(1050.0),
         cloud_base_unit: Some("m".into()),
+        wind_run_today: {
+            let hours = chrono::Local
+                .timestamp_millis_opt(now_ms)
+                .single()
+                .map_or(12.0, |t| t.hour() as f64 + t.minute() as f64 / 60.0);
+            Some(round1(last("wind").unwrap_or(8.0) * hours * 0.9))
+        },
+        wind_run_unit: Some("km".into()),
+        beaufort: last("wind").map(|w| crate::analytics::beaufort(w).0),
+        beaufort_high: Some(4),
+        beaufort_desc: last("wind").map(|w| crate::analytics::beaufort(w).1.to_string()),
         data_stopped: Some(false),
         alarms: ["AlarmSensor", "AlarmSpike", "AlarmUpgrade", "AlarmBattery"]
             .into_iter()

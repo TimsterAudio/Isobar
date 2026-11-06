@@ -46,6 +46,7 @@ struct Draft {
     hidden_cards: Vec<NowCard>,
     /// Put the cards back in the usual order on save.
     reset_order: bool,
+    units: crate::settings::UnitChoice,
     backup_on: bool,
     backup_time: String,
     backup_keep: String,
@@ -215,6 +216,7 @@ impl Draft {
                 .map(|c| c.0)
                 .collect(),
             reset_order: false,
+            units: s.units.clone(),
             backup_on: s.backup.enabled,
             backup_time: s.backup.time.clone(),
             backup_keep: s.backup.keep.to_string(),
@@ -284,6 +286,7 @@ impl Draft {
                 rain_start: self.rain_start,
                 stopped: self.stopped,
             },
+            units: self.units.clone(),
             backup: crate::settings::Backup {
                 enabled: self.backup_on,
                 time: backup_time.format("%H:%M").to_string(),
@@ -470,6 +473,27 @@ impl SettingsView {
                         crate::app::apply_theme(ui.ctx(), self.draft.theme);
                     }
                 });
+                let station = snap.live.as_ref().map(|l| l.units.clone()).unwrap_or_default();
+                ui::small(ui, "Units", p.ink2);
+                ui::columns(ui, 4, 16.0, false, |i, ui| {
+                    use isobar_core::units as un;
+                    let (label, value, list, theirs): (&str, &mut String, &[&str], &str) = match i {
+                        0 => ("Temperature", &mut self.draft.units.temp, &un::TEMPS, &station.temp),
+                        1 => ("Rain", &mut self.draft.units.rain, &un::RAINS, &station.rain),
+                        2 => ("Wind", &mut self.draft.units.wind, &un::WINDS, &station.wind),
+                        _ => ("Pressure", &mut self.draft.units.press, &un::PRESSES, &station.press),
+                    };
+                    let mut opts: Vec<(usize, String)> = vec![(0, format!("Station's ({theirs})"))];
+                    opts.extend(list.iter().enumerate().map(|(k, u)| (k + 1, u.to_string())));
+                    let mut pick = list.iter().position(|u| u == value).map_or(0, |k| k + 1);
+                    ui::field(ui, label, None, |ui| {
+                        if ui::select(ui, &format!("unit-{i}"), &mut pick, &opts, 150.0) {
+                            *value = if pick == 0 { String::new() } else { list[pick - 1].to_string() };
+                        }
+                    });
+                });
+                ui::small(ui, "Everything Isobar shows follows these, alert levels included; the history stays stored as the station sends it, so changing them loses nothing.", p.ink2);
+                ui.add_space(6.0);
                 ui::field(ui, "Times", None, |ui| {
                     let opts = [(true, "24-hour (16:52)".to_string()), (false, "12-hour (4:52 PM)".to_string())];
                     if ui::select(ui, "clock", &mut self.draft.clock_24h, &opts, 180.0) {
@@ -1123,7 +1147,7 @@ impl SettingsView {
             });
             ui::para(
                 ui,
-                "In your station's units. Leave a box empty to turn that alert off. Each alerts at most once a day, gusts at most every three hours.",
+                "In the units Isobar shows (Appearance, below). Leave a box empty to turn that alert off. Each alerts at most once a day, gusts at most every three hours.",
                 theme::body(13.0),
                 p.ink2,
                 600.0,

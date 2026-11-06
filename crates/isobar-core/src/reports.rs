@@ -760,6 +760,10 @@ ul.notes {{ margin: 6px 0; padding-left: 18px; }}
   body {{ background: #fff; }}
   main {{ margin: 0; padding: 0; border: 0; max-width: none; background: #fff; }}
   pre {{ border: 0; padding: 0; font-size: 10px; }}
+  .wrap {{ overflow: visible; }}
+  table {{ font-size: 9.5px; }}
+  th, td {{ padding: 2px 4px; }}
+  th {{ white-space: normal; }}
   h2 {{ break-after: avoid; }}
   table, svg, .tiles {{ break-inside: avoid; }}
 }}

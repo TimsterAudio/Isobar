@@ -127,6 +127,19 @@ pub struct LiveReading {
     /// The height of the cloud base MX works out, and its unit ("ft" or "m").
     pub cloud_base: Option<f64>,
     pub cloud_base_unit: Option<String>,
+    /// Today's wind run, in `wind_run_unit` ("km", "miles", "nm").
+    #[serde(default)]
+    pub wind_run_today: Option<f64>,
+    #[serde(default)]
+    pub wind_run_unit: Option<String>,
+    /// MX's Beaufort force now and today's highest (from "F3"), and its
+    /// description now ("Gentle breeze").
+    #[serde(default)]
+    pub beaufort: Option<u8>,
+    #[serde(default)]
+    pub beaufort_high: Option<u8>,
+    #[serde(default)]
+    pub beaufort_desc: Option<String>,
 
     /// MX has stopped getting data from the station, though it still answers.
     pub data_stopped: Option<bool>,
@@ -238,6 +251,13 @@ fn number_from(v: &Value) -> Option<f64> {
 
 fn num(v: &Value, keys: &[&str]) -> Option<f64> {
     find(v, keys).and_then(number_from)
+}
+
+/// A Beaufort force as MX sends it ("F3", or a plain number).
+fn force(v: &Value, keys: &[&str]) -> Option<u8> {
+    let t = text(v, keys)?;
+    let n = t.trim().trim_start_matches(['F', 'f']).trim();
+    n.parse::<u8>().ok().filter(|f| *f <= 12)
 }
 
 fn text(v: &Value, keys: &[&str]) -> Option<String> {
@@ -389,6 +409,11 @@ impl LiveReading {
             apparent_low_time: text(v, &["LowAppTempTodayTime", "TapptempTL"]),
             cloud_base: num(v, &["Cloudbase", "cloudbasevalue"]),
             cloud_base_unit: text(v, &["CloudbaseUnit", "cloudbaseunit"]),
+            wind_run_today: num(v, &["WindRunToday", "windrun"]),
+            wind_run_unit: text(v, &["WindRunUnit", "windrununit"]),
+            beaufort: force(v, &["Beaufort", "beaufort"]),
+            beaufort_high: force(v, &["HighBeaufortToday", "bftmaxtoday"]),
+            beaufort_desc: text(v, &["BeaufortDesc", "beaudesc"]),
 
             data_stopped: flag(v, &["DataStopped", "DataStoppedAlarm"]),
             alarms: alarms(v),
@@ -521,6 +546,11 @@ mod tests {
         assert_eq!(r.apparent_low, Some(5.8));
         assert_eq!(r.cloud_base, Some(1198.0));
         assert_eq!(r.cloud_base_unit.as_deref(), Some("ft"));
+        assert_eq!(r.wind_run_today, Some(0.9));
+        assert_eq!(r.wind_run_unit.as_deref(), Some("km"));
+        assert_eq!(r.beaufort, Some(0));
+        assert_eq!(r.beaufort_high, Some(1));
+        assert_eq!(r.beaufort_desc.as_deref(), Some("Calm"));
         assert_eq!(r.apparent, Some(9.2));
         assert_eq!(r.wind_chill, Some(9.9));
         assert_eq!(r.dew_point, Some(7.0));

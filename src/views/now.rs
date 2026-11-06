@@ -1255,12 +1255,45 @@ impl Now {
             );
         }
         ui.label(job);
+        // Beaufort: MX's when it sends one, otherwise from the average.
+        let force = r.beaufort.map(|f| {
+            (
+                f,
+                r.beaufort_desc
+                    .clone()
+                    .unwrap_or_else(|| an::BEAUFORT_NAMES[f.min(12) as usize].to_string()),
+            )
+        });
+        let force = force.or_else(|| {
+            r.wind_avg.map(|w| {
+                let (f, name) = an::beaufort(an::kmh(w, &u.wind));
+                (f, name.to_string())
+            })
+        });
+        let mut bits = Vec::new();
+        if let Some((f, name)) = force {
+            bits.push(format!("Force {f}, {}", name.to_lowercase()));
+        }
+        if let Some(run) = r.wind_run_today {
+            let unit = r.wind_run_unit.as_deref().unwrap_or("km");
+            bits.push(format!("{} {unit} run today", num(Some(run), 1)));
+        }
+        if !bits.is_empty() {
+            let resp = ui::text(ui, bits.join(" · "), theme::body(DETAIL), p.ink2);
+            if let Some(h) = r.beaufort_high {
+                resp.on_hover_text(format!(
+                    "Strongest today: force {h}, {}. Wind run is how far the air moved past the station: the average speed times the time.",
+                    an::BEAUFORT_NAMES[h.min(12) as usize].to_lowercase()
+                ));
+            }
+        }
         bottom(ui, |ui| Self::spark(ui, snap, "gust", p.wind, false));
     }
 
     fn pressure(&self, ui: &mut Ui, snap: &Snapshot, r: &LiveReading) {
+        let pd = format::press_digits(&r.units.press);
         let p = Palette::of(ui.ctx());
-        ui::reading(ui, &num(r.pressure, 1), &r.units.press, READING, p.ink);
+        ui::reading(ui, &num(r.pressure, pd), &r.units.press, READING, p.ink);
         // The three-hour tendency in forecasters' words, from the recorded
         // readings; MX's own hourly trend until there are three hours.
         let pts = snap.samples.get("press").map(Vec::as_slice).unwrap_or(&[]);
@@ -1297,7 +1330,11 @@ impl Now {
         }
         ui::text(
             ui,
-            format!("Today {} to {}", num(r.press_low, 1), num(r.press_high, 1)),
+            format!(
+                "Today {} to {}",
+                num(r.press_low, pd),
+                num(r.press_high, pd)
+            ),
             theme::body(DETAIL),
             p.ink2,
         );
@@ -1305,21 +1342,22 @@ impl Now {
     }
 
     fn rain(&self, ui: &mut Ui, snap: &Snapshot, r: &LiveReading) {
+        let rd = format::rain_digits(&r.units.rain);
         let p = Palette::of(ui.ctx());
         let u = &r.units;
-        ui::reading(ui, &num(r.rain_today, 1), &u.rain, READING, p.ink);
+        ui::reading(ui, &num(r.rain_today, rd), &u.rain, READING, p.ink);
         let rate = r.rain_rate.unwrap_or(0.0);
         if rate > 0.0 {
             ui::text(
                 ui,
-                format!("Raining, {} {}/h", num(Some(rate), 1), u.rain),
+                format!("Raining, {} {}/h", num(Some(rate), rd), u.rain),
                 theme::semi(DETAIL),
                 p.rain,
             );
         } else {
             ui::text(
                 ui,
-                format!("Not raining, rate {} {}/h", num(r.rain_rate, 1), u.rain),
+                format!("Not raining, rate {} {}/h", num(r.rain_rate, rd), u.rain),
                 theme::body(DETAIL),
                 p.ink,
             );
@@ -1332,7 +1370,7 @@ impl Now {
                 .unwrap_or_default();
             ui::text(
                 ui,
-                format!("Storm {} {}{since}", num(r.storm_rain, 1), u.rain),
+                format!("Storm {} {}{since}", num(r.storm_rain, rd), u.rain),
                 theme::body(DETAIL),
                 p.rain,
             );
@@ -1341,8 +1379,8 @@ impl Now {
             ui,
             format!(
                 "Yesterday {} · 24 h {}",
-                num(r.rain_yesterday, 1),
-                num(r.rain_24h, 1)
+                num(r.rain_yesterday, rd),
+                num(r.rain_24h, rd)
             ),
             theme::body(DETAIL),
             p.ink2,
@@ -1351,9 +1389,9 @@ impl Now {
             ui,
             format!(
                 "Week {} · month {} · year {}",
-                num(r.rain_week, 1),
-                num(r.rain_month, 1),
-                num(r.rain_year, 1)
+                num(r.rain_week, rd),
+                num(r.rain_month, rd),
+                num(r.rain_year, rd)
             ),
             theme::body(DETAIL),
             p.ink2,
@@ -1635,7 +1673,7 @@ impl Now {
             }
         });
         if snap.samples.get("intemp").is_some_and(|v| v.len() > 1) {
-            ui::small(ui, "Inside, against outside (violet)", p.ink2);
+            ui::small(ui, "Inside (the coloured line), against outside", p.ink2);
         }
     }
 }

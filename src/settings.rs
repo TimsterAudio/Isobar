@@ -18,6 +18,23 @@ pub struct Alerts {
     pub stopped: bool,
 }
 
+/// Units to show instead of the station's; empty for the station's own.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct UnitChoice {
+    pub temp: String,
+    pub rain: String,
+    pub wind: String,
+    pub press: String,
+}
+
+impl UnitChoice {
+    /// The units shown, for a station sending `station`.
+    pub fn apply(&self, station: &isobar_core::Units) -> isobar_core::Units {
+        isobar_core::units::chosen(station, &self.temp, &self.rain, &self.wind, &self.press)
+    }
+}
+
 /// The nightly copy of the history and settings.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
@@ -59,16 +76,32 @@ pub enum ThemeChoice {
     System,
     Light,
     Dark,
+    Warm,
+    Contrast,
+    Night,
+    Blueprint,
 }
 
 impl ThemeChoice {
-    pub const ALL: [ThemeChoice; 3] = [ThemeChoice::System, ThemeChoice::Light, ThemeChoice::Dark];
+    pub const ALL: [ThemeChoice; 7] = [
+        ThemeChoice::System,
+        ThemeChoice::Light,
+        ThemeChoice::Dark,
+        ThemeChoice::Warm,
+        ThemeChoice::Contrast,
+        ThemeChoice::Night,
+        ThemeChoice::Blueprint,
+    ];
 
     pub fn label(self) -> &'static str {
         match self {
             ThemeChoice::System => "Match system",
             ThemeChoice::Light => "Light",
             ThemeChoice::Dark => "Dark",
+            ThemeChoice::Warm => "Warm paper",
+            ThemeChoice::Contrast => "High contrast",
+            ThemeChoice::Night => "Night",
+            ThemeChoice::Blueprint => "Blueprint",
         }
     }
 }
@@ -170,6 +203,7 @@ pub struct Settings {
     pub now_cards: Vec<CardChoice>,
     pub alerts: Alerts,
     pub backup: Backup,
+    pub units: UnitChoice,
 }
 
 impl Default for Settings {
@@ -191,6 +225,7 @@ impl Default for Settings {
             now_cards: Vec::new(),
             alerts: Alerts::default(),
             backup: Backup::default(),
+            units: UnitChoice::default(),
         }
     }
 }

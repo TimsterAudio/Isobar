@@ -80,15 +80,14 @@ pub struct Snapshot {
     pub detail: Option<Arc<crate::worker::Detail>>,
     pub now_ms: i64,
     pub demo: bool,
+    /// The units shown: the station's, or those chosen in Settings.
+    pub shown_units: Units,
 }
 
 impl Snapshot {
     /// Units come from the station; before the first reading, metric.
     pub fn units(&self) -> Units {
-        self.live
-            .as_ref()
-            .map(|l| l.units.clone())
-            .unwrap_or_default()
+        self.shown_units.clone()
     }
 }
 
@@ -114,6 +113,23 @@ pub struct IsobarApp {
     forecast: views::forecast::ForecastView,
     health: views::health::Health,
     settings_view: views::settings::SettingsView,
+    /// Days, samples and the rest in the units chosen, kept until they or
+    /// the units change.
+    converted: std::cell::RefCell<Option<Converted>>,
+}
+
+/// What `snapshot` converted last time, and what from.
+struct Converted {
+    to: Units,
+    from: Units,
+    days_version: u64,
+    days: Arc<Vec<DayRecord>>,
+    samples_from: usize,
+    samples: Arc<crate::worker::Samples>,
+    logs_from: usize,
+    logs: Arc<crate::worker::LogSummary>,
+    detail_from: usize,
+    detail: Option<Arc<crate::worker::Detail>>,
 }
 
 impl IsobarApp {
@@ -152,12 +168,15 @@ impl IsobarApp {
             reports: Default::default(),
             forecast: Default::default(),
             health: Default::default(),
+            converted: Default::default(),
         }
     }
 
     fn snapshot(&self) -> Snapshot {
         let s = self.worker.lock();
-        Snapshot {
+        let station = s.live.as_ref().map(|l| l.units.clone()).unwrap_or_default();
+        let shown = self.settings.units.apply(&station);
+        let mut snap = Snapshot {
             live: s.live.clone(),
             status: s.status.clone(),
             days: s.days.clone(),
@@ -169,7 +188,75 @@ impl IsobarApp {
             detail: s.detail.clone(),
             now_ms: chrono::Utc::now().timestamp_millis(),
             demo: self.paths.is_none(),
+            shown_units: shown.clone(),
+        };
+        drop(s);
+        let c = isobar_core::units::Converter::new(station.clone(), shown.clone());
+        if c.same() {
+            *self.converted.borrow_mut() = None;
+            return snap;
         }
+        snap.live = snap.live.as_ref().map(|l| c.live(l));
+        let detail_ptr = snap
+            .detail
+            .as_ref()
+            .map_or(0, |d| Arc::as_ptr(d) as *const u8 as usize);
+        let mut cache = self.converted.borrow_mut();
+        let ok = cache
+            .as_ref()
+            .is_some_and(|k| k.to == shown && k.from == station);
+        if !ok {
+            *cache = None;
+        }
+        let series = |m: &crate::worker::Samples| -> crate::worker::Samples {
+            m.iter()
+                .map(|(k, v)| {
+                    (
+                        k.clone(),
+                        v.iter().map(|(t, x)| (*t, c.metric(k, *x))).collect(),
+                    )
+                })
+                .collect()
+        };
+        let k = cache.get_or_insert_with(|| Converted {
+            to: shown.clone(),
+            from: station.clone(),
+            days_version: u64::MAX,
+            days: Arc::default(),
+            samples_from: 0,
+            samples: Arc::default(),
+            logs_from: 0,
+            logs: Arc::default(),
+            detail_from: 0,
+            detail: None,
+        });
+        if k.days_version != snap.days_version || k.days.len() != snap.days.len() {
+            k.days = Arc::new(snap.days.iter().map(|d| c.day(d)).collect());
+            k.days_version = snap.days_version;
+        }
+        if k.samples_from != addr(&snap.samples) {
+            k.samples_from = addr(&snap.samples);
+            k.samples = Arc::new(series(&snap.samples));
+        }
+        if k.logs_from != addr(&snap.log_summary) {
+            k.logs_from = addr(&snap.log_summary);
+            k.logs = Arc::new(convert_logs(&snap.log_summary, &c));
+        }
+        if k.detail_from != detail_ptr {
+            k.detail_from = detail_ptr;
+            k.detail = snap.detail.as_ref().map(|d| {
+                Arc::new(crate::worker::Detail {
+                    key: d.key.clone(),
+                    series: series(&d.series),
+                    at: d.at,
+                })
+            });
+        }
+        snap.days = k.days.clone();
+        snap.samples = k.samples.clone();
+        snap.log_summary = k.logs.clone();
+        snap.detail = k.detail.clone();
+        snap
     }
 
     /// The full rail: name, sections and connection status. Returns true when
@@ -391,12 +478,53 @@ fn pin_icon(painter: &egui::Painter, c: egui::Pos2, color: egui::Color32) {
     painter.line_segment([c + vec2(0.0, 1.5), c + vec2(0.0, 8.0)], stroke);
 }
 
+/// Where an `Arc`'s value lives, to tell when the worker has replaced it.
+fn addr<T>(a: &Arc<T>) -> usize {
+    Arc::as_ptr(a) as *const u8 as usize
+}
+
+/// The detailed-log summaries in the units shown.
+fn convert_logs(
+    l: &crate::worker::LogSummary,
+    c: &isobar_core::units::Converter,
+) -> crate::worker::LogSummary {
+    let mut out = l.clone();
+    for f in &mut out.falls {
+        f.from = c.press(f.from);
+        f.to = c.press(f.to);
+    }
+    for b in &mut out.bursts {
+        for r in &mut b.rain {
+            *r = c.rain(*r);
+        }
+        b.unknown = c.rain(b.unknown);
+    }
+    if let Some(i) = &mut out.indoor {
+        i.in_range = c.temp_delta(i.in_range);
+        i.out_range = c.temp_delta(i.out_range);
+        for m in &mut i.months {
+            m.in_mean = c.temp(m.in_mean);
+            m.out_mean = c.temp(m.out_mean);
+            m.in_range = c.temp_delta(m.in_range);
+            m.out_range = c.temp_delta(m.out_range);
+        }
+    }
+    out
+}
+
 pub fn apply_theme(ctx: &egui::Context, t: ThemeChoice) {
-    ctx.set_theme(match t {
-        ThemeChoice::System => ThemePreference::System,
-        ThemeChoice::Light => ThemePreference::Light,
-        ThemeChoice::Dark => ThemePreference::Dark,
-    });
+    use crate::theme::Look;
+    let (look, pref) = match t {
+        ThemeChoice::System => (Look::Paper, ThemePreference::System),
+        ThemeChoice::Light => (Look::Paper, ThemePreference::Light),
+        ThemeChoice::Dark => (Look::Paper, ThemePreference::Dark),
+        ThemeChoice::Warm => (Look::Warm, ThemePreference::Light),
+        ThemeChoice::Contrast => (Look::Contrast, ThemePreference::Light),
+        ThemeChoice::Night => (Look::Night, ThemePreference::Dark),
+        ThemeChoice::Blueprint => (Look::Blueprint, ThemePreference::Dark),
+    };
+    crate::theme::set_look(ctx, look);
+    ctx.set_theme(pref);
 }
 
 impl eframe::App for IsobarApp {

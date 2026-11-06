@@ -1000,6 +1000,41 @@ pub fn compass_index(bearing: f64) -> usize {
     ((bearing.rem_euclid(360.0) / 22.5).round() as usize) % 16
 }
 
+/// The Beaufort force for a speed in km/h, and its name.
+pub fn beaufort(kmh: f64) -> (u8, &'static str) {
+    const TOPS: [f64; 12] = [
+        1.0, 5.0, 11.0, 19.0, 28.0, 38.0, 49.0, 61.0, 74.0, 88.0, 102.0, 117.0,
+    ];
+    let f = TOPS.iter().position(|t| kmh.round() <= *t).unwrap_or(12) as u8;
+    (f, BEAUFORT_NAMES[f as usize])
+}
+
+pub const BEAUFORT_NAMES: [&str; 13] = [
+    "Calm",
+    "Light air",
+    "Light breeze",
+    "Gentle breeze",
+    "Moderate breeze",
+    "Fresh breeze",
+    "Strong breeze",
+    "Near gale",
+    "Gale",
+    "Strong gale",
+    "Storm",
+    "Violent storm",
+    "Hurricane force",
+];
+
+/// A wind speed in km/h, from the station's unit.
+pub fn kmh(v: f64, unit: &str) -> f64 {
+    match unit.trim().to_ascii_lowercase().as_str() {
+        "m/s" => v * 3.6,
+        "mph" => v * 1.609344,
+        "kts" | "kt" | "knots" => v * 1.852,
+        _ => v,
+    }
+}
+
 pub fn compass(bearing: f64) -> &'static str {
     COMPASS16[compass_index(bearing)]
 }

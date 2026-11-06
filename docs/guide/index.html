@@ -430,6 +430,17 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   </div>
   <h3>Light and dark</h3>
   <p>Settings → Appearance → <b>Theme</b>: Match system, Light or Dark. Light is pale green-grey chart paper with slate ink; dark is the same instrument after hours. The violet "pen" colour is kept for the main recorded line on each chart, so your eye knows where to land.</p>
+  <p>Four more, each with one look whatever the system says:</p>
+  <ul>
+    <li><b>Warm paper</b>: the cream chart of a barograph drum, with sepia ink and a plum pen.</li>
+    <li><b>High contrast</b>: white paper, black ink and strong colours, for bright rooms and tired eyes.</li>
+    <li><b>Night</b>: nearly black and turned down, for a screen in a dark room that shouldn't light it up.</li>
+    <li><b>Blueprint</b>: a drawing office's blue sheet with white ink and a yellow pen. Entirely unnecessary. Very nice.</li>
+  </ul>
+  <figure class="shot"><img src="img/themes.webp" alt="The Now screen in Warm paper, High contrast, Night and Blueprint" loading="lazy"><figcaption>Warm paper, High contrast, Night and Blueprint.</figcaption></figure>
+  <h3>Units</h3>
+  <p>Isobar shows your station's own units unless you pick others in Settings → Appearance → <b>Units</b>: temperature in °C or °F, rain in mm or inches, wind in km/h, m/s, mph or knots, and pressure in hPa, mb, inHg or kPa. Each one can be chosen on its own, so °C with inches of rain is fine if that's how your household thinks. Everything follows, from the big reading to the reports, the forecast and the alert levels. The history stays stored the way MX sends it, so switching back and forth loses nothing.</p>
+  <figure class="shot half"><img src="img/settings-5.webp" alt="Appearance settings: theme, the four unit choices and times" loading="lazy"></figure>
 </section>
 
 <!-- ============================================================ now -->
@@ -463,7 +474,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <div class="tbl"><table>
     <thead><tr><th>Card</th><th>Shows</th></tr></thead>
     <tbody>
-      <tr><td>Wind</td><td>A dial with the speed and the direction it's coming from, the latest gust and today's peak gust with its time. In light air (under about 3 km/h) the dial uses MX's 10-minute average direction, because the latest one swings about like a weathervane in a teacup. The text then says "Calm" or "Light".</td></tr>
+      <tr><td>Wind</td><td>A dial with the speed and the direction it's coming from, the latest gust and today's peak gust with its time. In light air (under about 3 km/h) the dial uses MX's 10-minute average direction, because the latest one swings about like a weathervane in a teacup. The text then says "Calm" or "Light". Under that: the <b>Beaufort force</b> with its name ("Force 3, gentle breeze"), and today's <b>wind run</b>. Hover it for today's strongest force.</td></tr>
       <tr><td>Pressure</td><td>The reading, the <b>three-hour tendency</b> in forecasters' words ("Falling slowly, −0.5 hPa in 3 h") and today's range. A fall of 3.6 hPa or more in three hours turns amber: often wind and rain on the way. See <a href="#maths">the maths</a> for the words.</td></tr>
       <tr><td>Rain</td><td>Today's total and the rate ("Raining, 4.2 mm/h", or "Not raining"). Then the current storm and when it started, yesterday, the last 24 hours, week, month and year, and when it last rained.</td></tr>
       <tr><td>Humidity</td><td>Relative humidity and dew point, today's humidity range and today's dew point range (hover for the times), and MX's <b>cloud base</b>: roughly where cumulus would form, worked out from the gap between temperature and dew point (about 125 m for each degree).</td></tr>
@@ -509,7 +520,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
     <li>the rain expected, with the highest chance of rain in any hour ("Dry" when it's unlikely)</li>
     <li>the wind's direction, strongest average and gusts, and the UV index</li>
   </ul>
-  <p>Under the days, a chart of the next 48 hours: temperature, and the chance of rain each hour. Everything is in your station's units. Isobar fetches it every hour, or when you press <b>Refresh</b>.</p>
+  <p>Under the days, a chart of the next 48 hours: temperature, and the chance of rain each hour. Everything is in the units Isobar shows (your station's, or those you chose). Isobar fetches it every hour, or when you press <b>Refresh</b>.</p>
   <p>It needs your station's latitude and longitude. In Settings → Station, type your town into <b>Find a town or suburb</b>, press <b>Find</b>, and pick it from the list; that fills them in. Then save.</p>
   <div class="tip"><b>Model, not mast</b>
     <p>The forecast is for the area around your location as the model sees it, so your gauge and the forecast won't agree to the millimetre. Hills, the coast and your own backyard all make a difference the model can't see.</p>
@@ -596,10 +607,17 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <figure class="shot"><img src="img/insights-4.webp" alt="Monthly climate table and prevailing wind roses" loading="lazy"></figure>
   <h3>Your station's climate</h3>
   <p>A month-by-month table: average max and min, highest, lowest, rain, rain days, and how many years each figure comes from. Rain only counts months with at least 25 days of data, so a month with a dead gauge doesn't drag the average down.</p>
+  <figure class="shot"><img src="img/insights-7.webp" alt="The daily temperature range by month, the normal as bars and this year as a line" loading="lazy"></figure>
+  <h3>Daily temperature range</h3>
+  <p>How far the average day climbs from its low to its high, month by month: grey bars for the normal, the pen line for this year. Above it sit the widest and narrowest days on record and the month with the widest range. Clear, dry weather stretches the range (sunny afternoons, then the warmth escapes into a clear night sky); cloud, humidity and a sea breeze squash it. A month that runs narrower than usual was probably a grey one.</p>
   <figure class="shot"><img src="img/insights-6.webp" alt="The temperature trend: a bar for each year above or below normal, with a dashed fitted line" loading="lazy"><figcaption>Eight-odd years of the demo station, warmer and cooler.</figcaption></figure>
   <h3>Temperature trend</h3>
   <p>A bar for each year: how far its average temperature sat above or below your station's normal. Red bars went up, blue went down. Every day is measured against the usual for its own date, so a part year (your first, and this one) doesn't look freezing just because it's missing summer. The panel names the warmest and coolest whole years, and draws a dashed straight line through every year with at least six months on record.</p>
   <p>The line's slope is given in degrees a decade, with a plain verdict: either it's more than the usual swings from year to year, or it's within them and could be chance. With only a handful of years, it's nearly always the second. That's not a dodge; it's what a short record honestly supports. A single El Niño summer can tilt a short line more than a decade of anything else.</p>
+  <figure class="shot"><img src="img/insights-8.webp" alt="Records set each year: warm records up and cold records down for each year, with a table" loading="lazy"></figure>
+  <h3>Records set each year</h3>
+  <p>For every date of the year, Isobar finds which year still holds its records: the warmest high, the warmest low, the coolest high and the coldest low. Each year then gets a red bar for the warm records it holds and a blue bar hanging down for the cold ones, with the counts in a table and a "warm less cold" balance.</p>
+  <p>The panel says how many of each a year would hold by pure chance (366 divided by the number of years). A year well over that on the warm side and under it on the cold side ran warm, and the other way round. Two catches: a part year has fewer dates to win, and a station's first year holds every record until something beats it, so early years look busy at first and settle down as the record grows.</p>
   <h3>Prevailing wind</h3>
   <p>Wind roses showing the share of days by the day's dominant wind direction. <b>By year</b> gives all time and this year side by side; <b>By season</b> gives four roses, summer first, named for your hemisphere, across every year on record. Seasonal roses are where the interesting stuff hides: the wind that brings your winter rain is rarely the one that brings summer's hot days.</p>
   <figure class="shot"><img src="img/insights-5.webp" alt="Seasonal wind roses and the gust factor panel" loading="lazy"><figcaption>The roses by season, and the gust factor below.</figcaption></figure>
@@ -608,6 +626,9 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <div class="idea"><b>The idea</b>
     <p>Wind loads on roofs, fences and tall plants come from the gusts, not the average. A site with a high gust factor gets more damage from a given wind than the forecast speed suggests. If yours creeps up over the years, the trees are probably growing.</p>
   </div>
+  <figure class="shot"><img src="img/insights-9.webp" alt="Wind run by month: the average day as bars and this year as a line, with a month table" loading="lazy"></figure>
+  <h3>Wind run</h3>
+  <p>How far the air travelled past the station: each day's average speed times 24 hours, straight from MX's dayfile. It's the best single number for "how windy was it", because a day of steady breeze can out-run a day with one wild gust, and it's what dries the washing, the crops and the soil. The panel gives this year's total so far against a whole year's average, the windiest month and the windiest day on record, a chart of the average day by month with this year over it, a month table, and the five windiest days. Distances follow the wind unit: km for km/h and m/s, miles for mph, nautical miles for knots.</p>
 </section>
 
 <!-- ============================================================ seasons -->
@@ -719,6 +740,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <p>Pick a report, then the month and year. Then:</p>
   <ul>
     <li><b>Open in browser</b> writes the report as a web page and opens it. From there, print it, or choose <b>Save as PDF</b> in the print dialog. The pages have print styles for A4.</li>
+    <li><b>Save as PDF…</b> makes a PDF straight away, no browser window needed. Isobar has your computer's own Edge, Chrome or Chromium print the page quietly in the background, with the same A4 print layout. Every Windows PC has Edge; on Linux, if none of the three is installed, Isobar says so and you can print from the browser instead.</li>
     <li><b>Save as HTML…</b> puts the page wherever you like. It's one self-contained file: the charts are drawn inside it, so it opens anywhere, offline, years from now.</li>
     <li><b>Save as text…</b> (the two climate summaries) gives the classic fixed-width layout, as Cumulus writes its own NOAA reports, for pasting into a forum post or your website.</li>
   </ul>
@@ -837,7 +859,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <ul>
     <li><b>Alerts</b>: see <a href="#alerts">Alerts</a>.</li>
     <li><b>Now screen</b>: tick the cards you want. "Put the cards back in the usual order" undoes your dragging.</li>
-    <li><b>Appearance</b>: theme (Match system, Light, Dark) and times (24-hour 16:52, or 12-hour 4:52 PM).</li>
+    <li><b>Appearance</b>: theme (Match system, Light, Dark, Warm paper, High contrast, Night or Blueprint), units (the station's, or your own for temperature, rain, wind and pressure; see <a href="#around">Finding your way around</a>), and times (24-hour 16:52, or 12-hour 4:52 PM).</li>
     <li><b>Nightly backup</b>: the time each day Isobar writes a safe copy of the history and settings for your backup program, how many copies to keep, and <b>Back up now</b> (see <a href="#storage">Where Isobar keeps things</a>).</li>
     <li><b>Isobar's files</b>: where your settings, history and reports are, and a button to keep them all in one folder you choose (see <a href="#storage">Where Isobar keeps things</a>).</li>
     <li><b>About Isobar</b>: the version you're running.</li>
@@ -858,7 +880,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
       <tr><td>Station stopped</td><td>MX says the station has stopped sending it data</td><td>Once, and again only after it has started again</td></tr>
     </tbody>
   </table></div>
-  <p>Limits are in your station's units. Leave a box empty to turn that alert off, or untick <b>Show desktop notifications</b> to silence the lot.</p>
+  <p>Limits are in the units Isobar shows. Leave a box empty to turn that alert off, or untick <b>Show desktop notifications</b> to silence the lot.</p>
 </section>
 
 <!-- ============================================================ data -->
@@ -1015,6 +1037,14 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <h3>Tank outlook</h3>
   <p>The model runs forward a year from today's level, once with no rain and once for each past year's rain on the same calendar dates. The shaded band is the spread of those runs; "Low in 1 of 8" counts the runs that went below keep-above.</p>
 
+  <h3>Beaufort force</h3>
+  <p>MX's own force and name when it sends them. Otherwise Isobar works the force out from the average speed in km/h, on the standard scale: under 1 is calm (0), up to 5 light air (1), 11 light breeze (2), 19 gentle breeze (3), 28 moderate (4), 38 fresh (5), 49 strong (6), 61 near gale (7), 74 gale (8), 88 strong gale (9), 102 storm (10), 117 violent storm (11), and anything above is hurricane force (12).</p>
+  <h3>Records set each year</h3>
+  <p>For each day of the year (29 February included), the highest and lowest high and low on record for that date across every year, and which years they fell in. A tie counts for each year sharing it. The chance level is 366 divided by the number of years on record.</p>
+  <h3>Daily temperature range</h3>
+  <p>Each day's high minus its low, averaged by calendar month: all years for the normal, this year for the line.</p>
+  <h3>Units</h3>
+  <p>Conversions are the exact ones: °F = °C × 1.8 + 32 (differences, such as ranges and degree days, × 1.8), 25.4 mm to the inch, 1.609344 km to the mile, 1.852 km to the nautical mile, 3.6 km/h to the m/s, and 33.8639 hPa to the inch of mercury. MX's figures are converted as they're shown; nothing stored changes.</p>
   <h3>Comfort bands</h3>
   <p>Each day goes into one band by its highest dew point: below 10° dry, 10 to 16° comfortable, 16 to 20° sticky, 20° and up oppressive. Normal for a month is the average count in months with at least 25 days of dew points, leaving out the current month. "Normal by now" adds up the months so far this year and a share of the current one.</p>
 
@@ -1106,7 +1136,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
 <!-- ============================================================ next -->
 <section class="s" id="next">
   <h2>What's coming</h2>
-  <p>The roadmap lives in <code>docs/ROADMAP.md</code> in the repository, with a printable checklist for deciding what gets built. Still on the table, among others: saving reports straight to PDF, units of your choice, wind run and Beaufort force, more colour themes, and a readout in the system tray.</p>
+  <p>The roadmap lives in <code>docs/ROADMAP.md</code> in the repository, with a printable checklist for deciding what gets built. Still on the table, among others: a readout in the system tray, keeping the MX password in the system's keychain, and perhaps a new name.</p>
 </section>
 
 <!-- ============================================================ changes -->
@@ -1116,6 +1146,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <div class="tbl"><table>
     <thead><tr><th>Date</th><th>Change</th></tr></thead>
     <tbody>
+      <tr><td>6 Nov 2026</td><td>Beaufort force and wind run on Now; the daily temperature range, records set each year and wind run on Insights; four new themes; units of your choice; Save as PDF on Reports.</td></tr>
       <tr><td>5 Nov 2026</td><td>Isobar 0.6.0 released, with the change below.</td></tr>
       <tr><td>5 Nov 2026</td><td>The temperature trend on Insights, heating and cooling degree days on Seasons, the Almanac and the daily history as CSV on Reports.</td></tr>
       <tr><td>4 Nov 2026</td><td>The nightly backup: a safe, dated copy of the history and settings each day for your backup program, and how to put one back.</td></tr>

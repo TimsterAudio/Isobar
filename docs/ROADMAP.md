@@ -2,10 +2,10 @@
 
 Everything that could be added, from the data the owner's Cumulus MX 5.1.5 station sends. Added in full on 2026-10-18 so the owner can trim it. The owner reviews it on a printable checklist page with the same IDs, and marks each item **Yes** (build it), *Later* (keep, not now) or no (drop it). Items with no mark are still undecided; don't build them.
 
-## Decisions so far (2026-11-05)
+## Decisions so far (2026-11-06)
 
-- **Yes:** A1, A2, A3, B1, B2, B3, B4, B6, B7, B8, C1, D1, D2, D3, D4, E1, E2, E3, F1, F2, G1, G2, H2, H3, I1, I2, J1, K4, L1, L2, L3, L5, Z1, Z2, Z3, Z4, Z6, Z8, Z10, Z11, Z12, Z13, Z14
-- **Undecided:** B5, H1, J2, J3, K1, K3, K5, L4, Z5, Z7, Z9
+- **Yes:** A1, A2, A3, B1, B2, B3, B4, B5, B6, B7, B8, C1, D1, D2, D3, D4, E1, E2, E3, F1, F2, G1, G2, H1, H2, H3, I1, I2, J1, J2, J3, K4, L1, L2, L3, L4, L5, Z1, Z2, Z3, Z4, Z5, Z6, Z7, Z8, Z10, Z11, Z12, Z13, Z14
+- **Undecided:** K1, K3, K5, Z9
 
 Tags: **Stored** is already in the local history (no new downloading), **Live** is sent by MX in `currentdata` but not read yet (add it to `LiveReading` in `crates/isobar-core/src/live.rs` and check it against the fixture), **Build** is worked out by Isobar. ★ marks a suggested starting point.
 
@@ -21,7 +21,7 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 - [x] **B2** Sunshine hours today, and a cloudiness gauge from `SolarRad` against `CurrentSolarMax`. *Live* — **Yes**, done 2026-10-18
 - [x] **B3** Today's dew point and wind chill highs and lows with times. *Live* — **Yes**, done 2026-10-20: dew point range on the Humidity card, lowest wind chill on the new Feels like card, times on hover
 - [x] **B4** Rain yesterday, this week, last 24 hours, storm total and start, last bucket tip. *Live* — **Yes**, done 2026-10-18. Owner's note: also the live rain rate, in mm/h or a unit chosen in Settings. The rate always shows, in mm/h (the station's unit per hour), which the owner confirmed is what they want.
-- [ ] **B5** Wind run today and Beaufort force with description. *Live* (was *Later*; undecided again 2026-10-20)
+- [x] **B5** Wind run today and Beaufort force with description. *Live* (was *Later*; undecided again 2026-10-20) — **Yes**, done 2026-11-06: Now → Wind card
 - [x] **B6** Indoor temperature and humidity, with a 24-hour line against outside. *Live* — **Yes**, done 2026-10-18
 - [x] **B7** Cloud base. *Live* — **Yes**, done 2026-10-20 on the Humidity card
 - [x] **B8** Heat index, humidex and apparent temperature, with today's extremes. *Live* — **Yes**, done 2026-10-20 as a Feels like card (with wind chill), whose big chart shows feels like against the temperature
@@ -49,7 +49,7 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 - [x] **G2** Current dry spell against the longest on record for this time of year. *Stored* — **Yes**, done 2026-10-19 on Insights
 
 ## H. Wind
-- [ ] **H1** Wind run per day and month. *Stored*
+- [x] **H1** Wind run per day and month. *Stored* — **Yes**, done 2026-11-06: Insights → Wind run
 - [x] **H2** Seasonal wind roses. *Stored* — **Yes**, done 2026-10-20 on Insights (Prevailing wind → By season)
 - [x] **H3** Gust factor: peak gust against average speed. *Stored* — **Yes**, done 2026-10-20 on Insights: the day's peak gust over its highest average, by month, with the gustiest days
 
@@ -59,8 +59,8 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 
 ## J. Long-term climate
 - [x] **J1** ★ Temperature trend (the owner's name: "warming" would assume the answer): each year's average against normal, one bar a year. *Stored* — **Yes**, done 2026-11-05: Insights → Temperature trend, with a fitted line and a plain verdict on whether it's more than year-to-year noise
-- [ ] **J2** Daily warm and cold records set each year. *Stored*
-- [ ] **J3** Daily temperature range by month. *Stored*
+- [x] **J2** Daily warm and cold records set each year. *Stored* — **Yes**, done 2026-11-06: Insights → Records set each year
+- [x] **J3** Daily temperature range by month. *Stored* — **Yes**, done 2026-11-06: Insights → Daily temperature range
 
 ## K. Bigger features
 - [ ] **K1** Readout in the system tray. *Build*
@@ -73,7 +73,7 @@ Added 2026-10-19 at the owner's request. Each report is a page Isobar writes as 
 - [x] **L1** ★ NOAA-style climate summaries, monthly and yearly: the familiar table of each day's mean, high, low, degree days, rain and wind, with totals and departures from normal. *Stored* — **Yes**, done 2026-10-20 on the new Reports screen: monthly and yearly, previewed as the classic text, saved as HTML or text
 - [x] **L2** Weather almanac for a year: the year in review, month by month against normal, records set, firsts and lasts (first frost, last 30° day), wettest and driest spells, and the tank year. *Stored* — **Yes**, done 2026-11-05: Reports → Almanac
 - [x] **L3** Monthly summary page: a one-page review of a month with its charts, ready to print or share. *Stored* — **Yes**, done 2026-10-20 as "Month in review" on the Reports screen
-- [ ] **L4** Save straight to PDF from Isobar, without going through a browser. *Build*
+- [x] **L4** Save straight to PDF from Isobar, without going through a browser. *Build* — **Yes**, done 2026-11-06: Reports → Save as PDF…, printed by the system's own Edge, Chrome or Chromium in the background
 - [x] **L5** Export the daily history to CSV, for any range, to open in a spreadsheet (moved from K2 on 2026-10-19). *Build* — **Yes**, done 2026-11-05: Reports → Daily history (CSV)
 
 ## Z. The owner's own tweaks
@@ -84,7 +84,7 @@ Changes to the views and anything not listed, added as the owner sends them.
 - [x] **Z3** Choose which cards show under the thermograph: tick boxes in Settings. — **Yes**, done 2026-10-19, with a Tanks card added
 - [x] **Z4** Drag a card by its name on Now to reorder; the order is remembered. — **Yes**, done 2026-10-19
 - [x] **Z6** Click a card on Now to show it in the big chart, over a span that suits it (pressure 3 days, rain 7 days of daily totals, tanks 3 months; others 24 hours), with span chips. — **Yes**, done 2026-10-19
-- [ ] **Z5** Units of your choice (metric, imperial, or one by one: °C/°F, mm/in, km/h, m/s, mph, knots, hPa/inHg), as a setting that overrides the station's. By default Isobar keeps following the units MX reports. *Build*
+- [x] **Z5** Units of your choice (metric, imperial, or one by one: °C/°F, mm/in, km/h, m/s, mph, knots, hPa/inHg), as a setting that overrides the station's. By default Isobar keeps following the units MX reports. *Build* — **Yes**, done 2026-11-06: Settings → Appearance → Units
 - [x] **Z8** Tanks count today so far: today's rain from the live reading and the day's use to this time, not just up to yesterday. — **Yes**, done 2026-10-22 (the owner's request)
 - [x] **Z10** Rain on the thermograph stays as it was recorded as the chart moves on, like ink on a paper chart. — **Yes**, done 2026-11-03 (the owner's request)
 - [x] **Z11** A Forecast page: the week ahead from Open-Meteo for the station's location, and a look ahead 6 to 12 months from the recorded history (wetter, drier, warmer, colder, and why: a pattern analysis). — **Yes**, done 2026-11-03 (the owner's request). Similar past years by the last three months against normal, the trend, and a leave-one-year-out hit rate
@@ -92,7 +92,7 @@ Changes to the views and anything not listed, added as the owner sends them.
 - [x] **Z14** A nightly backup copy of the history and settings, at a set time, that isn't held open, for the owner's evening backup run. — **Yes**, done 2026-11-04 (the owner's request): Settings → Nightly backup
 - [x] **Z13** Keep all of Isobar's files in one top-level folder of your choosing (My Documents, which is backed up), with Settings, History and Reports folders inside. — **Yes**, done 2026-11-03 (the owner's request): Settings → Isobar's files
 - [ ] **Z9** A new name: "Isobar" is used by several other apps. Ideas so far: Atmospherix, AClimatEyes. Means renaming the program, window, files and repository; settings and history can move with a one-time copy. *Build* (added 2026-10-22)
-- [ ] **Z7** More colour themes beyond chart-paper light and dark (for example a warmer paper, a high-contrast theme, or ones matched to other instruments). *Build* (parked 2026-10-19; undecided again 2026-10-20)
+- [x] **Z7** More colour themes beyond chart-paper light and dark (for example a warmer paper, a high-contrast theme, or ones matched to other instruments). *Build* (parked 2026-10-19; undecided again 2026-10-20) — **Yes**, done 2026-11-06: Warm paper, High contrast, Night and Blueprint
 
 ## Notes for building
 - Most of D–J use dayfile fields already parsed into `DayRecord` but unused: `et`, `sunshine`, `hdd`, `cdd`, `wind_run`, `rain_hour_max`, `dew_*`, `hum_*`, `feels_*`, `apparent_*`. Check each against the station's real dayfile before relying on it; older lines leave the later fields empty.

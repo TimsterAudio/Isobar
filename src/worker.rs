@@ -54,7 +54,7 @@ pub struct LogStatus {
 
 /// What the stored log readings show, worked out after each batch of
 /// months arrives.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct LogSummary {
     pub falls: Vec<Fall24>,
     pub bursts: Vec<BurstYear>,
@@ -125,6 +125,8 @@ pub struct BackupState {
 #[derive(Default, Clone)]
 pub struct ForecastState {
     pub data: Option<Arc<isobar_core::forecast::Forecast>>,
+    /// The units it was fetched in.
+    pub units: Option<isobar_core::Units>,
     pub error: Option<String>,
     pub loading: bool,
 }
@@ -627,6 +629,18 @@ impl Worker {
     /// Fetch the forecast on a thread of its own when there's a location
     /// and the last one is an hour old, or for somewhere else. After an
     /// error, wait an hour before trying again unless asked.
+    /// The units shown: the station's, or those chosen in Settings.
+    fn shown_units(&self) -> isobar_core::Units {
+        let station = self
+            .h
+            .lock()
+            .live
+            .as_ref()
+            .map(|r| r.units.clone())
+            .unwrap_or_default();
+        self.settings.units.apply(&station)
+    }
+
     fn forecast(&self, force: bool) {
         let (Some(lat), Some(lon)) = (self.settings.latitude, self.settings.longitude) else {
             self.update(|s| s.forecast = ForecastState::default());
@@ -644,18 +658,16 @@ impl Worker {
             .data
             .as_ref()
             .is_some_and(|f| now - f.fetched_at < FORECAST_EVERY_MS && here(f));
-        let moved = state.data.as_ref().is_some_and(|f| !here(f));
+        let moved = state.data.as_ref().is_some_and(|f| !here(f))
+            || state
+                .units
+                .as_ref()
+                .is_some_and(|u| *u != self.shown_units());
         let waiting = now - tried < FORECAST_EVERY_MS && !moved;
         if state.loading || (!force && (fresh || waiting)) {
             return;
         }
-        let units = self
-            .h
-            .lock()
-            .live
-            .as_ref()
-            .map(|r| r.units.clone())
-            .unwrap_or_default();
+        let units = self.shown_units();
         self.update(|s| {
             s.forecast.loading = true;
             s.forecast_tried = now;
@@ -672,6 +684,7 @@ impl Worker {
                 match got {
                     Ok(f) => {
                         s.forecast.data = Some(Arc::new(f));
+                        s.forecast.units = Some(units.clone());
                         s.forecast.error = None;
                     }
                     Err(e) => s.forecast.error = Some(format!("Couldn't get the forecast: {e}")),
@@ -821,7 +834,13 @@ impl Worker {
                     });
                 }
                 let s = &self.settings;
-                for (title, body) in self.alerts.check(&s.alerts, &s.station_name, &reading) {
+                // Alert levels are typed in the units shown.
+                let shown = isobar_core::units::Converter::new(
+                    reading.units.clone(),
+                    s.units.apply(&reading.units),
+                )
+                .live(&reading);
+                for (title, body) in self.alerts.check(&s.alerts, &s.station_name, &shown) {
                     alerts::notify(&title, &body);
                 }
                 self.update(|s| {

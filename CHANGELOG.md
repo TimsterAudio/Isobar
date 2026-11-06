@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Wind run and Beaufort force on Now (B5):** the Wind card adds the force and its name ("Force 3, gentle breeze") and today's wind run, from MX's `Beaufort`, `BeaufortDesc`, `HighBeaufortToday` and `WindRunToday` (or worked out from the average speed if MX doesn't send a force).
+- **Wind run on Insights (H1):** this year's total against a whole year's average, the windiest month and day, the average day by month with this year over it, a month table and the five windiest days.
+- **Records set each year (J2):** for every date, which year holds its warmest and coolest highs and lows; a warm bar up and a cold bar down for each year, a table, and the count a year would hold by chance.
+- **Daily temperature range (J3):** each month's average range from low to high, normal and this year, with the widest and narrowest days on record.
+- **More themes (Z7):** Warm paper, High contrast, Night and Blueprint, beside chart-paper Light and Dark.
+- **Units of your choice (Z5):** Settings → Appearance → Units picks temperature (°C, °F), rain (mm, in), wind (km/h, m/s, mph, knots) and pressure (hPa, mb, inHg, kPa), each on its own or the station's. Every screen, report, the forecast and alert levels follow; the history stays stored as MX sends it.
+- **Save as PDF (L4):** Reports → Save as PDF… makes the PDF straight away with the computer's own Edge, Chrome or Chromium printing in the background (no window), with the A4 print layout. Wide tables now fit the printed page.
+
 ## 0.6.0 – 2026-11-05
 
 - **Temperature trend (J1):** Insights shows each year's average temperature against the station's normal, a bar a year, measured day by day against the normal for each date so part years compare fairly. The warmest and coolest whole years, and a fitted line in degrees a decade with a plain verdict on whether it's more than the swings from year to year.

@@ -11,6 +11,7 @@ mod app;
 mod chart;
 mod dial;
 mod format;
+mod pdf;
 mod settings;
 mod theme;
 mod ui;

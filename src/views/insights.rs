@@ -8,6 +8,7 @@ use isobar_core::analytics::{
 };
 
 use isobar_core::seasons::{self as se, Hemisphere};
+use isobar_core::trends as tr;
 
 use crate::app::{Route, Snapshot};
 use crate::chart::{Chart, Series, XAxis};
@@ -35,6 +36,12 @@ struct Cache {
     gust_months: ([Option<f64>; 12], Option<f64>),
     hemisphere: Hemisphere,
     trend: Option<isobar_core::trends::TempTrend>,
+    run_months: Vec<tr::RunMonth>,
+    windiest: Vec<(NaiveDate, f64)>,
+    run_years: Vec<(i32, f64, usize)>,
+    year_records: Vec<tr::YearRecords>,
+    ranges: Vec<tr::RangeMonth>,
+    year: i32,
 }
 
 pub struct Insights {
@@ -122,6 +129,12 @@ impl Insights {
                 gusts,
                 hemisphere: se::hemisphere(days, settings.latitude),
                 trend: isobar_core::trends::temperature_trend(days),
+                run_months: tr::wind_run_months(days, last.year()),
+                windiest: tr::windiest_days(days, 5),
+                run_years: tr::wind_run_years(days),
+                year_records: tr::records_by_year(days),
+                ranges: tr::range_months(days, last.year()),
+                year: last.year(),
             });
         }
 
@@ -154,9 +167,12 @@ impl Insights {
         }
         self.pressure_falls(ui, snap);
         self.climate(ui, snap, days[0].date, last);
+        self.range(ui, snap);
         self.trend(ui, snap);
+        self.year_records(ui);
         self.wind(ui, last);
         self.gust_factor(ui, snap);
+        self.wind_run(ui, snap);
     }
 
     fn unusual(&mut self, ui: &mut Ui, snap: &Snapshot) {
@@ -950,6 +966,333 @@ impl Insights {
                     ),
                     p.ink2,
                 );
+            }
+        });
+    }
+
+    fn range(&self, ui: &mut Ui, snap: &Snapshot) {
+        let p = Palette::of(ui.ctx());
+        let Some(c) = self.cache.as_ref() else { return };
+        if c.ranges.iter().all(|m| m.normal.is_none()) {
+            return;
+        }
+        let u = snap.units();
+        let deg = |v: Option<f64>| format!("{}°", num(v, 1));
+        ui::panel(ui, |ui| {
+            ui::h2(ui, "Daily temperature range");
+            ui::muted(
+                ui,
+                "How far each day climbs from its low to its high, month by month. Clear, dry weather gives the widest ranges: the sun heats the day and the night sky lets the warmth out. Cloud, humidity and sea breezes squeeze it.",
+            );
+            let widest = c
+                .ranges
+                .iter()
+                .filter_map(|m| m.widest)
+                .max_by(|a, b| a.1.total_cmp(&b.1));
+            let narrowest = c
+                .ranges
+                .iter()
+                .filter_map(|m| m.narrowest)
+                .min_by(|a, b| a.1.total_cmp(&b.1));
+            let wide_month = c
+                .ranges
+                .iter()
+                .enumerate()
+                .filter_map(|(i, m)| m.normal.map(|n| (i, n)))
+                .max_by(|a, b| a.1.total_cmp(&b.1));
+            ui::stats(
+                ui,
+                &[
+                    ui::Stat::new(
+                        "Widest day on record",
+                        widest.map_or("–".into(), |w| deg(Some(w.1))),
+                        p.heat,
+                    )
+                    .detail(widest.map_or(String::new(), |w| nice_date(w.0)), p.ink2),
+                    ui::Stat::new(
+                        "Narrowest day",
+                        narrowest.map_or("–".into(), |w| deg(Some(w.1))),
+                        p.cold,
+                    )
+                    .detail(narrowest.map_or(String::new(), |w| nice_date(w.0)), p.ink2),
+                    ui::Stat::new(
+                        "Widest month",
+                        wide_month.map_or("–".into(), |m| {
+                            crate::format::MONTHS_LONG[m.0].to_string()
+                        }),
+                        p.ink,
+                    )
+                    .detail(
+                        wide_month
+                            .map_or(String::new(), |m| format!("{} on average", deg(Some(m.1)))),
+                        p.ink2,
+                    ),
+                ],
+            );
+            let xs: Vec<f64> = (0..12).map(|i| i as f64).collect();
+            let unit = u.temp.clone();
+            Chart::new(
+                "temp-range",
+                200.0,
+                xs,
+                XAxis::Index {
+                    splits: None,
+                    label: Box::new(|i| MONTHS[(i.round() as usize).min(11)].to_string()),
+                },
+            )
+            .title(|i| crate::format::MONTHS_LONG[(i.round() as usize).min(11)].to_string())
+            .series(
+                Series::line(
+                    "Normal",
+                    c.ranges.iter().map(|m| m.normal).collect(),
+                    p.ink2,
+                )
+                .bars()
+                .unit(&unit, 1),
+            )
+            .series(
+                Series::line(
+                    format!("{}", c.year),
+                    c.ranges.iter().map(|m| m.this_year).collect(),
+                    p.trace,
+                )
+                .unit(&unit, 1),
+            )
+            .show(ui);
+        });
+    }
+
+    fn year_records(&self, ui: &mut Ui) {
+        let p = Palette::of(ui.ctx());
+        let Some(c) = self.cache.as_ref() else { return };
+        let years: Vec<&tr::YearRecords> = c.year_records.iter().filter(|y| y.days >= 30).collect();
+        if years.len() < 3 {
+            return;
+        }
+        ui::panel(ui, |ui| {
+            ui::h2(ui, "Records set each year");
+            ui::muted(
+                ui,
+                format!(
+                    "For each date of the year, the year that still holds the record: the warmest high and warmest low, the coolest high and coldest low. With {} years on record, a whole year would hold about {} of each by chance; a year with far more warm records than cold ones ran warm. Ties count for each year sharing them, and part years have fewer dates to win.",
+                    years.len(),
+                    (366.0 / years.len() as f64).round()
+                ),
+            );
+            let xs: Vec<f64> = years.iter().map(|y| y.year as f64).collect();
+            Chart::new(
+                "year-records",
+                200.0,
+                xs,
+                XAxis::Index {
+                    splits: None,
+                    label: Box::new(|x| format!("{}", x.round() as i64)),
+                },
+            )
+            .title(|x| format!("{}", x.round() as i64))
+            .series(
+                Series::line(
+                    "Warm records (highs and lows)",
+                    years
+                        .iter()
+                        .map(|y| Some((y.warm_days + y.warm_nights) as f64))
+                        .collect(),
+                    p.heat,
+                )
+                .bars()
+                .unit("", 0),
+            )
+            .series(
+                Series::line(
+                    "Cold records (highs and lows)",
+                    years
+                        .iter()
+                        .map(|y| Some(-((y.cool_days + y.cold_nights) as f64)))
+                        .collect(),
+                    p.cold,
+                )
+                .bars()
+                .unit("", 0),
+            )
+            .left_ticks(|v, _| format!("{:.0}", v.abs()))
+            .show(ui);
+            let rows: Vec<Vec<ui::Cell>> =
+                years
+                    .iter()
+                    .rev()
+                    .map(|y| {
+                        let warm = y.warm_days + y.warm_nights;
+                        let cold = y.cool_days + y.cold_nights;
+                        vec![
+                            cell(y.year.to_string()).strong(),
+                            cell(y.warm_days.to_string()).color(p.heat),
+                            cell(y.warm_nights.to_string()).color(p.heat),
+                            cell(y.cool_days.to_string()).color(p.cold),
+                            cell(y.cold_nights.to_string()).color(p.cold),
+                            cell(signed(Some(warm as f64 - cold as f64), 0))
+                                .color(if warm >= cold { p.heat } else { p.cold }),
+                            cell(y.days.to_string()).color(p.ink2),
+                        ]
+                    })
+                    .collect();
+            let cols = [
+                col("Year", 70.0, false),
+                col("Warmest highs", 0.0, true),
+                col("Warmest lows", 0.0, true),
+                col("Coolest highs", 0.0, true),
+                col("Coldest lows", 0.0, true),
+                col("Warm less cold", 0.0, true),
+                col("Days", 60.0, true),
+            ];
+            ui::table(ui, &cols, &rows, 14.0);
+        });
+    }
+
+    fn wind_run(&self, ui: &mut Ui, snap: &Snapshot) {
+        let p = Palette::of(ui.ctx());
+        let Some(c) = self.cache.as_ref() else { return };
+        if c.run_months.iter().all(|m| m.normal_daily.is_none()) {
+            return;
+        }
+        let u = snap.units();
+        let run = isobar_core::export::run_unit(&u.wind);
+        let big = |v: Option<f64>| v.map_or("–".to_string(), crate::views::tanks::litres);
+        let dist = |v: Option<f64>| format!("{} {run}", big(v));
+        ui::panel(ui, |ui| {
+            ui::h2(ui, "Wind run");
+            ui::muted(
+                ui,
+                format!(
+                    "How far the air travelled past the station: each day's average speed times 24 hours. It sums up a day's wind better than any one gust, and it's what dries washing, crops and soil. Bars are the average day's run in each month; the line is {}.",
+                    c.year
+                ),
+            );
+            let this = c.run_years.iter().find(|y| y.0 == c.year);
+            let whole: Vec<&(i32, f64, usize)> = c
+                .run_years
+                .iter()
+                .filter(|y| y.2 >= 330 && y.0 != c.year)
+                .collect();
+            let avg_year = (!whole.is_empty())
+                .then(|| whole.iter().map(|y| y.1).sum::<f64>() / whole.len() as f64);
+            let windiest_month = c
+                .run_months
+                .iter()
+                .enumerate()
+                .filter_map(|(i, m)| m.normal_daily.map(|n| (i, n)))
+                .max_by(|a, b| a.1.total_cmp(&b.1));
+            ui::stats(
+                ui,
+                &[
+                    ui::Stat::new(
+                        format!("{} so far", c.year),
+                        dist(this.map(|t| t.1)),
+                        p.wind,
+                    )
+                    .detail(
+                        match (this, avg_year) {
+                            (Some(t), Some(a)) => format!(
+                                "{} a day; a whole year averages {}",
+                                dist(Some(t.1 / t.2 as f64)),
+                                dist(Some(a))
+                            ),
+                            (Some(t), None) => format!("{} a day", dist(Some(t.1 / t.2 as f64))),
+                            _ => String::new(),
+                        },
+                        p.ink2,
+                    ),
+                    ui::Stat::new(
+                        "Windiest month",
+                        windiest_month.map_or("–".into(), |m| {
+                            crate::format::MONTHS_LONG[m.0].to_string()
+                        }),
+                        p.wind,
+                    )
+                    .detail(
+                        windiest_month
+                            .map_or(String::new(), |m| format!("{} a day", dist(Some(m.1)))),
+                        p.ink2,
+                    ),
+                    ui::Stat::new(
+                        "Windiest day",
+                        c.windiest.first().map_or("–".into(), |w| dist(Some(w.1))),
+                        p.ink,
+                    )
+                    .detail(
+                        c.windiest.first().map_or(String::new(), |w| nice_date(w.0)),
+                        p.ink2,
+                    ),
+                ],
+            );
+            let xs: Vec<f64> = (0..12).map(|i| i as f64).collect();
+            Chart::new(
+                "wind-run",
+                200.0,
+                xs,
+                XAxis::Index {
+                    splits: None,
+                    label: Box::new(|i| MONTHS[(i.round() as usize).min(11)].to_string()),
+                },
+            )
+            .title(|i| crate::format::MONTHS_LONG[(i.round() as usize).min(11)].to_string())
+            .series(
+                Series::line(
+                    "Average day",
+                    c.run_months.iter().map(|m| m.normal_daily).collect(),
+                    p.wind,
+                )
+                .bars()
+                .unit(run, 0),
+            )
+            .series(
+                Series::line(
+                    format!("{}", c.year),
+                    c.run_months.iter().map(|m| m.this_daily).collect(),
+                    p.trace,
+                )
+                .unit(run, 0),
+            )
+            .show(ui);
+            let rows: Vec<Vec<ui::Cell>> = c
+                .run_months
+                .iter()
+                .enumerate()
+                .filter(|(_, m)| m.this_total.is_some() || m.normal_total.is_some())
+                .map(|(i, m)| {
+                    let days_in = chrono::NaiveDate::from_ymd_opt(c.year, i as u32 + 1, 1)
+                        .and_then(|d| d.checked_add_months(chrono::Months::new(1)))
+                        .and_then(|e| e.pred_opt())
+                        .map_or(31, |e| e.day() as usize);
+                    let part = m.this_total.is_some() && m.this_days < days_in;
+                    let name = if part {
+                        format!("{} (so far)", crate::format::MONTHS_LONG[i])
+                    } else {
+                        crate::format::MONTHS_LONG[i].to_string()
+                    };
+                    vec![
+                        cell(name).strong(),
+                        cell(big(m.this_total)).color(p.wind),
+                        cell(big(m.normal_total)).color(p.ink2),
+                        cell(num(m.this_daily, 0)),
+                        cell(num(m.normal_daily, 0)).color(p.ink2),
+                    ]
+                })
+                .collect();
+            let cols = [
+                col("Month", 110.0, false),
+                col("This year", 0.0, true),
+                col("Normal month", 0.0, true),
+                col("A day this year", 0.0, true),
+                col("A normal day", 0.0, true),
+            ];
+            ui::table(ui, &cols, &rows, 14.0);
+            if c.windiest.len() > 1 {
+                let list: Vec<String> = c
+                    .windiest
+                    .iter()
+                    .map(|(d, r)| format!("{} on {}", dist(Some(*r)), nice_date(*d)))
+                    .collect();
+                ui::small(ui, format!("Windiest days: {}.", list.join("; ")), p.ink2);
             }
         });
     }

@@ -221,6 +221,23 @@ pub fn first_of_year(d: NaiveDate) -> NaiveDate {
     NaiveDate::from_ymd_opt(d.year(), 1, 1).unwrap_or(d)
 }
 
+/// Decimals for rain: two in inches, one in mm.
+pub fn rain_digits(unit: &str) -> usize {
+    if unit.trim().eq_ignore_ascii_case("in") {
+        2
+    } else {
+        1
+    }
+}
+
+/// Decimals for pressure: two in inHg or kPa, one in hPa.
+pub fn press_digits(unit: &str) -> usize {
+    match unit.trim().to_ascii_lowercase().as_str() {
+        "inhg" | "kpa" => 2,
+        _ => 1,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

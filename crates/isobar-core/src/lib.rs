@@ -8,6 +8,7 @@
 //! * [`analytics`] turns the daily history into normals, anomalies and records.
 //! * [`seasons`] covers water balance, frost, growing degree days and the sun.
 //! * [`trends`] compares years: the temperature trend and degree days.
+//! * [`units`] converts to the units chosen in Settings.
 //! * [`tanks`] models rainwater tanks from the rain.
 //! * [`health`] checks the data itself: missing days and gaps in readings.
 //! * [`almanac`] is a calendar year in review, as a page to print.
@@ -33,6 +34,7 @@ pub mod seasons;
 pub mod store;
 pub mod tanks;
 pub mod trends;
+pub mod units;
 
 pub use dayfile::DayRecord;
 pub use error::{CoreError, Result};

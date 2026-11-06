@@ -4,14 +4,7 @@ use chrono::NaiveDate;
 
 use crate::{DayRecord, Units};
 
-/// The distance unit of a day's wind run, from the speed unit.
-fn run_unit(wind: &str) -> &'static str {
-    match wind.trim().to_ascii_lowercase().as_str() {
-        "mph" => "miles",
-        "kts" | "kt" | "knots" => "nautical miles",
-        _ => "km",
-    }
-}
+pub use crate::units::run_unit;
 
 fn quote(s: &str) -> String {
     if s.contains([',', '"', '\n']) {
