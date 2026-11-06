@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.7.0 – 2026-11-06
+
 - **Wind run and Beaufort force on Now (B5):** the Wind card adds the force and its name ("Force 3, gentle breeze") and today's wind run, from MX's `Beaufort`, `BeaufortDesc`, `HighBeaufortToday` and `WindRunToday` (or worked out from the average speed if MX doesn't send a force).
 - **Wind run on Insights (H1):** this year's total against a whole year's average, the windiest month and day, the average day by month with this year over it, a month table and the five windiest days.
 - **Records set each year (J2):** for every date, which year holds its warmest and coolest highs and lows; a warm bar up and a cold bar down for each year, a table, and the count a year would hold by chance.
