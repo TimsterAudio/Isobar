@@ -11,9 +11,11 @@ mod app;
 mod chart;
 mod dial;
 mod format;
+mod keychain;
 mod pdf;
 mod settings;
 mod theme;
+mod tray;
 mod ui;
 mod views;
 mod worker;
@@ -43,7 +45,11 @@ fn main() -> eframe::Result {
         if let Some(problem) = paths.finish_move() {
             eprintln!("{problem}");
         }
-        let settings = Settings::load(&paths.settings);
+        let (settings, problem) = Settings::load_from(&paths);
+        if let Some(p) = &problem {
+            eprintln!("{p}");
+        }
+        settings::set_shared_problem(problem);
         if let Some(dir) = paths.database.parent() {
             let _ = std::fs::create_dir_all(dir);
         }

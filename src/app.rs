@@ -116,6 +116,15 @@ pub struct IsobarApp {
     /// Days, samples and the rest in the units chosen, kept until they or
     /// the units change.
     converted: std::cell::RefCell<Option<Converted>>,
+    /// The tray readout, while it's on, and why it couldn't start if not.
+    tray: Option<crate::tray::Tray>,
+    pub tray_problem: Option<String>,
+    /// The shared settings file's time when last read or written, and when
+    /// it was last looked at.
+    shared_seen: Option<std::time::SystemTime>,
+    shared_checked: std::time::Instant,
+    /// A save didn't reach the shared folder.
+    shared_behind: bool,
 }
 
 /// What `snapshot` converted last time, and what from.
@@ -146,6 +155,10 @@ impl IsobarApp {
             && !settings.has_station()
             && settings.dayfile().is_none()
             && worker.lock().days.is_empty();
+        let shared_seen = paths
+            .as_ref()
+            .and_then(|p| p.shared_settings())
+            .and_then(|f| modified(&f));
         IsobarApp {
             settings_view: views::settings::SettingsView::new(&settings),
             worker,
@@ -169,6 +182,34 @@ impl IsobarApp {
             forecast: Default::default(),
             health: Default::default(),
             converted: Default::default(),
+            tray: None,
+            tray_problem: None,
+            shared_seen,
+            shared_checked: std::time::Instant::now(),
+            shared_behind: false,
+        }
+    }
+
+    /// Start or stop the tray readout to match the setting, and keep it
+    /// current. A desktop with no tray is asked once.
+    fn keep_tray(&mut self, ctx: &egui::Context, snap: &Snapshot) {
+        if !self.settings.tray {
+            self.tray = None;
+            self.tray_problem = None;
+            return;
+        }
+        if self.tray.is_none() && self.tray_problem.is_none() {
+            match crate::tray::Tray::start(ctx) {
+                Ok(t) => self.tray = Some(t),
+                Err(e) => self.tray_problem = Some(e),
+            }
+        }
+        if let Some(t) = self.tray.as_mut() {
+            t.show(&crate::tray::Readout::of(
+                &self.settings.station_name,
+                snap.live.as_ref(),
+                &snap.units(),
+            ));
         }
     }
 
@@ -444,16 +485,74 @@ impl IsobarApp {
         self.settings.rail_pinned = pinned;
         self.rail_open = false;
         self.rail_hold = !pinned;
-        if let Some(path) = self.settings_path() {
-            let _ = self.settings.save(&path);
-        }
+        let _ = self.store_settings(&self.settings.clone());
     }
 
-    /// Where settings are saved: looked up each time, as moving Isobar's
-    /// files to another folder takes effect at once. None for the demo.
-    fn settings_path(&self) -> Option<std::path::PathBuf> {
-        self.paths.as_ref().map(|_| Paths::locate().settings)
+    /// Save settings to this computer and any shared folder (looked up each
+    /// time, as moving Isobar's files takes effect at once). Nothing for
+    /// the demo.
+    fn store_settings(&mut self, s: &Settings) -> Result<(), String> {
+        if self.paths.is_none() {
+            return Ok(());
+        }
+        let paths = Paths::locate();
+        let result = s.store(&paths);
+        // Saved here but not to the shared folder: this computer's are the
+        // newest, to go there once it's back.
+        self.shared_behind = paths.shared.is_some() && result.is_err();
+        self.shared_seen = paths.shared_settings().and_then(|f| modified(&f));
+        result
     }
+
+    /// Settings changed in the shared folder by another computer: use them.
+    /// Looked at every ten seconds.
+    fn watch_shared(&mut self, ctx: &egui::Context) {
+        if self.paths.is_none() || self.shared_checked.elapsed() < Duration::from_secs(10) {
+            return;
+        }
+        self.shared_checked = std::time::Instant::now();
+        let Some(file) = Paths::locate().shared_settings() else {
+            return;
+        };
+        let Some(m) = modified(&file) else {
+            return;
+        };
+        if self.shared_behind {
+            if self.store_settings(&self.settings.clone()).is_ok() {
+                crate::settings::set_shared_problem(None);
+            }
+            return;
+        }
+        if self.shared_seen == Some(m) {
+            return;
+        }
+        self.shared_seen = Some(m);
+        let Some(next) = Settings::read_shared(&file) else {
+            return;
+        };
+        crate::settings::set_shared_problem(None);
+        if next == self.settings {
+            return;
+        }
+        self.use_settings(ctx, next);
+    }
+
+    /// Start using settings from elsewhere (the shared folder), keeping a
+    /// copy on this computer.
+    fn use_settings(&mut self, ctx: &egui::Context, next: Settings) {
+        let _ = next.save(&Paths::locate().settings);
+        apply_theme(ctx, next.theme);
+        format::set_24h(next.clock_24h);
+        self.settings = next.clone();
+        self.worker
+            .send(crate::worker::Cmd::Settings(Box::new(next.clone())));
+        self.settings_view.reload(&next);
+        self.shared_seen = Paths::locate().shared_settings().and_then(|f| modified(&f));
+    }
+}
+
+fn modified(p: &std::path::Path) -> Option<std::time::SystemTime> {
+    std::fs::metadata(p).and_then(|m| m.modified()).ok()
 }
 
 /// Isobar's mark: a recording drum seen end on, with the violet pen ring.
@@ -532,6 +631,8 @@ impl eframe::App for IsobarApp {
         let ctx = ui.ctx().clone();
         let p = Palette::of(&ctx);
         let snap = self.snapshot();
+        self.keep_tray(&ctx, &snap);
+        self.watch_shared(&ctx);
         // Keep "updated 5 s ago" ticking.
         ctx.request_repaint_after(Duration::from_secs(1));
 
@@ -617,6 +718,9 @@ impl eframe::App for IsobarApp {
                 self.save_settings(&ctx, saved);
             }
         }
+        if let Some(theirs) = self.settings_view.adopt.take() {
+            self.use_settings(&ctx, theirs);
+        }
         egui::CentralPanel::no_frame()
             .frame(Frame::new().fill(p.paper))
             .show(ui, |ui| {
@@ -667,6 +771,7 @@ impl eframe::App for IsobarApp {
                                         self.health.ui(ui, &snap, &self.settings, &self.worker)
                                     }
                                     Route::Settings => {
+                                        self.settings_view.tray_problem = self.tray_problem.clone();
                                         if self.settings_view.ui(
                                             ui,
                                             &snap,
@@ -693,9 +798,7 @@ impl eframe::App for IsobarApp {
         }
         if let Some(order) = self.now.reordered.take() {
             self.settings.set_cards(&order);
-            if let Some(path) = self.settings_path() {
-                let _ = self.settings.save(&path);
-            }
+            let _ = self.store_settings(&self.settings.clone());
         }
         match go {
             Some(Route::Demo) => self.start_demo(&ctx),
@@ -736,10 +839,7 @@ impl IsobarApp {
     }
 
     fn save_settings(&mut self, ctx: &egui::Context, next: Settings) {
-        let result = match self.settings_path() {
-            Some(path) => next.save(&path).map_err(|e| e.to_string()),
-            None => Ok(()),
-        };
+        let result = self.store_settings(&next);
         apply_theme(ctx, next.theme);
         format::set_24h(next.clock_24h);
         self.settings = next.clone();

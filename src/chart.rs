@@ -160,6 +160,8 @@ pub struct Chart {
     hover: bool,
     left_zero: bool,
     right_zero: bool,
+    left_span: Option<(f64, f64)>,
+    right_span: Option<(f64, f64)>,
     left_fmt: Box<dyn Fn(f64, f64) -> String>,
     right_fmt: Box<dyn Fn(f64, f64) -> String>,
     title: Box<dyn Fn(f64) -> String>,
@@ -167,9 +169,11 @@ pub struct Chart {
 
 /// Axis labels with as many decimals as the tick step needs.
 pub fn plain_tick(v: f64, step: f64) -> String {
-    let digits = if step >= 1.0 {
+    // As many decimals as the step has: 2.5 needs one, 0.25 two.
+    let whole = |x: f64| (x - x.round()).abs() < 1e-9;
+    let digits = if whole(step) {
         0
-    } else if step >= 0.1 {
+    } else if whole(step * 10.0) {
         1
     } else {
         2
@@ -197,6 +201,8 @@ impl Chart {
             hover: true,
             left_zero: false,
             right_zero: false,
+            left_span: None,
+            right_span: None,
             left_fmt: Box::new(plain_tick),
             right_fmt: Box::new(plain_tick),
             title: Box::new(|x| format!("{x}")),
@@ -245,6 +251,18 @@ impl Chart {
 
     pub fn right_from_zero(mut self) -> Self {
         self.right_zero = true;
+        self
+    }
+
+    /// The left scale always covers at least `lo` to `hi`, and grows past
+    /// them only when the readings do.
+    pub fn left_span(mut self, lo: f64, hi: f64) -> Self {
+        self.left_span = Some((lo, hi));
+        self
+    }
+
+    pub fn right_span(mut self, lo: f64, hi: f64) -> Self {
+        self.right_span = Some((lo, hi));
         self
     }
 
@@ -327,6 +345,14 @@ impl Chart {
             if !lo.is_finite() {
                 (lo, hi) = (0.0, 1.0);
             }
+            if let Some((a, b)) = if right {
+                self.right_span
+            } else {
+                self.left_span
+            } {
+                lo = lo.min(a);
+                hi = hi.max(b);
+            }
             if zero
                 || self
                     .series
@@ -342,7 +368,23 @@ impl Chart {
                 }
             }
             let target = (plot.height() / 46.0).clamp(2.0, 8.0) as f64;
-            let step = nice_step((hi - lo) / target);
+            let mut step = nice_step((hi - lo) / target);
+            // Finer steps where needed, so a set span ends on a tick
+            // (-5 to 25 in fives, not -10 to 30 in tens).
+            let span = if right {
+                self.right_span
+            } else {
+                self.left_span
+            };
+            if let Some((a, b)) = span {
+                let on = |v: f64, step: f64| ((v / step).round() * step - v).abs() < step * 1e-6;
+                for _ in 0..3 {
+                    if (lo != a || on(a, step)) && (hi != b || on(b, step)) {
+                        break;
+                    }
+                    step /= 2.0;
+                }
+            }
             if self.axes {
                 let lo2 = if zero && lo >= 0.0 {
                     0.0
@@ -835,6 +877,27 @@ fn nearest(xs: &[f64], x: f64) -> usize {
 }
 
 /// 1, 2, 2.5 or 5 times a power of ten, at least `raw`.
+/// The top of the rain scale: 10 mm, then 25 and 50 as the rain passes
+/// each (0.4, 1 and 2 inches), then `None` to fit the rain itself.
+pub fn rain_top(max: f64, inches: bool) -> Option<f64> {
+    let steps: [f64; 3] = if inches {
+        [0.4, 1.0, 2.0]
+    } else {
+        [10.0, 25.0, 50.0]
+    };
+    steps.into_iter().find(|&s| max <= s)
+}
+
+/// The temperature scale's least span: -5 to 25 °C (20 to 80 °F), wider
+/// only when the readings go past it.
+pub fn temp_base(fahrenheit: bool) -> (f64, f64) {
+    if fahrenheit {
+        (20.0, 80.0)
+    } else {
+        (-5.0, 25.0)
+    }
+}
+
 pub fn nice_step(raw: f64) -> f64 {
     if !raw.is_finite() || raw <= 0.0 {
         return 1.0;
@@ -973,6 +1036,20 @@ pub fn ts_time(s: f64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn thermograph_scales() {
+        assert_eq!(rain_top(0.1, false), Some(10.0));
+        assert_eq!(rain_top(10.0, false), Some(10.0));
+        assert_eq!(rain_top(10.2, false), Some(25.0));
+        assert_eq!(rain_top(31.0, false), Some(50.0));
+        assert_eq!(rain_top(50.4, false), None);
+        assert_eq!(rain_top(0.5, true), Some(1.0));
+        assert_eq!(temp_base(false), (-5.0, 25.0));
+        assert_eq!(plain_tick(7.5, 2.5), "7.5");
+        assert_eq!(plain_tick(10.0, 2.5), "10.0");
+        assert_eq!(plain_tick(20.0, 5.0), "20");
+    }
 
     #[test]
     fn steps() {

@@ -41,6 +41,7 @@ struct Draft {
     stopped: bool,
     theme: ThemeChoice,
     clock_24h: bool,
+    tray: bool,
     tanks: TankDraft,
     /// Cards turned off on Now. Their order is set by dragging on Now.
     hidden_cards: Vec<NowCard>,
@@ -208,6 +209,7 @@ impl Draft {
             stopped: s.alerts.stopped,
             theme: s.theme,
             clock_24h: s.clock_24h,
+            tray: s.tray,
             tanks: TankDraft::from(s.tanks.as_ref()),
             hidden_cards: s
                 .cards()
@@ -272,6 +274,7 @@ impl Draft {
             poll_seconds: poll.clamp(3, 600),
             theme: self.theme,
             clock_24h: self.clock_24h,
+            tray: self.tray,
             rail_pinned: base.rail_pinned,
             latitude,
             longitude,
@@ -356,6 +359,13 @@ pub struct SettingsView {
     query: String,
     search: Search,
     searching: bool,
+    /// Why the tray readout couldn't start, set by the app.
+    pub tray_problem: Option<String>,
+    /// The shared folder typed or chosen, and how starting to share went.
+    shared: String,
+    shared_msg: Option<(bool, String)>,
+    /// Settings found in a shared folder, for the app to start using.
+    pub adopt: Option<Settings>,
 }
 
 impl SettingsView {
@@ -378,7 +388,29 @@ impl SettingsView {
             query: String::new(),
             search: Arc::default(),
             searching: false,
+            tray_problem: None,
+            shared: crate::settings::Paths::locate()
+                .shared
+                .map(|p| p.display().to_string())
+                .unwrap_or_default(),
+            shared_msg: None,
+            adopt: None,
         }
+    }
+
+    /// Settings changed by another computer, through the shared folder.
+    /// Anything being edited here stays as it is.
+    pub fn reload(&mut self, s: &Settings) {
+        let fresh = Draft::from(s);
+        if self.draft == self.saved {
+            self.draft = fresh.clone();
+        }
+        self.saved = fresh;
+        self.message = Some((
+            true,
+            "Updated from the shared folder".into(),
+            Instant::now(),
+        ));
     }
 
     /// Called after the app has stored the settings.
@@ -389,6 +421,12 @@ impl SettingsView {
                 self.draft.reset_order = false;
                 self.saved = self.draft.clone();
                 self.message = Some((true, "Saved".into(), Instant::now()));
+            }
+            // Saved here, but not to the shared folder: it'll go across.
+            Err(e) if e.starts_with("Saved") => {
+                self.draft.reset_order = false;
+                self.saved = self.draft.clone();
+                self.message = Some((false, e, Instant::now()));
             }
             Err(e) => self.message = Some((false, format!("Couldn't save: {e}"), Instant::now())),
         }
@@ -500,8 +538,31 @@ impl SettingsView {
                         crate::format::set_24h(self.draft.clock_24h);
                     }
                 });
+                ui.add_space(6.0);
+                ui.checkbox(
+                    &mut self.draft.tray,
+                    egui::RichText::new("Show a readout in the system tray").font(theme::body(15.0)),
+                );
+                ui::small(
+                    ui,
+                    "The temperature in the icon, and wind, rain, humidity and pressure in its tooltip. Click it to bring Isobar forward.",
+                    p.ink2,
+                );
+                if let Some(problem) = self.tray_problem.as_ref().filter(|_| settings.tray) {
+                    ui::small(
+                        ui,
+                        if cfg!(windows) {
+                            "The tray readout couldn't start."
+                        } else {
+                            "The tray readout couldn't start: this desktop doesn't seem to have a tray. KDE, Xfce and Cinnamon have one; GNOME needs the AppIndicator extension."
+                        },
+                        p.warn,
+                    )
+                    .on_hover_text(problem);
+                }
             });
             self.files(ui, snap, &p);
+            self.sharing(ui, snap, settings, &p);
             self.backups(ui, snap, worker, &p);
             about(ui, &p);
         });
@@ -547,7 +608,18 @@ impl SettingsView {
                 }
             });
             ui.add_space(-6.0);
-            ui::para(ui, "Only needed if you've secured the MX interface. Stored unencrypted in Isobar's settings file.", theme::body(13.0), p.ink2, 560.0);
+            let place = if self.saved.password.is_empty() {
+                String::new()
+            } else {
+                format!(" {}", crate::keychain::place())
+            };
+            ui::para(
+                ui,
+                format!("Only needed if you've secured the MX interface.{place}"),
+                theme::body(13.0),
+                p.ink2,
+                560.0,
+            );
             ui::columns(ui, 3, 16.0, false, |i, ui| match i {
                 0 => {
                     ui::field(ui, "Check every (seconds)", None, |ui| {
@@ -716,6 +788,103 @@ impl SettingsView {
                 {
                     restart(ui.ctx());
                 }
+            }
+        });
+    }
+
+    /// Settings and the tank record in a folder shared with another
+    /// computer running Isobar.
+    fn sharing(&mut self, ui: &mut Ui, snap: &Snapshot, settings: &Settings, p: &Palette) {
+        use crate::settings::Paths;
+        ui::panel(ui, |ui| {
+            ui::h2(ui, "Sharing with another computer");
+            if snap.demo {
+                ui::small(ui, "The demo station keeps nothing on disk.", p.ink2);
+                return;
+            }
+            let now = Paths::locate();
+            ui::para(
+                ui,
+                "Running Isobar on a second computer too? Keep the settings and the tank record in a folder both can reach, such as a network share or a synced folder, and a change on one shows up on the other within a few seconds. Each computer keeps its own history, rebuilt from MX, so only small files cross the network. The MX password stays in each computer's keychain, so enter it once on each.",
+                theme::body(13.0),
+                p.ink2,
+                600.0,
+            );
+            match &now.shared {
+                Some(dir) => ui::small(ui, format!("Shared through {}.", dir.display()), p.ink),
+                None => ui::small(
+                    ui,
+                    "Not shared: the settings are this computer's alone.",
+                    p.ink2,
+                ),
+            };
+            if let Some(problem) =
+                crate::settings::shared_problem().filter(|_| now.shared.is_some())
+            {
+                ui::small(ui, problem, p.warn);
+            }
+            let mut pick: Option<Option<std::path::PathBuf>> = None;
+            ui.horizontal(|ui| {
+                ui::text_input(
+                    ui,
+                    &mut self.shared,
+                    if cfg!(windows) {
+                        r"\\nas\Isobar"
+                    } else {
+                        "/mnt/nas/Isobar"
+                    },
+                    420.0,
+                );
+                if ui::button(ui, "Choose…", Kind::Secondary).clicked() {
+                    if let Some(f) = rfd::FileDialog::new()
+                        .set_title("Choose a shared folder for Isobar's settings")
+                        .pick_folder()
+                    {
+                        self.shared = f.display().to_string();
+                    }
+                }
+            });
+            ui.horizontal(|ui| {
+                if ui::button(ui, "Share settings here", Kind::Primary).clicked()
+                    && !self.shared.trim().is_empty()
+                {
+                    pick = Some(Some(std::path::PathBuf::from(self.shared.trim())));
+                }
+                if now.shared.is_some() && ui::button(ui, "Stop sharing", Kind::Secondary).clicked()
+                {
+                    pick = Some(None);
+                }
+            });
+            if let Some(folder) = pick {
+                let starting = folder.is_some();
+                self.shared_msg = Some(match Paths::share(folder, settings) {
+                    Ok(Some(theirs)) => {
+                        self.adopt = Some(theirs);
+                        (true, "Found settings there already, and Isobar is using them now. The tank record follows within a minute.".into())
+                    }
+                    Ok(None) if starting => (
+                        true,
+                        "Shared. Point Isobar on the other computer at the same folder.".into(),
+                    ),
+                    Ok(None) => {
+                        crate::settings::set_shared_problem(None);
+                        (
+                            true,
+                            "Stopped sharing. This computer keeps its own copy of the settings."
+                                .into(),
+                        )
+                    }
+                    Err(e) => (false, format!("Couldn't share the settings: {e}.")),
+                });
+            }
+            if let Some((ok, msg)) = &self.shared_msg {
+                ui::para(
+                    ui,
+                    msg,
+                    theme::body(13.0),
+                    if *ok { p.ok } else { p.heat },
+                    600.0,
+                );
             }
         });
     }

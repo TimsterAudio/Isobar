@@ -2,10 +2,11 @@
 
 Everything that could be added, from the data the owner's Cumulus MX 5.1.5 station sends. Added in full on 2026-10-18 so the owner can trim it. The owner reviews it on a printable checklist page with the same IDs, and marks each item **Yes** (build it), *Later* (keep, not now) or no (drop it). Items with no mark are still undecided; don't build them.
 
-## Decisions so far (2026-11-06)
+## Decisions so far (2026-11-09)
 
-- **Yes:** A1, A2, A3, B1, B2, B3, B4, B5, B6, B7, B8, C1, D1, D2, D3, D4, E1, E2, E3, F1, F2, G1, G2, H1, H2, H3, I1, I2, J1, J2, J3, K4, L1, L2, L3, L4, L5, Z1, Z2, Z3, Z4, Z5, Z6, Z7, Z8, Z10, Z11, Z12, Z13, Z14
-- **Undecided:** K1, K3, K5, Z9
+- **Yes:** A1, A2, A3, B1, B2, B3, B4, B5, B6, B7, B8, C1, D1, D2, D3, D4, E1, E2, E3, F1, F2, G1, G2, H1, H2, H3, I1, I2, J1, J2, J3, K1, K3, K4, K5, L1, L2, L3, L4, L5, Z1, Z2, Z3, Z4, Z5, Z6, Z7, Z8, Z10, Z11, Z12, Z13, Z14
+- **No:** Z9 (the name stays)
+- **Undecided:** none
 
 Tags: **Stored** is already in the local history (no new downloading), **Live** is sent by MX in `currentdata` but not read yet (add it to `LiveReading` in `crates/isobar-core/src/live.rs` and check it against the fixture), **Build** is worked out by Isobar. ★ marks a suggested starting point.
 
@@ -63,9 +64,9 @@ Status: `[ ]` open, `[x]` done, `[-]` dropped, `[~]` later.
 - [x] **J3** Daily temperature range by month. *Stored* — **Yes**, done 2026-11-06: Insights → Daily temperature range
 
 ## K. Bigger features
-- [ ] **K1** Readout in the system tray. *Build*
-- [ ] **K3** MX password in the system keychain instead of `settings.json`. *Build*
-- [ ] **K5** Settings and the tank record kept in a folder you choose (a network share, say), so a second computer running Isobar picks them up. The history stays local on each, rebuilt from MX. *Build* (added 2026-10-22, from the backup and second-computer discussion on 2026-10-19)
+- [x] **K1** Readout in the system tray. *Build* — **Yes**, done 2026-11-09: the temperature in the icon, the rest in its tooltip; Windows notification area, StatusNotifierItem on Linux
+- [x] **K3** MX password in the system keychain instead of `settings.json`. *Build* — **Yes**, done 2026-11-09: Windows Credential Manager or the Secret Service, moved across from `settings.json` at the next start
+- [ ] **K5** Settings and the tank record kept in a folder you choose (a network share, say), so a second computer running Isobar picks them up. The history stays local on each, rebuilt from MX. *Build* (added 2026-10-22, from the backup and second-computer discussion on 2026-10-19) — **Yes**, done 2026-11-09: Settings → Sharing with another computer, a folder the user chooses
 - [x] **K4** Detailed history from MX's monthly log files (a reading every few minutes, back as far as MX has them), synced like the dayfile. Gives true 24-hour pressure falls, hour-by-hour rain intensity and the thermograph for any past day. *Build* — **Yes**, done 2026-10-19. `/api/data/logfile?from=YYYY-MM-DD&to=YYYY-MM-DD`, a month at a time in the background, newest first; the current month tops up every 10 minutes; stored at most one reading per 10 minutes (one-minute logs combined, 2026-10-19)
 
 ## L. Reports
@@ -91,7 +92,7 @@ Changes to the views and anything not listed, added as the owner sends them.
 - [x] **Z12** The version number in Settings. — **Yes**, done 2026-11-03, in an About panel with where the files are
 - [x] **Z14** A nightly backup copy of the history and settings, at a set time, that isn't held open, for the owner's evening backup run. — **Yes**, done 2026-11-04 (the owner's request): Settings → Nightly backup
 - [x] **Z13** Keep all of Isobar's files in one top-level folder of your choosing (My Documents, which is backed up), with Settings, History and Reports folders inside. — **Yes**, done 2026-11-03 (the owner's request): Settings → Isobar's files
-- [ ] **Z9** A new name: "Isobar" is used by several other apps. Ideas so far: Atmospherix, AClimatEyes. Means renaming the program, window, files and repository; settings and history can move with a one-time copy. *Build* (added 2026-10-22)
+- [-] **Z9** A new name: "Isobar" is used by several other apps. Ideas so far: Atmospherix, AClimatEyes. Means renaming the program, window, files and repository; settings and history can move with a one-time copy. *Build* (added 2026-10-22) — **No** (2026-11-09): the name stays
 - [x] **Z7** More colour themes beyond chart-paper light and dark (for example a warmer paper, a high-contrast theme, or ones matched to other instruments). *Build* (parked 2026-10-19; undecided again 2026-10-20) — **Yes**, done 2026-11-06: Warm paper, High contrast, Night and Blueprint
 
 ## Notes for building

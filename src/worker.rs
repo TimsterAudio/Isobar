@@ -218,6 +218,8 @@ struct Worker {
     log_summary_at: Option<Instant>,
     log_summary_dirty: bool,
     backup_failed_at: std::cell::Cell<Option<Instant>>,
+    /// When the shared tank record was last looked at.
+    tank_checked: Option<Instant>,
 }
 
 impl Worker {
@@ -238,6 +240,7 @@ impl Worker {
             log_summary_at: None,
             log_summary_dirty: true,
             backup_failed_at: std::cell::Cell::new(None),
+            tank_checked: None,
         };
         let last_backup = w
             .store
@@ -549,6 +552,9 @@ impl Worker {
                     Err(e) => Outcome { ok: false, text: e },
                 };
                 self.reload_tank_log();
+                if outcome.ok {
+                    self.share_tank_record();
+                }
                 self.update(|s| s.tank_outcome = Some(outcome));
                 false
             }
@@ -564,6 +570,9 @@ impl Worker {
                     },
                 };
                 self.reload_tank_log();
+                if outcome.ok {
+                    self.share_tank_record();
+                }
                 self.update(|s| s.tank_outcome = Some(outcome));
                 false
             }
@@ -762,9 +771,69 @@ impl Worker {
         }
     }
 
+    /// Write the tank record to the shared folder, if settings are shared.
+    fn share_tank_record(&self) {
+        let Some(file) = crate::settings::Paths::locate().shared_tank_record() else {
+            return;
+        };
+        let log = self.store.tank_log().unwrap_or_default();
+        let tmp = file.with_extension("json.part");
+        let written = serde_json::to_vec(&log)
+            .map_err(std::io::Error::other)
+            .and_then(|b| std::fs::write(&tmp, b))
+            .and_then(|_| std::fs::rename(&tmp, &file));
+        if written.is_ok() {
+            if let Some(ms) = mtime_ms(&file) {
+                let _ = self.store.meta_set("shared_tank_mtime", &ms.to_string());
+            }
+        }
+    }
+
+    /// Take up a tank record another computer wrote to the shared folder,
+    /// or start the folder off with this one's. Looked at once a minute.
+    fn check_shared_tanks(&mut self) {
+        if self
+            .tank_checked
+            .is_some_and(|t| t.elapsed() < Duration::from_secs(60))
+        {
+            return;
+        }
+        self.tank_checked = Some(Instant::now());
+        let Some(file) = crate::settings::Paths::locate().shared_tank_record() else {
+            return;
+        };
+        let Some(ms) = mtime_ms(&file) else {
+            if file.parent().is_some_and(|d| d.is_dir())
+                && self.store.tank_log().is_ok_and(|l| !l.is_empty())
+            {
+                self.share_tank_record();
+            }
+            return;
+        };
+        let seen: Option<i64> = self
+            .store
+            .meta_get("shared_tank_mtime")
+            .ok()
+            .flatten()
+            .and_then(|v| v.parse().ok());
+        if seen == Some(ms) {
+            return;
+        }
+        let read: Option<Vec<isobar_core::tanks::LogDay>> = std::fs::read(&file)
+            .ok()
+            .and_then(|b| serde_json::from_slice(&b).ok());
+        if let Some(log) = read {
+            if self.store.replace_tank_log(&log).is_ok() {
+                let _ = self.store.meta_set("shared_tank_mtime", &ms.to_string());
+                self.reload_tank_log();
+            }
+        }
+    }
+
     fn tick(&mut self) -> Duration {
         self.forecast(false);
         self.backup(false);
+        self.check_shared_tanks();
         if !self.settings.has_station() {
             // File mode: re-import the dayfile whenever it changes.
             if let Some(path) = self.settings.dayfile().map(str::to_string) {
@@ -1124,4 +1193,12 @@ fn run_demo(h: Handle, ctx: egui::Context, rx: Receiver<Cmd>) {
             Ok(Cmd::Stop) | Err(RecvTimeoutError::Disconnected) => return,
         }
     }
+}
+
+/// A file's modified time in Unix milliseconds.
+fn mtime_ms(p: &std::path::Path) -> Option<i64> {
+    let t = std::fs::metadata(p).and_then(|m| m.modified()).ok()?;
+    t.duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .map(|d| d.as_millis() as i64)
 }

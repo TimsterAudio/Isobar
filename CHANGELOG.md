@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Steadier thermograph scales (issue 1):** temperature always covers at least −5° to 25° (20° to 80° in °F), widening only when the readings go past it; rain since midnight starts on a 10 mm scale, then 25 mm and 50 mm as the day passes each (0.4, 1 and 2 in), fitting itself beyond 50. Applies to the 24-hour chart and its 3, 7 and 30-day spans. Axis labels keep a decimal where the step needs one (2.5, 7.5).
+- **Readout in the system tray (K1):** the temperature in a violet icon, and feels-like, wind, gusts, today's rain, humidity and pressure in its tooltip; click to bring Isobar forward, right-click for Show Isobar and Quit. Windows notification area; on Linux a StatusNotifierItem over D-Bus, so nothing extra to install. Settings → Appearance turns it off.
+- **MX password in the system keychain (K3):** Windows Credential Manager, or the Secret Service (GNOME Keyring, KWallet) on Linux. A password already in `settings.json` moves across at the next start. Where there's no keychain, it stays in the file as before, and Settings says which.
+- **Settings shared with a second computer (K5):** Settings → Sharing with another computer keeps `settings.json` and `tank-record.json` in a folder both can reach. Changes show up on the other within about ten seconds (the tank record within a minute); each computer keeps its own history and its own keychain password. If the folder's away, Isobar uses its own copy and sends anything saved meanwhile once it's back.
+
 ## 0.7.0 – 2026-11-06
 
 - **Wind run and Beaufort force on Now (B5):** the Wind card adds the force and its name ("Force 3, gentle breeze") and today's wind run, from MX's `Beaufort`, `BeaufortDesc`, `HighBeaufortToday` and `WindRunToday` (or worked out from the average speed if MX doesn't send a force).

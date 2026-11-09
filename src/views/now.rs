@@ -75,6 +75,14 @@ pub fn move_card(order: &[(NowCard, bool)], from: NowCard, to: NowCard) -> Vec<(
     out
 }
 
+fn fahrenheit(unit: &str) -> bool {
+    unit.to_ascii_uppercase().contains('F')
+}
+
+fn inches(unit: &str) -> bool {
+    unit.trim().eq_ignore_ascii_case("in")
+}
+
 fn trend_word(v: f64, steady: f64) -> &'static str {
     if v.abs() < steady {
         "steady"
@@ -562,8 +570,14 @@ impl Now {
                     // first so the temperature trace sits on top of it.
                     let rain = rain_today(snap);
                     let show_rain = rain.iter().any(|p| p.1 > 0.0);
-                    let mut chart = Chart::new("thermograph", 226.0, xs.clone(), XAxis::Time);
+                    let base = chart::temp_base(fahrenheit(&u.temp));
+                    let mut chart = Chart::new("thermograph", 226.0, xs.clone(), XAxis::Time)
+                        .left_span(base.0, base.1);
                     if show_rain {
+                        let most = rain.iter().map(|p| p.1).fold(0.0, f64::max);
+                        if let Some(top) = chart::rain_top(most, inches(&u.rain)) {
+                            chart = chart.right_span(0.0, top);
+                        }
                         chart = chart
                             .series(
                                 Series::line("Rain since midnight", align(&xs, &rain), p.rain)
@@ -1063,12 +1077,18 @@ impl Now {
                     // each midnight, as on the 24-hour thermograph.
                     let mut rained = false;
                     if focus.is_none() {
+                        let base = chart::temp_base(fahrenheit(&u.temp));
+                        c = c.left_span(base.0, base.1);
                         let rain =
                             isobar_core::analytics::rain_since_midnight(&pts("rain_today"), |t| {
                                 chart::ts_day(t as f64 / 1000.0)
                             });
                         if rain.iter().any(|r| r.1 > 0.0) {
                             rained = true;
+                            let most = rain.iter().map(|p| p.1).fold(0.0, f64::max);
+                            if let Some(top) = chart::rain_top(most, inches(&u.rain)) {
+                                c = c.right_span(0.0, top);
+                            }
                             c = c
                                 .series(
                                     Series::line("Rain since midnight", align(&xs, &rain), p.rain)

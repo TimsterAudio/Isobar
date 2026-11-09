@@ -440,7 +440,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <figure class="shot"><img src="img/themes.webp" alt="The Now screen in Warm paper, High contrast, Night and Blueprint" loading="lazy"><figcaption>Warm paper, High contrast, Night and Blueprint.</figcaption></figure>
   <h3>Units</h3>
   <p>Isobar shows your station's own units unless you pick others in Settings → Appearance → <b>Units</b>: temperature in °C or °F, rain in mm or inches, wind in km/h, m/s, mph or knots, and pressure in hPa, mb, inHg or kPa. Each one can be chosen on its own, so °C with inches of rain is fine if that's how your household thinks. Everything follows, from the big reading to the reports, the forecast and the alert levels. The history stays stored the way MX sends it, so switching back and forth loses nothing.</p>
-  <figure class="shot half"><img src="img/settings-5.webp" alt="Appearance settings: theme, the four unit choices and times" loading="lazy"></figure>
+  <figure class="shot half"><img src="img/settings-5.webp" alt="Appearance settings: theme, the four unit choices, times and the tray readout" loading="lazy"></figure>
 </section>
 
 <!-- ============================================================ now -->
@@ -467,7 +467,13 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
 
   <h3>The thermograph</h3>
   <p>The one loud thing on the screen: the last 24 hours on graph paper. Temperature is the violet pen, dew point the dashed grey line. When it has rained since midnight, a blue line with a fill shows the running total on its own scale at the right. It starts again at midnight, even if your station's rain day starts at 9 am. The buttons under the chart look further back: 3, 7 or 30 days, with the rain line on those too, starting again each midnight so every wet day shows as its own rise. Before Isobar has MX's detailed logs, the longer spans show daily highs and lows with a bar for each day's rain. Like ink on a paper chart, the rain stays where it was drawn: a morning shower still shows at its full total that evening, even once the morning has scrolled off the left edge.</p>
+  <p>The scales stay put unless the weather gives them a reason to move. Temperature always covers at least −5° to 25° (20° to 80° in °F), widening only when the day goes past either end, so a mild day looks mild instead of filling the chart with a dramatic swing of three degrees. Rain starts at a 10 mm scale, moves to 25 mm once the day passes 10, to 50 mm past 25, and fits itself to the rain beyond that (0.4, 1 and 2 inches in inches). A 0.2 mm sprinkle is a small step at the bottom, as it should be, rather than a wall of blue.</p>
   <p>Isobar records one reading a minute. A stretch of over 20 minutes with nothing (Isobar closed, laptop asleep, station offline) shows as a gap rather than a misleading straight line. When Isobar starts, and after any gap over 15 minutes, it asks MX for its recent detail and fills the hole.</p>
+
+  <h3>In the system tray</h3>
+  <p>While Isobar runs, a small violet square in the system tray (the notification area, by the clock on Windows) shows the temperature to the nearest degree. Point at it for the rest: feels-like, wind and gusts, today's rain, humidity and pressure. Click it to bring Isobar to the front, or right-click for <b>Show Isobar</b> and <b>Quit</b>. Windows tends to tuck new icons into the overflow behind the <b>^</b>; drag it out next to the clock to keep it in view.</p>
+  <p>On Linux the tray is a desktop feature: KDE, Xfce, Cinnamon and most others have one, and GNOME has one with the AppIndicator extension (Ubuntu includes it). Without one, Isobar just doesn't show an icon. Settings → Appearance → <b>Show a readout in the system tray</b> turns it off.</p>
+  <figure class="shot"><img src="img/tray.webp" alt="The tray readout: the temperature in a violet icon by the clock, with a tooltip of wind, rain, humidity and pressure" loading="lazy"><figcaption>The readout by the clock, on a light and a dark taskbar, with its tooltip.</figcaption></figure>
 
   <h3>The cards</h3>
   <p>Under the thermograph sits a row of instrument cards, each with a 24-hour sparkline along the bottom. With all eight on, they share one row on a wide window and split into two rows of four on a narrower one.</p>
@@ -835,7 +841,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
     <tbody>
       <tr><td>Name</td><td>Shown at the top of Now and in alerts.</td></tr>
       <tr><td>Cumulus MX address</td><td>The MX interface, usually port 8998. <code>192.168.1.20:8998</code> works too; Isobar adds the <code>http://</code>.</td></tr>
-      <tr><td>Username, password</td><td>Only if you've secured the MX interface. Stored <b>unencrypted</b> in the settings file.</td></tr>
+      <tr><td>Username, password</td><td>Only if you've secured the MX interface. The password goes in your system's keychain (Windows Credential Manager, or the desktop's keyring on Linux), not the settings file. A password already in the settings file from an older Isobar moves across the first time it starts. Where there's no keychain (a Linux desktop without one), it stays in the settings file as before, and the note under the field says so.</td></tr>
       <tr><td>Check every</td><td>Seconds between live readings. 10 is plenty; MX itself updates about that often.</td></tr>
       <tr><td>Latitude</td><td>Degrees, south negative. Used for day length and the evaporation estimate. Empty means "work it out from sunrise and sunset".</td></tr>
       <tr><td>Longitude</td><td>Degrees, west negative. With the latitude, it's where the forecast is for.</td></tr>
@@ -859,9 +865,10 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <ul>
     <li><b>Alerts</b>: see <a href="#alerts">Alerts</a>.</li>
     <li><b>Now screen</b>: tick the cards you want. "Put the cards back in the usual order" undoes your dragging.</li>
-    <li><b>Appearance</b>: theme (Match system, Light, Dark, Warm paper, High contrast, Night or Blueprint), units (the station's, or your own for temperature, rain, wind and pressure; see <a href="#around">Finding your way around</a>), and times (24-hour 16:52, or 12-hour 4:52 PM).</li>
+    <li><b>Appearance</b>: theme (Match system, Light, Dark, Warm paper, High contrast, Night or Blueprint), units (the station's, or your own for temperature, rain, wind and pressure; see <a href="#around">Finding your way around</a>), times (24-hour 16:52, or 12-hour 4:52 PM), and the readout in the system tray (see <a href="#now">Now</a>).</li>
     <li><b>Nightly backup</b>: the time each day Isobar writes a safe copy of the history and settings for your backup program, how many copies to keep, and <b>Back up now</b> (see <a href="#storage">Where Isobar keeps things</a>).</li>
     <li><b>Isobar's files</b>: where your settings, history and reports are, and a button to keep them all in one folder you choose (see <a href="#storage">Where Isobar keeps things</a>).</li>
+    <li><b>Sharing with another computer</b>: a folder both computers can reach for the settings and the tank record (see <a href="#backup">Backups and a second computer</a>).</li>
     <li><b>About Isobar</b>: the version you're running.</li>
   </ul>
 </section>
@@ -932,7 +939,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   </table></div>
   <p>On Windows, <code>%APPDATA%</code> is usually <code>C:\Users\<i>you</i>\AppData\Roaming</code>. Paste <code>%APPDATA%\app.isobar.desktop</code> into Explorer's address bar to go straight there. With a folder chosen, a small <code>folder.json</code> stays in the usual settings place, so Isobar knows where to look when it starts.</p>
   <h3>settings.json</h3>
-  <p>A few kilobytes: station address and login, latitude and longitude, tank setup and known level, card order, alerts, theme. The MX password, if you set one, is in here as plain text.</p>
+  <p>A few kilobytes: station address and username, latitude and longitude, tank setup and known level, card order, alerts, theme. The MX password isn't in it: that's in the system's keychain, unless the computer has none.</p>
   <h3>isobar.sqlite</h3>
   <p>A SQLite database, which is Isobar's local copy of everything:</p>
   <div class="tbl"><table>
@@ -980,7 +987,16 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <h3>Starting again on a new computer</h3>
   <p>If your one folder came back with the rest of your files, start Isobar, go to Settings → Isobar's files and choose it: Isobar uses the settings and history already there. Otherwise, download Isobar, put <code>settings.json</code> in place (or just type the station address in), start it, and import the tank spreadsheet again if you use one. Daily history is back in seconds; the detailed history comes back in the background.</p>
   <h3>Two computers, one station</h3>
-  <p>Run Isobar on both, each pointing at MX. MX is the shared dataset; each Isobar keeps its own small cache. <b>Don't</b> put <code>isobar.sqlite</code> on a network share and open it from two machines: SQLite expects to live on the machine using it, and over a network it can lock up or get damaged. Copy <code>settings.json</code> across instead.</p>
+  <p>Run Isobar on both, each pointing at MX. MX is the shared dataset; each Isobar keeps its own history. To save setting everything up twice, share the settings: Settings → <b>Sharing with another computer</b>, choose a folder both computers can reach (a network share, a NAS, or a folder your cloud storage keeps in step), and press <b>Share settings here</b>. Then do the same on the other computer, pointing at the same folder.</p>
+  <figure class="shot half"><img src="img/settings-6.webp" alt="Sharing with another computer: the shared folder, Share settings here and Stop sharing" loading="lazy"></figure>
+  <ul>
+    <li><b>What's shared:</b> the settings (<code>settings.json</code>) and the tank record (<code>tank-record.json</code>). A change saved on one computer shows up on the other within about ten seconds; a newly imported tank record within a minute.</li>
+    <li><b>The first computer</b> to share a folder puts its settings there. The second finds them and starts using them straight away, replacing its own.</li>
+    <li><b>What isn't:</b> the history (rebuilt from MX on each, and far too busy a file for a network share) and the MX password, which lives in each computer's keychain. Type it once on each.</li>
+    <li><b>When the folder's away</b> (the NAS asleep, the laptop out of the house), Isobar uses the copy it keeps on the computer and says so in Settings. Anything you save meanwhile goes across by itself once the folder's back; if you change nothing, Isobar picks up whatever the other computer saved.</li>
+    <li><b>Both at once:</b> the last one saved wins, so make changes on one computer at a time.</li>
+  </ul>
+  <p><b>Don't</b> put <code>isobar.sqlite</code> on a network share and open it from two machines: SQLite expects to live on the machine using it, and over a network it can lock up or get damaged. That's why sharing stops at the small files.</p>
 </section>
 
 <!-- ============================================================ maths -->
@@ -1136,7 +1152,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
 <!-- ============================================================ next -->
 <section class="s" id="next">
   <h2>What's coming</h2>
-  <p>The roadmap lives in <code>docs/ROADMAP.md</code> in the repository, with a printable checklist for deciding what gets built. Still on the table, among others: a readout in the system tray, keeping the MX password in the system's keychain, and perhaps a new name.</p>
+  <p>The roadmap lives in <code>docs/ROADMAP.md</code> in the repository, with a printable checklist for deciding what gets built. The name stays: Isobar it is.</p>
 </section>
 
 <!-- ============================================================ changes -->
@@ -1146,6 +1162,7 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--grid);
   <div class="tbl"><table>
     <thead><tr><th>Date</th><th>Change</th></tr></thead>
     <tbody>
+      <tr><td>9 Nov 2026</td><td>Steadier thermograph scales (at least −5° to 25°, and rain in 10, 25 and 50 mm steps); a readout in the system tray; the MX password in the system's keychain; settings and the tank record shared with a second computer.</td></tr>
       <tr><td>6 Nov 2026</td><td>Isobar 0.7.0 released, with the change below.</td></tr>
       <tr><td>6 Nov 2026</td><td>Beaufort force and wind run on Now; the daily temperature range, records set each year and wind run on Insights; four new themes; units of your choice; Save as PDF on Reports.</td></tr>
       <tr><td>5 Nov 2026</td><td>Isobar 0.6.0 released, with the change below.</td></tr>

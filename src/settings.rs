@@ -204,6 +204,8 @@ pub struct Settings {
     pub alerts: Alerts,
     pub backup: Backup,
     pub units: UnitChoice,
+    /// A readout in the system tray.
+    pub tray: bool,
 }
 
 impl Default for Settings {
@@ -226,24 +228,116 @@ impl Default for Settings {
             alerts: Alerts::default(),
             backup: Backup::default(),
             units: UnitChoice::default(),
+            tray: true,
         }
     }
 }
 
 impl Settings {
     pub fn load(path: &Path) -> Settings {
+        Settings::read(path).unwrap_or_default().with_keychain(path)
+    }
+
+    /// Settings from the shared folder, with the password from this
+    /// computer's keychain.
+    pub fn read_shared(path: &Path) -> Option<Settings> {
+        Settings::read(path).map(|s| s.with_keychain(path))
+    }
+
+    /// The file as it is, or None if it can't be read.
+    fn read(path: &Path) -> Option<Settings> {
         std::fs::read_to_string(path)
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default()
     }
 
+    /// The password from the keychain, or one still in the file moved into
+    /// it (and out of the file at `path`).
+    fn with_keychain(mut self, path: &Path) -> Settings {
+        match self.password.clone() {
+            Some(p) => {
+                if crate::keychain::set(Some(&p)).is_ok() {
+                    let _ = self.save(path);
+                }
+            }
+            None => {
+                if let Ok(Some(p)) = crate::keychain::get() {
+                    self.password = Some(p);
+                }
+            }
+        }
+        self
+    }
+
+    /// Write the settings to `path`. The password goes to the keychain, and
+    /// into the file only where there's no keychain.
     pub fn save(&self, path: &Path) -> std::io::Result<()> {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir)?;
         }
-        let json = serde_json::to_string_pretty(self).map_err(std::io::Error::other)?;
-        std::fs::write(path, json)
+        let mut out = self.clone();
+        if crate::keychain::set(self.password.as_deref()).is_ok() {
+            out.password = None;
+        }
+        let json = serde_json::to_string_pretty(&out).map_err(std::io::Error::other)?;
+        // A new file renamed into place, so a reader (another computer, over
+        // the network) never sees half of it.
+        let tmp = path.with_extension("json.part");
+        std::fs::write(&tmp, json)?;
+        std::fs::rename(&tmp, path).inspect_err(|_| {
+            let _ = std::fs::remove_file(&tmp);
+        })
+    }
+
+    /// The settings at start: from the shared folder when there is one and
+    /// it can be reached (copied to this computer too), else this
+    /// computer's own. With a note if the shared folder couldn't be read.
+    pub fn load_from(paths: &Paths) -> (Settings, Option<String>) {
+        let Some(shared) = paths.shared_settings() else {
+            return (Settings::load(&paths.settings), None);
+        };
+        match Settings::read(&shared) {
+            Some(s) => {
+                let s = s.with_keychain(&shared);
+                let _ = s.save(&paths.settings);
+                (s, None)
+            }
+            None if !shared.exists() && shared.parent().is_some_and(|d| d.is_dir()) => {
+                // The folder's there but empty: start it with ours.
+                let s = Settings::load(&paths.settings);
+                let _ = s.save(&shared);
+                (s, None)
+            }
+            None => (
+                Settings::load(&paths.settings),
+                Some(format!(
+                    "Couldn't read the shared settings at {}, so Isobar is using this computer's copy. Changes made here are saved to both once the folder's back.",
+                    shared.display()
+                )),
+            ),
+        }
+    }
+
+    /// Save to this computer's settings and, if there is one, the shared
+    /// folder. An error says which failed.
+    pub fn store(&self, paths: &Paths) -> Result<(), String> {
+        self.save(&paths.settings).map_err(|e| e.to_string())?;
+        if let Some(shared) = paths.shared_settings() {
+            // Never made afresh here: an unmounted share would otherwise
+            // become an ordinary folder on this computer.
+            let there = shared.parent().is_some_and(|d| d.is_dir());
+            let saved = if there {
+                self.save(&shared)
+            } else {
+                Err(std::io::Error::other("the folder isn't there"))
+            };
+            saved.map_err(|e| {
+                format!(
+                    "Saved on this computer. The shared folder isn't reachable ({e}); the settings go across when it's back"
+                )
+            })?;
+        }
+        Ok(())
     }
 
     /// Every card in its order on Now, and whether it shows. Cards missing
@@ -299,6 +393,9 @@ pub struct Paths {
     pub backups: PathBuf,
     /// The chosen folder, if not the usual ones.
     pub folder: Option<PathBuf>,
+    /// A folder shared with other computers (a network share, say) for the
+    /// settings and the tank record. The history stays on each computer.
+    pub shared: Option<PathBuf>,
 }
 
 /// What `folder.json` holds.
@@ -308,6 +405,8 @@ struct FolderChoice {
     folder: Option<PathBuf>,
     /// A history database to move into place at the next start.
     move_history_from: Option<PathBuf>,
+    /// The shared settings folder.
+    shared: Option<PathBuf>,
 }
 
 const ID: &str = "app.isobar.desktop";
@@ -364,6 +463,7 @@ impl Paths {
                 .or_else(dirs::home_dir)
                 .map_or_else(|| data.join("Backups"), |d| d.join("Isobar backups")),
             folder: None,
+            shared: None,
         }
     }
 
@@ -375,14 +475,53 @@ impl Paths {
             reports: folder.join("Reports"),
             backups: folder.join("Backups"),
             folder: Some(folder.to_path_buf()),
+            shared: None,
         }
     }
 
     pub fn locate() -> Paths {
-        match read_choice().folder {
-            Some(f) => Paths::in_folder(&f),
+        let choice = read_choice();
+        let mut p = match &choice.folder {
+            Some(f) => Paths::in_folder(f),
             None => Paths::usual(),
+        };
+        p.shared = choice.shared;
+        p
+    }
+
+    /// The shared settings file, if settings are shared.
+    pub fn shared_settings(&self) -> Option<PathBuf> {
+        self.shared.as_ref().map(|d| d.join("settings.json"))
+    }
+
+    /// The shared tank record, if settings are shared.
+    pub fn shared_tank_record(&self) -> Option<PathBuf> {
+        self.shared.as_ref().map(|d| d.join("tank-record.json"))
+    }
+
+    /// Share the settings and tank record through `folder` from now on (or
+    /// stop, for None). If the folder has settings in it already (another
+    /// computer's), those are returned to use; otherwise this computer's
+    /// are copied there.
+    pub fn share(folder: Option<PathBuf>, settings: &Settings) -> Result<Option<Settings>, String> {
+        let mut choice = read_choice();
+        let Some(dir) = folder else {
+            choice.shared = None;
+            write_choice(&choice)?;
+            return Ok(None);
+        };
+        std::fs::create_dir_all(&dir)
+            .map_err(|e| format!("couldn't reach the folder {}: {e}", dir.display()))?;
+        let file = dir.join("settings.json");
+        let theirs = Settings::read(&file);
+        if theirs.is_none() {
+            settings
+                .save(&file)
+                .map_err(|e| format!("couldn't write {}: {e}", file.display()))?;
         }
+        choice.shared = Some(dir);
+        write_choice(&choice)?;
+        Ok(theirs.map(|s| s.with_keychain(&file)))
     }
 
     /// A history move waiting for the next start, from where.
@@ -440,6 +579,7 @@ impl Paths {
         write_choice(&FolderChoice {
             folder,
             move_history_from,
+            shared: read_choice().shared,
         })?;
         let mut out = String::from(if moving {
             "Done. Restart Isobar to finish: the history moves across as it starts."
@@ -505,6 +645,17 @@ impl Paths {
     }
 }
 
+/// Why the shared settings couldn't be read at start, if they couldn't.
+static SHARED_PROBLEM: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+pub fn set_shared_problem(p: Option<String>) {
+    *SHARED_PROBLEM.lock().unwrap() = p;
+}
+
+pub fn shared_problem() -> Option<String> {
+    SHARED_PROBLEM.lock().unwrap().clone()
+}
+
 /// True for a folder that looks like a network share, where the history
 /// database shouldn't live.
 pub fn looks_like_network(p: &Path) -> bool {
@@ -555,6 +706,47 @@ mod tests {
         assert!(s.clock_24h);
         assert!(s.rail_pinned);
         assert_eq!(s.theme, ThemeChoice::System);
+    }
+
+    #[test]
+    fn shared_settings() {
+        let dir = std::env::temp_dir().join(format!("isobar-share-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut paths = Paths::in_folder(&dir.join("here"));
+        paths.shared = Some(dir.join("nas"));
+        let mine = Settings {
+            station_name: "Mine".into(),
+            ..Default::default()
+        };
+        mine.save(&paths.settings).unwrap();
+        // The share isn't there: this computer's copy, with a note, and a
+        // save doesn't make the folder.
+        let (s, problem) = Settings::load_from(&paths);
+        assert_eq!(s.station_name, "Mine");
+        assert!(problem.is_some());
+        let err = s.store(&paths).unwrap_err();
+        assert!(err.starts_with("Saved on this computer"), "{err}");
+        assert!(!dir.join("nas").exists());
+        // An empty share is started with this computer's settings.
+        std::fs::create_dir_all(dir.join("nas")).unwrap();
+        let (s, problem) = Settings::load_from(&paths);
+        assert!(problem.is_none());
+        assert_eq!(s.station_name, "Mine");
+        assert!(paths.shared_settings().unwrap().exists());
+        // Another computer's change is what this one starts with next.
+        let theirs = Settings {
+            station_name: "Theirs".into(),
+            ..Default::default()
+        };
+        theirs.save(&paths.shared_settings().unwrap()).unwrap();
+        let (s, _) = Settings::load_from(&paths);
+        assert_eq!(s.station_name, "Theirs");
+        assert_eq!(Settings::load(&paths.settings).station_name, "Theirs");
+        assert_eq!(
+            paths.shared_tank_record().unwrap(),
+            dir.join("nas").join("tank-record.json")
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -65,7 +65,7 @@ Field positions follow the [Cumulus wiki dayfile table](https://cumuluswiki.org/
 
 ## Where Isobar keeps things
 
-- **Settings:** `settings.json` in `%APPDATA%\app.isobar.desktop\` on Windows, `~/.config/app.isobar.desktop/` on Linux. If you set an MX password, it's stored here **unencrypted**.
+- **Settings:** `settings.json` in `%APPDATA%\app.isobar.desktop\` on Windows, `~/.config/app.isobar.desktop/` on Linux. An MX password goes in the system keychain (Windows Credential Manager, or the Secret Service on Linux), or stays in this file where there's no keychain. Settings → Sharing with another computer can keep this file and the tank record in a shared folder.
 - **History:** `isobar.sqlite` in `%APPDATA%\app.isobar.desktop\` on Windows, `~/.local/share/app.isobar.desktop/` on Linux. Delete it to start fresh; it rebuilds from MX.
 
 ## Building it yourself
@@ -110,4 +110,3 @@ assets/               Barlow fonts (built into the program) and icons
 - **Live field names:** checked against Cumulus MX 5.1.5. If a reading shows "–" on Now with another version, compare the station's `/api/data/currentdata` output with the key lists in `crates/isobar-core/src/live.rs`.
 - **Graph-data endpoints:** these vary between MX versions, so they're treated as optional.
 - **Units:** taken from the station's live data (`TempUnit` and so on). Charts assume history uses the same units.
-- **Ideas:** a system tray readout, a degree-days view, a sunshine/ET panel, CSV export, and secure password storage in the OS keychain.

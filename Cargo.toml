@@ -20,6 +20,15 @@ rfd = "0.15"
 notify-rust = "4"
 egui_extras = { version = "0.36", default-features = false, features = ["datepicker"] }
 jiff = "0.2"
+ab_glyph = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+tray-icon = { version = "0.26", default-features = false }
+keyring = { version = "3.6", features = ["windows-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ksni = { version = "0.3", features = ["blocking"] }
+keyring = { version = "3.6", features = ["async-secret-service", "async-io", "crypto-rust"] }
 
 [build-dependencies]
 winresource = "0.1"
