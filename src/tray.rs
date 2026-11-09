@@ -211,7 +211,7 @@ mod imp {
                 .map(|size| {
                     let mut data = icon_rgba(&self.readout.icon, size);
                     // RGBA to ARGB.
-                    for p in data.chunks_exact_mut(4) {
+                    for p in data.as_chunks_mut::<4>().0 {
                         p.rotate_right(1);
                     }
                     ksni::Icon {
