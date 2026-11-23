@@ -5,7 +5,6 @@
 ## 0.8.0 – 2026-11-23
 
 - **The user guide as a PDF:** each release now includes `isobar-user-guide.pdf` (A4, printed by Chrome from the guide with the app's own fonts) beside `isobar-user-guide.zip`. `docs/guide-pdf.cjs` makes it.
-
 - **Steadier thermograph scales (issue 1):** temperature always covers at least −5° to 25° (20° to 80° in °F), widening only when the readings go past it; rain since midnight starts on a 10 mm scale, then 25 mm and 50 mm as the day passes each (0.4, 1 and 2 in), fitting itself beyond 50. Applies to the 24-hour chart and its 3, 7 and 30-day spans. Axis labels keep a decimal where the step needs one (2.5, 7.5).
 - **Readout in the system tray (K1):** the temperature in a violet icon, and feels-like, wind, gusts, today's rain, humidity and pressure in its tooltip; click to bring Isobar forward, right-click for Show Isobar and Quit. Windows notification area; on Linux a StatusNotifierItem over D-Bus, so nothing extra to install. Settings → Appearance turns it off.
 - **MX password in the system keychain (K3):** Windows Credential Manager, or the Secret Service (GNOME Keyring, KWallet) on Linux. A password already in `settings.json` moves across at the next start. Where there's no keychain, it stays in the file as before, and Settings says which.
