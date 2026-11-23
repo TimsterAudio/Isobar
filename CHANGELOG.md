@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **The user guide as a PDF:** each release now includes `isobar-user-guide.pdf` (A4, printed by Chrome from the guide with the app's own fonts) beside `isobar-user-guide.zip`. `docs/guide-pdf.cjs` makes it.
+
 ## 0.8.0 – 2026-11-23
 
 - **Steadier thermograph scales (issue 1):** temperature always covers at least −5° to 25° (20° to 80° in °F), widening only when the readings go past it; rain since midnight starts on a 10 mm scale, then 25 mm and 50 mm as the day passes each (0.4, 1 and 2 in), fitting itself beyond 50. Applies to the 24-hour chart and its 3, 7 and 30-day spans. Axis labels keep a decimal where the step needs one (2.5, 7.5).

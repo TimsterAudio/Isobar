@@ -78,6 +78,11 @@ jobs:
           merge-multiple: true
       - name: Package the user guide
         run: cd docs && zip -qr ../dist/isobar-user-guide.zip guide
+      - name: Print the user guide as a PDF
+        run: |
+          npm install --no-save --no-package-lock playwright-core@1.63.0
+          VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          ISOBAR_PDF_CHANNEL=chrome node docs/guide-pdf.cjs dist/isobar-user-guide.pdf "$VERSION"
       - name: Write checksums
         run: cd dist && sha256sum isobar-* > SHA256SUMS.txt && cat SHA256SUMS.txt
       - name: Move the latest-build tag to this commit
@@ -95,7 +100,7 @@ jobs:
           body: |
             Download `isobar-windows-x64.exe` for Windows, or `isobar-linux-x64.tar.gz` for Linux. Each is the whole program.
 
-            `isobar-user-guide.zip` is the user guide: unzip it and open `guide/index.html` in a browser.
+            `isobar-user-guide.pdf` is the user guide to read or print; `isobar-user-guide.zip` is the same guide for a browser (unzip it and open `guide/index.html`).
 
             Built from ${{ github.sha }} by GitHub Actions, straight from the source in this repository.
 
