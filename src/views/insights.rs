@@ -443,11 +443,11 @@ impl Insights {
                         cell(y.year.to_string()).strong(),
                         cell(format!("{} {}", num(Some(timed), 0), u.rain)).color(p.rain),
                     ];
-                    for k in 0..4 {
+                    for (k, &mm) in y.rain.iter().enumerate() {
                         r.push(
-                            cell(pct(y.rain[k], timed))
+                            cell(pct(mm, timed))
                                 .color(if k >= 2 { p.rain } else { p.ink })
-                                .tooltip(format!("{} {}", num(Some(y.rain[k]), 1), u.rain)),
+                                .tooltip(format!("{} {}", num(Some(mm), 1), u.rain)),
                         );
                     }
                     rows.push(r);
